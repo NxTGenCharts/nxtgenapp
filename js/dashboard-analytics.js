@@ -858,11 +858,17 @@ function toggleTheme() {
   doc.setAttribute('data-theme', isLight ? '' : 'light');
   const btn = document.getElementById('theme-btn');
   if (btn) { btn.innerHTML = isLight ? '<svg class="icn" aria-hidden="true"><use href="#ic-moon"></use></svg>' : '<svg class="icn" aria-hidden="true"><use href="#ic-sun"></use></svg>'; btn.classList.add('spinning'); setTimeout(() => btn.classList.remove('spinning'), 420); }
-  try { localStorage.setItem('nxtgen_theme', isLight ? 'dark' : 'light'); } catch (e) {}
+  // _nxtgenSaveTheme (defined inline in index.html's <head>) writes both the
+  // cross-subdomain cookie and localStorage, so the choice carries back to
+  // the landing page and login too.
+  if (typeof _nxtgenSaveTheme === 'function') _nxtgenSaveTheme(isLight ? 'dark' : 'light');
 }
 function loadTheme() {
   try {
-    let t = localStorage.getItem('nxtgen_theme');
+    let t = null;
+    const m = document.cookie.match(/(?:^|;\s*)nxtgen_theme=([^;]+)/);
+    if (m) t = decodeURIComponent(m[1]);
+    if (t !== 'light' && t !== 'dark') t = localStorage.getItem('nxtgen_theme');
     if (t !== 'light' && t !== 'dark') {
       t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
     }

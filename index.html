@@ -5,16 +5,32 @@
 <script>
   // Apply the saved (or system) theme to <html> immediately, before any CSS
   // loads or paints, so there is no flash of the wrong theme when arriving
-  // here from the landing page or login screen. Shared 'nxtgen_theme' key.
+  // here from the landing page or login screen. nxtgencharts.site and
+  // app.nxtgencharts.site are different origins, so localStorage alone can't
+  // carry a preference from the landing page — a 'domain=.nxtgencharts.site'
+  // cookie is the shared source of truth; localStorage is just a same-origin
+  // cache on top of it.
   (function () {
     try {
-      var t = localStorage.getItem('nxtgen_theme');
+      var t = null;
+      var m = document.cookie.match(/(?:^|;\s*)nxtgen_theme=([^;]+)/);
+      if (m) t = decodeURIComponent(m[1]);
+      if (t !== 'light' && t !== 'dark') t = localStorage.getItem('nxtgen_theme');
       if (t !== 'light' && t !== 'dark') {
         t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
       }
       document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : '');
     } catch (e) {}
   })();
+  // Persists the theme in BOTH the cross-subdomain cookie and localStorage.
+  function _nxtgenSaveTheme(v) {
+    try { localStorage.setItem('nxtgen_theme', v); } catch (e) {}
+    try {
+      var domainAttr = location.hostname.endsWith('nxtgencharts.site') ? '; domain=.nxtgencharts.site' : '';
+      var secureAttr = location.protocol === 'https:' ? '; secure' : '';
+      document.cookie = 'nxtgen_theme=' + v + '; path=/; max-age=31536000; samesite=lax' + domainAttr + secureAttr;
+    } catch (e) {}
+  }
 </script>
 <script>
   // Restore the real URL (e.g. /tradelog) after the 404.html redirect trick,
