@@ -1,0 +1,131 @@
+/* ══ NxTGen Journal — watchlist.css (original styles.css lines 892-1020) ══ */
+
+/* ════════════ WATCHLIST ════════════════════════ */
+.wl-pair-card{
+  background:var(--glass-1);
+  backdrop-filter:var(--blur-sm);
+  border:1px solid var(--glass-border);
+  border-radius:var(--r-lg);padding:16px;margin-bottom:10px;
+  transition:var(--t-med);box-shadow:var(--shadow-sm);
+}
+.wl-pair-card:hover{background:var(--glass-2);border-color:var(--glass-border-h);box-shadow:var(--shadow-md);transform:translateY(-1px)}
+.wl-pair-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.wl-pair-name{font-family:var(--font-head);font-size:16px;font-weight:700;letter-spacing:-0.3px}
+.wl-priority{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:500}
+.wl-tf-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.tf-chip{font-size:11px;padding:3px 10px;border-radius:var(--r-full);border:1px solid;font-family:var(--font-mono);font-weight:500}
+.tf-bull{background:var(--green-dim);color:var(--green);border-color:rgba(52,211,153,0.25)}
+.tf-bear{background:var(--red-dim);color:var(--red);border-color:rgba(248,113,113,0.25)}
+.tf-neu{background:var(--glass-1);color:var(--text2);border-color:var(--glass-border)}
+.wl-note{font-size:12.5px;color:var(--text2);line-height:1.55}
+
+
+/* ════════════ WATCHLIST REDESIGN ════════════════ */
+
+/* Quarter navigator */
+.wl-quarter-nav{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.wl-q-tab{padding:7px 16px;border-radius:var(--r-full);border:1px solid var(--glass-border);
+  background:var(--glass-1);color:var(--text2);font-size:11.5px;font-weight:600;cursor:pointer;
+  transition:var(--t-fast);font-family:var(--font-mono);letter-spacing:.5px;white-space:nowrap}
+.wl-q-tab:hover{background:var(--glass-2);color:var(--text);border-color:var(--glass-border-h)}
+.wl-q-tab.active{background:var(--blue-dim);color:var(--blue);border-color:rgba(96,165,250,0.35);
+  box-shadow:var(--glow-blue)}
+
+/* Week bar */
+.wl-week-bar{display:flex;align-items:center;gap:10px;margin-bottom:24px;padding-bottom:18px;
+  border-bottom:1px solid var(--glass-border)}
+.wl-week-scroll{display:flex;gap:7px;flex-wrap:wrap;flex:1}
+.wl-week-chip{padding:5px 13px;border-radius:var(--r-full);border:1px solid var(--glass-border);
+  background:var(--glass-1);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;
+  transition:var(--t-fast);font-family:var(--font-mono);white-space:nowrap}
+.wl-week-chip:hover{background:var(--glass-2);color:var(--text);border-color:var(--glass-border-h)}
+.wl-week-chip.active{background:rgba(52,211,153,0.12);color:var(--green);
+  border-color:rgba(52,211,153,0.35);box-shadow:var(--glow-green)}
+.wl-add-week-btn{flex-shrink:0;padding:5px 14px;border-radius:var(--r-full);
+  border:1.5px dashed rgba(96,165,250,0.25);background:transparent;color:var(--text3);
+  font-size:11px;font-weight:700;cursor:pointer;transition:var(--t-fast);white-space:nowrap;
+  letter-spacing:.3px}
+.wl-add-week-btn:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-dim)}
+
+/* Week header */
+.wl-week-header{display:flex;align-items:flex-start;justify-content:space-between;
+  margin-bottom:22px;gap:14px;flex-wrap:wrap;
+  padding:16px 18px;background:var(--glass-1);border:1px solid var(--glass-border);
+  border-radius:var(--r-lg)}
+.wl-week-meta{flex:1;min-width:0}
+.wl-week-title{font-family:var(--font-head);font-size:17px;font-weight:800;color:var(--text);
+  letter-spacing:-.4px;margin-bottom:3px}
+.wl-week-date{font-size:11px;color:var(--text3);font-family:var(--font-mono);letter-spacing:.3px}
+.wl-week-badges{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+.wl-badge{display:inline-flex;align-items:center;gap:4px;padding:4px 11px;border-radius:var(--r-full);
+  border:1px solid;font-size:11px;font-weight:700;font-family:var(--font-mono);letter-spacing:.3px;
+  line-height:1}
+.wl-badge.bull{background:rgba(52,211,153,0.12);color:var(--green);border-color:rgba(52,211,153,0.28)}
+.wl-badge.bear{background:rgba(248,113,113,0.12);color:var(--red);border-color:rgba(248,113,113,0.28)}
+.wl-badge.neu{background:var(--glass-2);color:var(--text2);border-color:var(--glass-border)}
+.wl-badge.risk-off{background:rgba(248,113,113,0.10);color:var(--red);border-color:rgba(248,113,113,0.25)}
+.wl-badge.risk-on{background:rgba(52,211,153,0.10);color:var(--green);border-color:rgba(52,211,153,0.25)}
+.wl-week-actions{display:flex;gap:6px;flex-shrink:0}
+.wl-week-btn{padding:5px 13px;border-radius:var(--r-full);border:1px solid var(--glass-border);
+  background:var(--glass-1);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;
+  transition:var(--t-fast)}
+.wl-week-btn:hover{background:var(--glass-2);color:var(--text);border-color:var(--glass-border-h)}
+.wl-week-btn.danger:hover{background:rgba(248,113,113,0.12);color:var(--red);
+  border-color:rgba(248,113,113,0.3)}
+.wl-week-btn.archive:hover{background:rgba(148,163,184,0.15);color:var(--text)}
+.wl-week-btn.restore{color:var(--green);border-color:rgba(52,211,153,0.3)}
+.wl-week-btn.restore:hover{background:rgba(52,211,153,0.12);border-color:rgba(52,211,153,0.5)}
+.wl-week-btn.primary{color:var(--green);border-color:rgba(52,211,153,0.35);background:rgba(52,211,153,0.08)}
+.wl-week-btn.primary:hover{background:rgba(52,211,153,0.18);border-color:rgba(52,211,153,0.55);color:var(--green)}
+
+/* Inline edit input for milestones + goal items */
+.cl-item.editing{cursor:default;box-shadow:0 0 0 2px var(--blue),inset 0 0 0 1px rgba(96,165,250,0.15)}
+.cl-edit-input{
+  flex:1;font-size:12px;color:var(--text);background:var(--glass-1);
+  border:1px solid var(--glass-border-h);border-radius:6px;padding:5px 8px;
+  font-family:inherit;outline:none;min-width:0;
+}
+.cl-edit-input:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(96,165,250,0.2)}
+
+/* Pair grid */
+.wl-pairs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));
+  gap:14px;margin-bottom:24px}
+.wl-pair-card-v2{background:var(--glass-1);border:1px solid var(--glass-border);
+  border-radius:var(--r-lg);overflow:hidden;cursor:pointer;transition:var(--t-med);position:relative}
+.wl-pair-card-v2:hover{background:var(--glass-2);border-color:var(--glass-border-h);
+  box-shadow:var(--shadow-md);transform:translateY(-2px)}
+.wl-pair-card-v2.high{border-top:2px solid var(--red)}
+.wl-pair-card-v2.med{border-top:2px solid var(--gold)}
+.wl-pair-card-v2.low{border-top:2px solid var(--green)}
+
+/* Chart image area */
+.wl-card-chart{width:100%;height:148px;display:block;background:var(--glass-1);
+  position:relative;overflow:hidden;border-bottom:1px solid var(--glass-border)}
+.wl-card-chart-img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s ease}
+.wl-pair-card-v2:hover .wl-card-chart-img{transform:scale(1.03)}
+.wl-card-chart-placeholder{width:100%;height:100%;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:6px;
+  background:linear-gradient(135deg,rgba(96,165,250,0.04) 0%,rgba(52,211,153,0.04) 100%)}
+.wl-card-chart-placeholder span{font-size:24px;opacity:.6}
+.wl-card-chart-placeholder p{font-size:11px;color:var(--text3);font-family:var(--font-mono)}
+.wl-card-chart-count{position:absolute;bottom:7px;right:8px;background:rgba(0,0,0,0.6);
+  backdrop-filter:var(--blur-xs);border-radius:var(--r-full);padding:2px 9px;
+  font-size:10px;font-family:var(--font-mono);color:rgba(255,255,255,0.75);letter-spacing:.3px}
+.wl-card-body{padding:12px 14px 14px}
+.wl-card-pair-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.wl-card-pair-name{font-family:var(--font-head);font-size:15px;font-weight:800;
+  letter-spacing:-.3px;color:var(--text)}
+.wl-card-badges{display:flex;gap:5px;align-items:center}
+.wl-card-tfs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:9px}
+.wl-card-note{font-size:11.5px;color:var(--text2);line-height:1.55;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* Add pair card */
+.wl-add-pair-card{background:transparent;border:1.5px dashed rgba(96,165,250,0.18);
+  border-radius:var(--r-lg);display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:8px;min-height:220px;cursor:pointer;transition:var(--t-fast);
+  color:var(--text3)}
+.wl-add-pair-card:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-dim)}
+.wl-add-pair-card span{font-size:28px;opacity:.7}
+.wl-add-pair-card p{font-size:12px;font-weight:600;letter-spacing:.3px}
+

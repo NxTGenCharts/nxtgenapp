@@ -1,0 +1,435 @@
+/* ══ NxTGen Journal — misc-polish-2.css (original styles.css lines 9999-10431) ══ */
+
+/* ══════════════════════════════════════════════════════════════════
+   NXTGEN DESIGN UPGRADE LAYER — v5
+   Implements: Bento KPI grid · Semantic killzone colors · DM Mono
+   numerics · Mobile table collapse · Typography hierarchy sharpening
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── 1. SEMANTIC KILLZONE COLOR TOKENS ───────────────────────────
+   Used system-wide: tables, calendar, heatmaps, pills, dots
+   London = teal/cyan · New York = amber/gold · Asian = purple/violet
+   ─────────────────────────────────────────────────────────────── */
+:root {
+  /* London (08:00–12:00 WAT) */
+  --kz-london:        #22d3ee;
+  --kz-london-dim:    rgba(34,211,238,0.13);
+  --kz-london-border: rgba(34,211,238,0.28);
+  --kz-london-glow:   0 0 18px rgba(34,211,238,0.20);
+
+  /* New York (13:00–17:00 WAT) */
+  --kz-ny:        #fbbf24;
+  --kz-ny-dim:    rgba(251,191,36,0.13);
+  --kz-ny-border: rgba(251,191,36,0.28);
+  --kz-ny-glow:   0 0 18px rgba(251,191,36,0.20);
+
+  /* Asian (01:00–05:00 WAT) */
+  --kz-asian:        #a78bfa;
+  --kz-asian-dim:    rgba(167,139,250,0.13);
+  --kz-asian-border: rgba(167,139,250,0.28);
+  --kz-asian-glow:   0 0 18px rgba(167,139,250,0.18);
+}
+[data-theme="light"] {
+  --kz-london:        #0891b2;
+  --kz-london-dim:    rgba(8,145,178,0.10);
+  --kz-london-border: rgba(8,145,178,0.25);
+  --kz-ny:            #b45309;
+  --kz-ny-dim:        rgba(180,83,9,0.10);
+  --kz-ny-border:     rgba(180,83,9,0.25);
+  --kz-asian:         #6d28d9;
+  --kz-asian-dim:     rgba(109,40,217,0.10);
+  --kz-asian-border:  rgba(109,40,217,0.25);
+}
+
+/* ── 2. KILLZONE PILL VARIANTS ───────────────────────────────────
+   .pill-kz-london / .pill-kz-ny / .pill-kz-asian
+   ─────────────────────────────────────────────────────────────── */
+.pill-kz-london {
+  background: var(--kz-london-dim);
+  color: var(--kz-london);
+  border: 1px solid var(--kz-london-border);
+  box-shadow: var(--kz-london-glow);
+}
+.pill-kz-ny {
+  background: var(--kz-ny-dim);
+  color: var(--kz-ny);
+  border: 1px solid var(--kz-ny-border);
+  box-shadow: var(--kz-ny-glow);
+}
+.pill-kz-asian {
+  background: var(--kz-asian-dim);
+  color: var(--kz-asian);
+  border: 1px solid var(--kz-asian-border);
+  box-shadow: var(--kz-asian-glow);
+}
+
+/* ── 3. KILLZONE TABLE ROW ACCENTS ───────────────────────────────
+   Applied to .kz-row-london / .kz-row-ny / .kz-row-asian
+   ─────────────────────────────────────────────────────────────── */
+.kz-row-london td:first-child::before { background: var(--kz-london) !important; width: 3px; }
+.kz-row-ny     td:first-child::before { background: var(--kz-ny)     !important; width: 3px; }
+.kz-row-asian  td:first-child::before { background: var(--kz-asian)  !important; width: 3px; }
+
+/* ── 4. KILLZONE CALENDAR DOT VARIANTS ──────────────────────────*/
+.cal-day-dot.london { background: var(--kz-london); box-shadow: 0 0 7px rgba(34,211,238,0.6); }
+.cal-day-dot.ny     { background: var(--kz-ny);     box-shadow: 0 0 7px rgba(251,191,36,0.6); }
+.cal-day-dot.asian  { background: var(--kz-asian);  box-shadow: 0 0 7px rgba(167,139,250,0.6); }
+
+/* ── 5. BENTO GRID — Dashboard KPI cards ────────────────────────
+   Primary metrics (Win Rate + Net PnL) are 2× width.
+   Secondary metrics fill 1× cells.
+   ─────────────────────────────────────────────────────────────── */
+.kpi-grid-bento {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: auto auto;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+/* 2× wide cards — Win Rate and Net PnL */
+.kpi-card-hero {
+  grid-column: span 2;
+  padding: 20px 22px;
+  background: linear-gradient(145deg,
+    rgba(255,255,255,0.07) 0%,
+    rgba(255,255,255,0.03) 100%);
+  position: relative;
+  overflow: hidden;
+}
+.kpi-card-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 80% 60% at 80% 20%,
+    rgba(96,165,250,0.06) 0%, transparent 65%);
+  pointer-events: none;
+}
+.kpi-card-hero .kpi-value {
+  font-size: 32px;
+  letter-spacing: -1.2px;
+  font-feature-settings: 'tnum';
+}
+.kpi-card-hero .kpi-label {
+  font-size: 10.5px;
+  margin-bottom: 12px;
+}
+
+/* PnL hero card gets green tint */
+.kpi-card-hero.pnl-hero::after {
+  background: radial-gradient(ellipse 70% 50% at 90% 30%,
+    rgba(52,211,153,0.07) 0%, transparent 65%);
+}
+
+[data-theme="light"] .kpi-card-hero {
+  background: linear-gradient(145deg,
+    rgba(255,255,255,0.95) 0%,
+    rgba(248,250,252,0.80) 100%);
+}
+
+/* Responsive: stack to 2-col on tablet */
+@media (max-width: 900px){
+  .kpi-grid-bento { grid-template-columns: 1fr 1fr; }
+  .kpi-card-hero  { grid-column: span 2; }
+}
+/* Mobile: 2-col, hero full width */
+@media (max-width: 600px){
+  .kpi-grid-bento { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .kpi-card-hero  { grid-column: span 2; }
+  .kpi-card-hero .kpi-value { font-size: 26px; }
+}
+
+/* ── 6. DM MONO — Force all numeric data to use DM Mono ─────────
+   Covers KPI values, table mono cells, calendar PnL, pills
+   ─────────────────────────────────────────────────────────────── */
+.kpi-value,
+.kpi-value.green,
+.kpi-value.red,
+.kpi-value.blue,
+.kpi-value.gold,
+.kpi-value.teal,
+.kpi-value.white,
+.cal-kpi-val,
+.cal-day-pnl,
+.cal-day-num,
+.cal-popup-pnl,
+.detail-stat-val,
+.view-stat-val,
+.acc-ds-val,
+.month-stat-val,
+.data-table td.mono,
+.acc-row .v,
+.kpi-toggle-hint,
+.topbar-clock,
+.trash-card-pnl,
+.pill,
+.tf-chip,
+.wl-cal-time,
+.wl-cal-meta-val,
+.sm-pnl-main,
+.sm-stat-val {
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum', 'zero';
+}
+
+/* DM Mono for all KPI on calendar right panel */
+.dash-cal-panel .cal-kpi-val,
+.dash-cal-panel .cal-day-pnl {
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum';
+}
+
+/* ── 7. TYPOGRAPHY HIERARCHY — L1 / L2 / L3 ─────────────────────
+   L1: primary metric (large, high contrast)
+   L2: label       (small, muted)
+   L3: supporting  (very small, 45% opacity)
+   ─────────────────────────────────────────────────────────────── */
+.kpi-value     { color: var(--text);   line-height: 1.05; }
+.kpi-label     { color: var(--text3);  font-weight: 700; letter-spacing: 0.06em; }
+.kpi-sub-text  { color: var(--text3);  font-size: 10px; opacity: 0.55; margin-top: 3px; }
+
+/* Cover hierarchy */
+.cover-label   { letter-spacing: 0.16em; opacity: 0.7; }
+.cover-title   { letter-spacing: -0.6px; line-height: 1.15; }
+.cover-sub     { opacity: 0.65; letter-spacing: -0.01em; }
+
+/* Section header — sharper */
+.sec-head {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  font-weight: 800;
+}
+
+/* ── 8. MOBILE TABLE COLLAPSE ────────────────────────────────────
+   On mobile: Trade Log shows Date, Pair, PnL, Outcome only.
+   All other columns hidden. Horizontal scroll wrapper activates.
+   ─────────────────────────────────────────────────────────────── */
+@media (max-width: 768px){
+  /* Show only essential trade log columns */
+  .data-table th.col-pos,
+  .data-table td.col-pos,
+  .data-table th.col-rr,
+  .data-table td.col-rr,
+  .data-table th.col-kz,
+  .data-table td.col-kz,
+  .data-table th.col-strat,
+  .data-table td.col-strat,
+  .data-table th.col-acc,
+  .data-table td.col-acc,
+  .data-table th.col-rating,
+  .data-table td.col-rating,
+  .data-table th.col-actions,
+  .data-table td.col-actions {
+    display: none;
+  }
+
+  /* Compact remaining cells */
+  .data-table td,
+  .data-table th {
+    padding: 9px 10px;
+    font-size: 12px;
+  }
+
+  /* Make pair cell slightly bolder on mobile for easy scanning */
+  .data-table td.col-pair {
+    font-weight: 700;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+
+  /* Outcome pill compact */
+  .data-table td.col-outcome .pill {
+    font-size: 10px;
+    padding: 2px 7px;
+  }
+
+  /* PnL cell - prominent on mobile */
+  .data-table td.col-pnl {
+    font-size: 13px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+  }
+}
+
+/* ── 9. MOBILE BOTTOM NAV — 5-item tighter layout ───────────────*/
+@media (max-width: 768px){
+  .mob-bottom-nav {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    align-items: center;
+    justify-items: center;
+  }
+
+  .mob-bottom-nav-item {
+    width: 100%;
+    padding: 8px 2px;
+  }
+
+  /* FAB center button — pill shape on mobile for better tap target */
+  .mob-nav-add-btn .mob-nav-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 16px; /* squircle, not circle */
+    font-size: 22px !important;
+  }
+
+  /* Labels: hide on very small screens, show on ≥375px */
+  @media (max-width: 360px){
+    .mob-nav-label { display: none; }
+    .mob-nav-icon  { font-size: 22px; }
+  }
+}
+
+/* ── 10. KILLZONE INSIGHT PILLS (in tables) ──────────────────────
+   When JS renders killzone names, these semantic classes apply.
+   ─────────────────────────────────────────────────────────────── */
+.kz-pill-london {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 9px; border-radius: 99px;
+  font-size: 11px; font-weight: 600;
+  font-family: var(--font-mono);
+  background: var(--kz-london-dim);
+  color: var(--kz-london);
+  border: 1px solid var(--kz-london-border);
+}
+.kz-pill-ny {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 9px; border-radius: 99px;
+  font-size: 11px; font-weight: 600;
+  font-family: var(--font-mono);
+  background: var(--kz-ny-dim);
+  color: var(--kz-ny);
+  border: 1px solid var(--kz-ny-border);
+}
+.kz-pill-asian {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 9px; border-radius: 99px;
+  font-size: 11px; font-weight: 600;
+  font-family: var(--font-mono);
+  background: var(--kz-asian-dim);
+  color: var(--kz-asian);
+  border: 1px solid var(--kz-asian-border);
+}
+
+/* ── 11. KILLZONE HEATMAP CELL COLORS ───────────────────────────
+   Session × Pair heatmap cells use these backgrounds
+   ─────────────────────────────────────────────────────────────── */
+.hm-london { background: var(--kz-london-dim) !important; color: var(--kz-london) !important; }
+.hm-ny     { background: var(--kz-ny-dim)     !important; color: var(--kz-ny)     !important; }
+.hm-asian  { background: var(--kz-asian-dim)  !important; color: var(--kz-asian)  !important; }
+
+/* ── 12. KPI CARD MICRO-DELTA (change vs prev period) ────────────
+   Small delta row below main KPI value
+   ─────────────────────────────────────────────────────────────── */
+.kpi-delta {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 10px; font-weight: 600;
+  font-family: var(--font-mono);
+  margin-top: 5px;
+  opacity: 0.8;
+}
+.kpi-delta.up   { color: var(--green); }
+.kpi-delta.down { color: var(--red); }
+.kpi-delta.flat { color: var(--text3); }
+.kpi-delta::before {
+  content: attr(data-arrow);
+  font-size: 9px;
+}
+
+/* ── 13. TABLE HEADER SORT INDICATOR — DM Mono ──────────────────*/
+.sortable-th {
+  font-family: var(--font-body);
+  cursor: pointer;
+}
+.sort-icon {
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+/* ── 14. DATA TABLE PAIR CELL — always DM Mono ──────────────────*/
+.data-table td:first-child,
+.data-table .col-pair {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* ── 15. CALENDAR PNL CELLS — tighter DM Mono ───────────────────*/
+.cal-day-pnl {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  font-feature-settings: 'tnum';
+}
+
+/* ── 16. DETAIL PANEL PAIR HEADING — DM Sans ─────────────────────*/
+.detail-pair {
+  font-family: var(--font-head);
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -1px;
+}
+
+/* ── 17. COVER TITLE — DM Sans for max display weight ───────────*/
+.cover-title {
+  font-family: var(--font-head);
+  font-weight: 800;
+}
+
+/* ── 18. ACCOUNT TRACKER VALUES — DM Mono ───────────────────────*/
+.acc-ds-val {
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum';
+}
+
+/* ── 19. TOPBAR CLOCK — tighter DM Mono ─────────────────────────*/
+.topbar-clock {
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum';
+  letter-spacing: 0.03em;
+}
+
+/* ── 20. SIDEBAR ACTIVE BADGE — keep consistent ─────────────────*/
+.sb-badge {
+  font-family: var(--font-mono);
+  letter-spacing: 0;
+}
+
+/* ── 21. KILLZONE FILTER BUTTONS — semantic accent ───────────────
+   When filtering by session in Trade Log
+   ─────────────────────────────────────────────────────────────── */
+.filter-kz-london.active,
+select[id="filter-kz"] option[value="London"] {
+  color: var(--kz-london);
+}
+
+/* ── 22. FORM SELECT — killzone option color hints ───────────────*/
+.kz-option-london { color: var(--kz-london); }
+.kz-option-ny     { color: var(--kz-ny); }
+.kz-option-asian  { color: var(--kz-asian); }
+
+/* ── 23. RESPONSIVE POLISH — tablet KPI grid ────────────────────*/
+@media (max-width: 900px){
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+}
+
+/* ── 24. COVER per-page unique gradients override ────────────────
+   Each page has a distinct tinted cover — sharper than before
+   ─────────────────────────────────────────────────────────────── */
+#page-dashboard .cover  { border-left: 3px solid rgba(96,165,250,0.4); }
+#page-tradelog  .cover  { border-left: 3px solid rgba(52,211,153,0.4); }
+#page-watchlist .cover  { border-left: 3px solid rgba(167,139,250,0.4); }
+#page-accounts  .cover  { border-left: 3px solid rgba(251,191,36,0.4); }
+#page-ai        .cover  { border-left: 3px solid rgba(167,139,250,0.6); }
+#page-monthly   .cover  { border-left: 3px solid rgba(96,165,250,0.4); }
+
+/* ── 25. SCROLLBAR — refined 2px ultra-thin ─────────────────────*/
+::-webkit-scrollbar { width: 2px; height: 2px; }
+::-webkit-scrollbar-thumb { border-radius: 99px; }
+
+

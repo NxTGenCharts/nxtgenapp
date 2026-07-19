@@ -1,0 +1,1870 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="">
+<head>
+<meta charset="UTF-8">
+<script>
+  // Restore the real URL (e.g. /tradelog) after the 404.html redirect trick,
+  // so the address bar is correct before app.js reads it to pick the page.
+  (function () {
+    var redirect = sessionStorage.getItem('nxtgen_redirect');
+    if (redirect) {
+      sessionStorage.removeItem('nxtgen_redirect');
+      if (redirect !== location.pathname + location.search + location.hash) {
+        history.replaceState(null, '', redirect);
+      }
+    }
+  })();
+</script>
+<meta name="description" content="NxTGen Trading Journal — Premium ICT Trading Dashboard with glassmorphism design">
+<meta name="theme-color" content="#080b12" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f1f5fb" media="(prefers-color-scheme: light)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>NxTGen Trading Journal</title>
+
+<!-- Favicon / App Icons -->
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="48x48" href="favicon-48.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,500&family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,500&family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet"></noscript>
+
+<!-- App Stylesheet -->
+<!-- ══ Styles — split into ordered chunks (same cascade order as the old single styles.css) ══ -->
+<link rel="stylesheet" href="css/base-tokens-layout.css">
+<link rel="stylesheet" href="css/dashboard-tradelog.css">
+<link rel="stylesheet" href="css/watchlist.css">
+<link rel="stylesheet" href="css/misc-components-1.css">
+<link rel="stylesheet" href="css/accounts-playbook-monthly.css">
+<link rel="stylesheet" href="css/calendar.css">
+<link rel="stylesheet" href="css/trash-toast-misc.css">
+<link rel="stylesheet" href="css/backtesting-lab.css">
+<link rel="stylesheet" href="css/misc-polish-2.css">
+<link rel="stylesheet" href="css/ai-coach-and-late-misc.css">
+<link rel="stylesheet" href="css/profile.css">
+<link rel="stylesheet" href="css/final-misc.css">
+</head>
+<body>
+<svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden" id="icon-sprite">
+<defs>
+<symbol id="ic-star" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2.5l2.8 6.2 6.7.6-5.1 4.5 1.6 6.6L12 16.9l-5.9 3.5 1.5-6.6-5-4.5 6.6-.6z"/></symbol>
+<symbol id="ic-star-o" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" d="M12 2.5l2.8 6.2 6.7.6-5.1 4.5 1.6 6.6L12 16.9l-5.9 3.5 1.5-6.6-5-4.5 6.6-.6z"/></symbol>
+<symbol id="ic-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="currentColor"/></symbol>
+<symbol id="ic-dot-o" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+<symbol id="ic-check" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M4 12.5l5 5L20 6"/></symbol>
+<symbol id="ic-check-c" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.75"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M7.5 12.5l3 3 6-6.5"/></symbol>
+<symbol id="ic-close" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M5 5l14 14M19 5L5 19"/></symbol>
+<symbol id="ic-close-c" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.75"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M9 9l6 6M15 9l-6 6"/></symbol>
+<symbol id="ic-warning" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round" d="M12 3.5L2.5 20h19L12 3.5z"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 9.5v4.2"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></symbol>
+<symbol id="ic-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.75"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 11v5.5"/><circle cx="12" cy="7.7" r="1" fill="currentColor" stroke="none"/></symbol>
+<symbol id="ic-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.75"/><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" d="M4.5 20c1.3-3.8 4.3-5.8 7.5-5.8s6.2 2 7.5 5.8"/></symbol>
+<symbol id="ic-robot" viewBox="0 0 24 24"><rect x="5" y="8.5" width="14" height="10" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.75"/><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" d="M12 8.5V5.5M9 5.5h6"/><circle cx="9.3" cy="13.3" r="1.1" fill="currentColor" stroke="none"/><circle cx="14.7" cy="13.3" r="1.1" fill="currentColor" stroke="none"/><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" d="M2.5 12.5v3M21.5 12.5v3"/></symbol>
+<symbol id="ic-calendar" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" d="M8 3v4M16 3v4M3.5 10h17"/></symbol>
+<symbol id="ic-chart-bar" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M4 20V10M9.5 20V4M15 20v-7M20.5 20V13"/></symbol>
+<symbol id="ic-chart-line" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M3.5 19h17M4.5 15.5l5-5.5 4 3.5 6-7"/></symbol>
+<symbol id="ic-chart-pie" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" d="M12 3.5a8.5 8.5 0 108.5 8.5H12V3.5z"/><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" d="M15 3.9A8.5 8.5 0 0120.1 9H15V3.9z"/></symbol>
+<symbol id="ic-brain" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" d="M9.5 4a2.7 2.7 0 00-2.7 2.7 2.7 2.7 0 00-1.8 4.6A3 3 0 007 16.8V18a3 3 0 003 3h1V6a2.7 2.7 0 00-1.5-2.4A2.7 2.7 0 009.5 4zM14.5 4a2.7 2.7 0 012.7 2.7 2.7 2.7 0 011.8 4.6 3 3 0 01-1.9 5.5V18a3 3 0 01-3 3h-1V6c0-1.1.6-2 1.5-2.4.3-.4.6.6.9-.6z"/></symbol>
+<symbol id="ic-map" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" d="M9 4.5L3.5 6.5v13L9 17.5m0-13l6 2m-6-2v13m6-11l5.5-2v13L15 19.5m0-13v13m0-13l-6 2"/></symbol>
+<symbol id="ic-flask" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round" d="M10 3h4M9.5 3v6.5L4.7 18a1.5 1.5 0 001.3 2.3h12a1.5 1.5 0 001.3-2.3L14.5 9.5V3"/><path fill="none" stroke="currentColor" stroke-width="1.5" d="M7.5 15h9"/></symbol>
+<symbol id="ic-bulb" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" d="M9 17.5h6M9.5 20h5M12 3.5a6 6 0 00-3.3 11c.5.4.8 1 .8 1.6v.4h5v-.4c0-.6.3-1.2.8-1.6a6 6 0 00-3.3-11z"/></symbol>
+<symbol id="ic-camera" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" d="M4 8.5A1.5 1.5 0 015.5 7h2l1-2h7l1 2h2A1.5 1.5 0 0120 8.5v9A1.5 1.5 0 0118.5 19h-13A1.5 1.5 0 014 17.5v-9z"/><circle cx="12" cy="13" r="3.3" fill="none" stroke="currentColor" stroke-width="1.75"/></symbol>
+<symbol id="ic-image" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/><circle cx="8.5" cy="9.5" r="1.6" fill="currentColor" stroke="none"/><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round" d="M4 16.5l5-5 4 4 2.5-2.5L20.5 18"/></symbol>
+<symbol id="ic-trash" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M4.5 7h15M9.5 7V5a1.5 1.5 0 011.5-1.5h2A1.5 1.5 0 0114.5 5v2M18 7l-.8 12.1a2 2 0 01-2 1.9H8.8a2 2 0 01-2-1.9L6 7"/><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" d="M10 10.8v6M14 10.8v6"/></symbol>
+<symbol id="ic-download" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M12 3.5v11.5m0 0l-4-4m4 4l4-4M4.5 17v2A1.5 1.5 0 006 20.5h12a1.5 1.5 0 001.5-1.5v-2"/></symbol>
+<symbol id="ic-upload" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M12 20.5V9m0 0l-4 4m4-4l4 4M4.5 17v2A1.5 1.5 0 006 20.5m12-3.5v2a1.5 1.5 0 01-1.5 1.5"/></symbol>
+<symbol id="ic-edit" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M4.5 19.5l.9-3.7L16.6 4.6a1.7 1.7 0 012.4 0l.4.4a1.7 1.7 0 010 2.4L8.2 18.6l-3.7.9z"/><path fill="none" stroke="currentColor" stroke-width="1.5" d="M14.5 6.7l2.8 2.8"/></symbol>
+<symbol id="ic-save" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" d="M5 4.5h11l3.5 3.5v11.5A1.5 1.5 0 0118 21H6a1.5 1.5 0 01-1.5-1.5v-13A1.5 1.5 0 016 4.5z"/><path fill="none" stroke="currentColor" stroke-width="1.6" d="M8 4.5v5h7v-5M8 21v-6.5h8V21"/></symbol>
+<symbol id="ic-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11.5" height="11.5" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.75"/><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" d="M15.5 5.5H5.8A1.8 1.8 0 004 7.3v9.7"/></symbol>
+<symbol id="ic-search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.3" fill="none" stroke="currentColor" stroke-width="1.75"/><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" d="M20 20l-4.3-4.3"/></symbol>
+<symbol id="ic-refresh" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M4.5 12a7.5 7.5 0 0112.7-5.4M19.5 12a7.5 7.5 0 01-12.7 5.4M17 4.5v3.3h-3.3M7 19.5v-3.3h3.3"/></symbol>
+<symbol id="ic-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="9.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/><path fill="none" stroke="currentColor" stroke-width="1.75" d="M7.5 10.5V7.5a4.5 4.5 0 019 0v3"/></symbol>
+<symbol id="ic-shield" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" d="M12 3l7 2.6v6c0 4.7-3 7.8-7 9.4-4-1.6-7-4.7-7-9.4v-6L12 3z"/></symbol>
+<symbol id="ic-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.75"/><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" d="M9.3 9.3a2.7 2.7 0 115.1 1.4c-.6 1-1.7 1.3-1.9 2.4v.6"/><circle cx="12" cy="16.7" r="1" fill="currentColor" stroke="none"/></symbol>
+<symbol id="ic-trophy" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M7 4.5h10v4.5a5 5 0 01-10 0V4.5z"/><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" d="M7 6H4.5A1.5 1.5 0 004 9.2 4 4 0 007 12M17 6h2.5A1.5 1.5 0 0121 9.2 4 4 0 0117 12M12 14.5v3M8.5 20.5h7M9.7 17.5h4.6l.4 3H9.3z"/></symbol>
+<symbol id="ic-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/></symbol>
+<symbol id="ic-trend-up" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" d="M3.5 17L10 10.5l4 4 6.5-7.5"/><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" d="M15 6.7h5.5v5.5"/></symbol>
+<symbol id="ic-trend-down" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" d="M3.5 7l6.5 6.5 4-4 6.5 7.5"/><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" d="M20.5 12.3v5.5H15"/></symbol>
+<symbol id="ic-notebook" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" d="M6.5 3.5h11a1.5 1.5 0 011.5 1.5v14a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 015 19V5a1.5 1.5 0 011.5-1.5z"/><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" d="M8.5 8h7M8.5 11.5h7M8.5 15h4.5"/></symbol>
+<symbol id="ic-folder" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" d="M3.5 6.5A1.5 1.5 0 015 5h4l2 2h8a1.5 1.5 0 011.5 1.5v9A1.5 1.5 0 0119 19H5a1.5 1.5 0 01-1.5-1.5v-11z"/></symbol>
+<symbol id="ic-folder-open" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" d="M3.5 8V6.5A1.5 1.5 0 015 5h4l2 2h8a1.5 1.5 0 011.5 1.5V9M3.5 8h17l-2 10.5a1.5 1.5 0 01-1.5 1.2H7a1.5 1.5 0 01-1.5-1.2L3.5 8z"/></symbol>
+<symbol id="ic-tag" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" d="M11.5 3.5H19a1.5 1.5 0 011.5 1.5v7.5a1.5 1.5 0 01-.44 1.06l-8 8a1.5 1.5 0 01-2.12 0l-7.5-7.5a1.5 1.5 0 010-2.12l8-8c.28-.28.66-.44 1.06-.44z"/><circle cx="15.5" cy="8.5" r="1.3" fill="currentColor" stroke="none"/></symbol>
+<symbol id="ic-bookmark" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" d="M6.5 3.5h11a1 1 0 011 1V21l-6.5-4-6.5 4V4.5a1 1 0 011-1z"/></symbol>
+<symbol id="ic-chevron-right" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></symbol>
+<symbol id="ic-eye" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8" fill="none" stroke="currentColor" stroke-width="1.75"/></symbol>
+<symbol id="ic-eye-off" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round" d="M3.5 3.5l17 17M9.9 9.9a2.8 2.8 0 003.9 3.9M6.2 6.4C4 8 2.5 12 2.5 12s3.5 6.5 9.5 6.5c1.7 0 3.2-.4 4.4-1.1M14.9 5.9c-.9-.3-1.9-.4-2.9-.4-1 0-1.9.1-2.7.4M21.5 12s-.9 1.7-2.5 3.3"/></symbol>
+<symbol id="ic-paperclip" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M17 8.5l-7 7a2.5 2.5 0 003.5 3.5l7-7a4.5 4.5 0 00-6.4-6.4l-7 7a6.5 6.5 0 009.2 9.2"/></symbol>
+<symbol id="ic-history" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M3.5 12a8.5 8.5 0 108.5-8.5c-3 0-5.5 1.5-7 3.9"/><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" d="M3 3.5V8h4.5M12 7.5v5l3.5 2"/></symbol>
+<symbol id="ic-activity" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M2.5 12h4l2.2-6.5 4 13L15.2 9l1.8 3h4.5"/></symbol>
+<symbol id="ic-bell" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" d="M6 10.5a6 6 0 0112 0c0 4 1.5 5.5 1.5 5.5h-15S6 14.5 6 10.5z"/><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" d="M10 19.5a2 2 0 004 0"/></symbol>
+<symbol id="ic-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.75"/><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" d="M12 3.5v2.3M12 18.2v2.3M20.5 12h-2.3M5.8 12H3.5M17.7 6.3l-1.6 1.6M7.9 16.1l-1.6 1.6M17.7 17.7l-1.6-1.6M7.9 7.9L6.3 6.3"/></symbol>
+<symbol id="ic-link" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M9.5 14.5l5-5M8 17l-2.2 2.2a3.5 3.5 0 01-5-5L3 12M16 7l2.2-2.2a3.5 3.5 0 015 5L21 12"/></symbol>
+<symbol id="ic-logout" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M9 4.5H6A1.5 1.5 0 004.5 6v12A1.5 1.5 0 006 19.5h3M15.5 16l4-4-4-4M19 12H9"/></symbol>
+<symbol id="ic-cloud" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" d="M7 18.5a4.5 4.5 0 01-.4-9 5.5 5.5 0 0110.6-1.6A4 4 0 0117 18.5H7z"/></symbol>
+<symbol id="ic-cloud-off" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round" d="M3.5 3.5l17 17M7 18.5a4.5 4.5 0 01-.4-9 5.5 5.5 0 019.4-2.9M16.9 8.4A4 4 0 0117 18.5H7.5"/></symbol>
+<symbol id="ic-moon" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" d="M20 14.5A8.5 8.5 0 019.5 4a8.5 8.5 0 1010.5 10.5z"/></symbol>
+<symbol id="ic-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.3" fill="none" stroke="currentColor" stroke-width="1.75"/><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" d="M12 2.5v2.3M12 19.2v2.3M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M2.5 12h2.3M19.2 12h2.3M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6"/></symbol>
+<symbol id="ic-fire" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" d="M12 3s-5.5 4.5-5.5 10a5.5 5.5 0 0011 0c0-1.7-.7-2.9-1.4-3.9.1 1.4-.7 2.3-1.4 2.3.6-2.7-.7-5.4-2.7-6.9.3 1.6-.3 2.9-1.5 3.9-.9.8-1.5 1.9-1.5 3.1"/></symbol>
+<symbol id="ic-scale" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M12 3v18M7 21h10M4 7h6M14 7h6M4 7L2 12a2.5 2.5 0 005 0L5 7zM20 7l-2 5a2.5 2.5 0 005 0l-2-5z"/></symbol>
+<symbol id="ic-meditate" viewBox="0 0 24 24"><circle cx="12" cy="6" r="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M4.5 17c1.5-2.5 3.5-1 4.5-3l3-4 3 4c1 2 3 .5 4.5 3M7 20.5h10"/></symbol>
+<symbol id="ic-zap" viewBox="0 0 24 24"><path fill="currentColor" d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></symbol>
+<symbol id="ic-frown" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.75"/><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" d="M8.5 16c.9-1.3 2.1-2 3.5-2s2.6.7 3.5 2"/><circle cx="9" cy="9.5" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="9.5" r="1" fill="currentColor" stroke="none"/></symbol>
+<symbol id="ic-smile" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.75"/><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" d="M8.5 14c.9 1.3 2.1 2 3.5 2s2.6-.7 3.5-2"/><circle cx="9" cy="9.5" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="9.5" r="1" fill="currentColor" stroke="none"/></symbol>
+<symbol id="ic-meh" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.75"/><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" d="M8.5 15h7"/><circle cx="9" cy="9.5" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="9.5" r="1" fill="currentColor" stroke="none"/></symbol>
+<symbol id="ic-thumbs-up" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" d="M7 11v9H4.5V11H7zm0 0l4-7a2 2 0 013.6 1.6L13.5 10H18a2 2 0 011.9 2.7l-2 6A2 2 0 0116 20H9.5a2.5 2.5 0 01-2.5-2.5"/></symbol>
+<symbol id="ic-dollar-c" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.75"/><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" d="M12 6.5v11M14.8 9c0-1.2-1.3-2-2.8-2s-2.8.8-2.8 2c0 3 5.6 1.5 5.6 4.5 0 1.2-1.3 2-2.8 2s-2.8-.8-2.8-2"/></symbol>
+<symbol id="ic-inbox" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" d="M4 12.5h4.5l1.5 2.5h4l1.5-2.5H20M4 12.5L5.8 5.8A1.5 1.5 0 017.2 4.8h9.6a1.5 1.5 0 011.4 1l1.8 6.7M4 12.5v5A1.5 1.5 0 005.5 19h13a1.5 1.5 0 001.5-1.5v-5"/></symbol>
+<symbol id="ic-clipboard" viewBox="0 0 24 24"><rect x="6" y="4.5" width="12" height="16" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.75"/><rect x="9" y="3" width="6" height="3" rx="1" fill="none" stroke="currentColor" stroke-width="1.6"/><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" d="M9 12h6M9 15.5h6"/></symbol>
+<symbol id="ic-ruler" viewBox="0 0 24 24"><rect x="2.8" y="8" width="18.4" height="8" rx="1.5" transform="rotate(-45 12 12)" fill="none" stroke="currentColor" stroke-width="1.6"/><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" d="M9.5 9.5l1.4 1.4M12.5 6.5l1.4 1.4M6.5 12.5l1.4 1.4"/></symbol>
+<symbol id="ic-speech" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" d="M4 5.5h16v10.5H9l-4 3.5v-3.5H4V5.5z"/></symbol>
+<symbol id="ic-card" viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.75"/><path fill="none" stroke="currentColor" stroke-width="1.75" d="M3 9.5h18"/></symbol>
+<symbol id="ic-receipt" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" d="M6 3.5h12v17l-2-1.3-2 1.3-2-1.3-2 1.3-2-1.3-2 1.3v-17z"/><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" d="M8.5 8h7M8.5 11.5h7M8.5 15h4.5"/></symbol>
+<symbol id="ic-server" viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="6.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.75"/><rect x="3.5" y="13.5" width="17" height="6.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.75"/><circle cx="7" cy="7.3" r="0.9" fill="currentColor" stroke="none"/><circle cx="7" cy="16.8" r="0.9" fill="currentColor" stroke="none"/></symbol>
+<symbol id="ic-monitor" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="12" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.75"/><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" d="M8.5 20.5h7M12 16.5v4"/></symbol>
+<symbol id="ic-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="3.7" fill="none" stroke="currentColor" stroke-width="1.75"/><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" d="M10.5 12.5L18.5 4.5M16.5 6.5l2 2M14 9l2 2"/></symbol>
+<symbol id="ic-door-exit" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M13 4H7.5A1.5 1.5 0 006 5.5v13A1.5 1.5 0 007.5 20H13M17 8.5l4 3.5-4 3.5M21 12H10"/></symbol>
+<symbol id="ic-siren" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" d="M5 20.5v-6a7 7 0 0114 0v6H5z"/><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" d="M12 3v2.5M4.5 8L3 6.5M19.5 8L21 6.5M3.5 20.5h17"/></symbol>
+<symbol id="ic-sparkle" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2.5c.6 3.5 1.7 6.4 3 7.7 1.3 1.3 4.2 2.4 7.7 3-3.5.6-6.4 1.7-7.7 3-1.3 1.3-2.4 4.2-3 7.7-.6-3.5-1.7-6.4-3-7.7-1.3-1.3-4.2-2.4-7.7-3 3.5-.6 6.4-1.7 7.7-3 1.3-1.3 2.4-4.2 3-7.7z"/></symbol>
+<symbol id="ic-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.75"/><path fill="none" stroke="currentColor" stroke-width="1.5" d="M3 12h18M12 3c2.5 2.5 3.8 5.7 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.7-3.8-9S9.5 5.5 12 3z"/></symbol>
+<symbol id="ic-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.75"/><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M12 7v5.3l3.5 2"/></symbol>
+<symbol id="ic-plug" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M9 2.5v5M15 2.5v5M6.5 7.5h11v4a5.5 5.5 0 01-11 0v-4zM12 17v4.5"/></symbol>
+<symbol id="ic-swap" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M4 8h13.5M14 4.5L17.5 8 14 11.5M20 16H6.5M10 12.5L6.5 16 10 19.5"/></symbol>
+<symbol id="ic-minus" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M5 12h14"/></symbol>
+<symbol id="ic-plus" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M12 5v14M5 12h14"/></symbol>
+<symbol id="ic-arrow-right" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4.5 12h15M13.5 6l6 6-6 6"/></symbol>
+<symbol id="ic-arrow-left" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M19.5 12h-15M10.5 18l-6-6 6-6"/></symbol>
+<symbol id="ic-arrow-up" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M12 19.5v-15M6 10l6-6 6 6"/></symbol>
+<symbol id="ic-arrow-down" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15M18 14l-6 6-6-6"/></symbol>
+<symbol id="ic-sort" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" d="M8 4v16M8 4L4.5 7.5M8 4l3.5 3.5M16 20V4M16 20l3.5-3.5M16 20l-3.5-3.5"/></symbol>
+<symbol id="ic-restore" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M4.5 12a7.5 7.5 0 1112.7 5.4M4.5 12V7.5M4.5 12H9"/></symbol>
+<symbol id="ic-archive" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="4.5" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" d="M4.5 9v9A1.5 1.5 0 006 19.5h12a1.5 1.5 0 001.5-1.5V9"/><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" d="M10 13h4"/></symbol>
+<symbol id="ic-box" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" d="M12 3l8 4.2v9.6L12 21l-8-4.2V7.2L12 3z"/><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" d="M4 7.2L12 11l8-3.8M12 11v10"/></symbol>
+<symbol id="ic-menu" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M3.5 6.5h17M3.5 12h17M3.5 17.5h17"/></symbol>
+</defs>
+</svg>
+
+
+<!-- ══ Background noise texture mesh ══ -->
+<div style="position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22300%22 height=%22300%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.65%22 numOctaves=%223%22 stitchTiles=%22stitch%22/><feColorMatrix type=%22saturate%22 values=%220%22/></filter><rect width=%22300%22 height=%22300%22 filter=%22url(%23n)%22 opacity=%220.03%22/></svg>');
+  opacity:.6;mix-blend-mode:overlay;"></div>
+
+<!-- ══ TOPBAR ══ -->
+<div class="topbar">
+  <div class="topbar-left">
+    <button class="sb-toggle-btn" id="sb-toggle-btn" onclick="toggleSidebar()" aria-label="Toggle sidebar" title="Toggle sidebar">
+      <span class="sb-toggle-icon">
+        <span></span><span></span><span></span>
+      </span>
+    </button>
+    <span class="brand" onclick="nav('dashboard',null,'Dashboard')" style="cursor:pointer">
+      <img class="brand-logo-img" src="logo.svg" alt="NxTGen Trading Journal" draggable="false">
+    </span>
+    <span class="sep">›</span>
+    <span class="page-name" id="topbar-page">Dashboard</span>
+  </div>
+  <div class="topbar-right">
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme" id="theme-btn"><svg class="icn" aria-hidden="true"><use href="#ic-moon"></use></svg></button>
+    <button class="btn btn-primary" onclick="openModal()">+ New Trade</button>
+    <span class="topbar-clock" id="topbar-clock"></span>
+    <button class="topbar-avatar" id="topbar-avatar-btn" title="My Profile">
+      <span id="topbar-avatar-initials">TJ</span>
+    </button>
+  </div>
+</div>
+
+<!-- ══ MOBILE SIDEBAR OVERLAY ══ -->
+<div class="mob-overlay" id="mob-overlay" onclick="closeSidebar()"></div>
+
+<!-- ══ LAYOUT ══ -->
+<div class="layout" id="main-layout">
+
+  <!-- ══ SIDEBAR ══ -->
+  <div class="sidebar" id="sidebar">
+    <div class="sb-close-btn"><button onclick="closeSidebar()" aria-label="Close menu"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button></div>
+    <div class="sb-logo-header">
+      <img class="sb-logo-img" src="logo.svg" alt="NxTGen Trading Journal" draggable="false">
+    </div>
+    <!-- Mobile-only New Trade button in sidebar -->
+    <div class="sb-new-trade-wrap" id="sb-new-trade-wrap">
+      <button class="btn btn-primary sb-new-trade-btn" onclick="openModal();closeSidebar()">＋ New Trade</button>
+    </div>
+    <div class="sb-section">
+      <div class="sb-section-label">Journal</div>
+      <div class="sb-item active" onclick="nav('dashboard',this,'Dashboard')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-chart-bar"></use></svg></span><span class="lbl">Dashboard</span></div>
+      <div class="sb-item" onclick="nav('tradelog',this,'Trade Log')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-menu"></use></svg></span><span class="lbl">Trade Log</span></div>
+      <div class="sb-item" onclick="nav('watchlist',this,'Weekly Watchlist')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-calendar"></use></svg></span><span class="lbl">Weekly Watchlist</span></div>
+      <div class="sb-item" onclick="nav('accounts',this,'Account Tracker')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-dollar-c"></use></svg></span><span class="lbl">Account Tracker</span></div>
+      <div class="sb-item" id="sb-calendar" onclick="nav('calendar',this,'Calendar')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-calendar"></use></svg></span><span class="lbl">Calendar</span></div>
+    </div>
+    <div class="sb-sep"></div>
+    <div id="sb-years"></div>
+    <div class="sb-sep"></div>
+    <div class="sb-section">
+      <div class="sb-section-label">Resources</div>
+      <div class="sb-item ai-glow" onclick="nav('ai',this,'AI Coach')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-robot"></use></svg></span><span class="lbl">AI Coach</span></div>
+      <div class="sb-item" onclick="nav('backtesting',this,'Backtesting Lab')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-flask"></use></svg></span><span class="lbl">Backtesting Lab</span></div>
+      <div class="sb-item" onclick="nav('playbook',this,'Trading Playbook')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-notebook"></use></svg></span><span class="lbl">Playbook</span></div>
+      <div class="sb-item" onclick="nav('goals',this,'Goals & Milestones')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-target"></use></svg></span><span class="lbl">Goals</span></div>
+      <div class="sb-item" onclick="nav('monthly',this,'Monthly Review')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-trend-up"></use></svg></span><span class="lbl">Monthly Review</span></div>
+      <div class="sb-item" onclick="nav('trash',this,'Trash')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-trash"></use></svg></span><span class="lbl">Trash</span><span class="sb-badge" id="trash-sb-badge" style="display:none">0</span></div>
+    </div>
+    <div class="sb-sep"></div>
+    <div class="sb-section">
+      <div class="sb-item" onclick="nav('profile',this,'My Profile')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-user"></use></svg></span><span class="lbl">My Profile</span></div>
+    </div>
+  </div>
+
+  <!-- ══ MAIN ══ -->
+  <div class="main">
+
+    <!-- TABS -->
+    <div class="tabs">
+      <div class="tab active" id="tab-dashboard" onclick="nav('dashboard',null,'Dashboard')">Dashboard</div>
+      <div class="tab" id="tab-tradelog" onclick="nav('tradelog',null,'Trade Log')">Trade Log</div>
+      <div class="tab" id="tab-watchlist" onclick="nav('watchlist',null,'Watchlist')">Watchlist</div>
+      <div class="tab" id="tab-accounts" onclick="nav('accounts',null,'Accounts')">Accounts</div>
+      <div class="tab" id="tab-trash" onclick="nav('trash',null,'Trash')"><svg class="icn" aria-hidden="true"><use href="#ic-trash"></use></svg> Trash</div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+         DASHBOARD PAGE
+    ═══════════════════════════════════════════════ -->
+    <div class="page active" id="page-dashboard">
+      <div class="dash-layout">
+
+        <!-- ── LEFT COLUMN ── -->
+        <div class="dash-left">
+
+          <!-- Cover / quarter banner -->
+          <div class="cover" id="dash-cover">
+            <div class="cover-label" id="dash-cover-period">QUARTERLY PERFORMANCE · 2026</div>
+            <div class="cover-title" id="dash-cover-title">Loading…</div>
+            <div class="cover-sub" id="dash-cover-sub"><span id="dash-cover-sub-text">Loading…</span> · <span id="dash-last-updated" style="opacity:.7">Loading...</span></div>
+          </div>
+
+          <!-- KPI rows -->
+          <!-- Date range filter bar -->
+          <div class="dash-filter-bar" id="dash-filter-bar">
+            <button class="dash-filter-btn active" onclick="setDashPreset('all',this)">All time</button>
+            <button class="dash-filter-btn" onclick="setDashPreset('quarter',this)">This Quarter</button>
+            <button class="dash-filter-btn" onclick="setDashPreset('month',this)">This Month</button>
+            <button class="dash-filter-btn" onclick="setDashPreset('week',this)">This Week</button>
+            <button class="dash-filter-btn" onclick="setDashPreset('custom',this)">Custom</button>
+            <div id="dash-filter-custom" style="display:none;gap:6px;align-items:center">
+              <input type="date" id="dash-filter-from" class="form-input" style="width:130px;font-size:12px;padding:4px 8px">
+              <span style="color:var(--text3);font-size:12px"><svg class="icn icn-sm" aria-hidden="true"><use href="#ic-arrow-right"></use></svg></span>
+              <input type="date" id="dash-filter-to" class="form-input" style="width:130px;font-size:12px;padding:4px 8px">
+              <button class="dash-filter-btn active" onclick="setDashPreset('custom',this)" style="padding:4px 10px">Apply</button>
+            </div>
+          </div>
+          <!-- Daily Loss Limit Alert -->
+          <div id="daily-loss-alert" style="display:none;margin-bottom:14px;padding:12px 16px;border-radius:var(--r-md);background:rgba(248,113,113,0.12);border:1px solid rgba(248,113,113,0.35);display:flex;align-items:center;gap:10px">
+            <span style="font-size:18px"><svg class="icn" aria-hidden="true"><use href="#ic-siren"></use></svg></span>
+            <div>
+              <div style="font-weight:600;color:var(--red);font-size:13px" id="daily-loss-alert-title">Daily Loss Limit Reached</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:2px" id="daily-loss-alert-body">Consider stopping for the day to protect your account.</div>
+            </div>
+          </div>
+
+          <div class="dash-widgets-row">
+            <div class="dash-kpi-analytics">
+              <!-- Row 1: hero analytics — same shape gauges & icon style as the Calendar page -->
+              <div class="cal-an-grid dash-an-row1">
+                <div class="cal-an-card cal-an-card--toggle" id="kpi-pnl-card" onclick="toggleNetPnl()" title="Tap to toggle $ / %">
+                  <div class="cal-an-left">
+                    <div class="cal-an-label"><span class="cal-kpi-icon"><svg class="icn" aria-hidden="true"><use href="#ic-dollar-c"></use></svg></span><span>Net P&amp;L</span> <span class="info-dot">i</span> <span class="cal-an-toggle-hint">tap to toggle</span></div>
+                    <div class="cal-an-value green" id="kpi-pnl">—</div>
+                    <canvas id="kpi-sparkline" style="width:100%;height:28px;margin-top:4px;display:none"></canvas>
+                  </div>
+                  <div class="cal-an-badge" id="kpi-total-badge">0</div>
+                </div>
+                <div class="cal-an-card">
+                  <div class="cal-an-left">
+                    <div class="cal-an-label"><span class="cal-kpi-icon"><svg class="icn" aria-hidden="true"><use href="#ic-target"></use></svg></span><span>Win rate</span> <span class="info-dot">i</span></div>
+                    <div class="cal-an-value green" id="kpi-wr">—</div>
+                  </div>
+                  <div class="cal-an-gauge-col" id="kpi-wr-gauge"></div>
+                </div>
+                <div class="cal-an-card cal-an-card--toggle" id="kpi-pf-card" onclick="togglePf()" title="Tap to toggle Profit Factor / Expectancy">
+                  <div class="cal-an-left">
+                    <div class="cal-an-label"><span class="cal-kpi-icon"><svg class="icn" aria-hidden="true"><use href="#ic-scale"></use></svg></span><span id="kpi-pf-label-text">Profit factor</span> <span class="info-dot">i</span> <span class="cal-an-toggle-hint">tap to toggle</span></div>
+                    <div class="cal-an-value gold" id="kpi-pf">—</div>
+                  </div>
+                  <div class="cal-an-ring-col" id="kpi-pf-ring"></div>
+                </div>
+              </div>
+
+              <!-- Row 2: win streak + avg win/loss bar (mirrors Calendar page's Day win % / Avg win-loss row) -->
+              <div class="cal-an-grid row2 dash-an-row2">
+                <div class="cal-an-card">
+                  <div class="cal-an-left">
+                    <div class="cal-an-label"><span class="cal-kpi-icon"><svg class="icn" aria-hidden="true"><use href="#ic-fire"></use></svg></span><span>Win streak</span> <span class="info-dot">i</span></div>
+                    <div class="cal-an-value teal" id="kpi-ws">—</div>
+                  </div>
+                </div>
+                <div class="cal-an-card" id="kpi-awl-card" title="Average win and average loss per trade, in both $ and %">
+                  <div class="cal-an-left" style="flex:0 0 auto">
+                    <div class="cal-an-label"><span class="cal-kpi-icon"><svg class="icn" aria-hidden="true"><use href="#ic-chart-bar"></use></svg></span><span>Avg win/loss trade</span> <span class="info-dot">i</span></div>
+                    <div class="cal-an-value" id="kpi-avgratio">—</div>
+                  </div>
+                  <div class="cal-an-bar-wrap">
+                    <div class="cal-an-bar-track"><div class="cal-an-bar-seg green" id="kpi-aw-bar" style="width:50%"></div><div class="cal-an-bar-seg red" id="kpi-al-bar" style="width:50%"></div></div>
+                    <div class="cal-an-bar-labels">
+                      <span class="cal-an-bar-stat">
+                        <span class="cal-an-bar-main green" id="kpi-aw">—</span>
+                        <span class="cal-an-bar-sub" id="kpi-aw-sub">—</span>
+                      </span>
+                      <span class="cal-an-bar-stat right">
+                        <span class="cal-an-bar-main red" id="kpi-al">—</span>
+                        <span class="cal-an-bar-sub" id="kpi-al-sub">—</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Row 3: compact stat chips — same icon style as the Calendar page's KPI strip -->
+              <div class="kpi-grid dash-kpi-mini">
+                <div class="kpi-card"><div class="kpi-label"><span class="cal-kpi-icon"><svg class="icn" aria-hidden="true"><use href="#ic-folder"></use></svg></span><span>Total trades</span></div><div class="kpi-value blue" id="kpi-total">—</div></div>
+                <div class="kpi-card" title="Average planned risk:reward ratio across your logged trades"><div class="kpi-label"><span class="cal-kpi-icon"><svg class="icn" aria-hidden="true"><use href="#ic-ruler"></use></svg></span><span>Avg risk:reward</span></div><div class="kpi-value blue" id="kpi-rr">—</div></div>
+                <div class="kpi-card"><div class="kpi-label"><span class="cal-kpi-icon"><svg class="icn" aria-hidden="true"><use href="#ic-shield"></use></svg></span><span>Max drawdown</span></div><div class="kpi-value green" id="kpi-dd">—</div></div>
+                <div class="kpi-card" title="% of trades rated 4-star or 5-star — your execution quality score">
+                  <div class="kpi-label"><span class="cal-kpi-icon"><svg class="icn" aria-hidden="true"><use href="#ic-brain"></use></svg></span><span>Consistency score</span></div>
+                  <div class="kpi-value blue" id="kpi-consistency">—</div>
+                  <div style="font-size:10px;color:var(--text3);margin-top:2px" id="kpi-consistency-sub"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- NxTGen Score -->
+            <div class="nxt-score-card" id="nxt-score-card" title="Composite score of your win rate, profit factor and win/loss ratio">
+              <div class="nxt-score-head">
+                <span class="nxt-score-title">NxTGen Score</span>
+                <span class="nxt-score-badge">BETA</span>
+              </div>
+              <div class="nxt-score-body">
+                <div class="nxt-score-tri-wrap" id="nxt-score-tri-wrap"></div>
+              </div>
+              <div class="nxt-score-foot">
+                <span class="nxt-score-foot-label">Your NxTGen Score</span>
+                <span class="nxt-score-value" id="nxt-score-value">—</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Insight -->
+          <div class="insight">
+            <span class="insight-ico"><svg class="icn" aria-hidden="true"><use href="#ic-bulb"></use></svg></span>
+            <span class="insight-text" id="dash-insight-text">Analysing your data…</span>
+          </div>
+
+          <!-- Backtesting Lab widgets (Phase 7) — pulls live from journal_backtest_lab + journal_backtest_trades -->
+          <div class="cal2-sec-head-row">
+            <div class="sec-head" style="margin:0;flex:1"><svg class="icn" aria-hidden="true"><use href="#ic-flask"></use></svg> Backtesting Lab</div>
+            <button class="cal2-max-btn" onclick="nav('backtesting', document.querySelector('.sb-item[onclick*=\'backtesting\']'), 'Backtesting Lab')" title="Open Backtesting Lab">
+              <svg class="icn" aria-hidden="true" viewBox="0 0 24 24"><path d="M9 3H3v6M15 3h6v6M9 21H3v-6M15 21h6v-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>Open Lab</span>
+            </button>
+          </div>
+          <div class="kpi-grid dash-kpi-mini" id="dash-bl-widgets">
+            <div class="kpi-card"><div class="kpi-label"><span class="cal-kpi-icon"><svg class="icn" aria-hidden="true"><use href="#ic-flask"></use></svg></span><span>Total backtests</span></div><div class="kpi-value blue" id="dash-bl-total">—</div><div style="font-size:10px;color:var(--text3);margin-top:2px" id="dash-bl-total-sub"></div></div>
+            <div class="kpi-card" title="Estimated from simulated trades logged — roughly 12 min of analysis per trade"><div class="kpi-label"><span class="cal-kpi-icon"><svg class="icn" aria-hidden="true"><use href="#ic-clock"></use></svg></span><span>Hours practiced</span> <span class="info-dot">i</span></div><div class="kpi-value blue" id="dash-bl-hours">—</div></div>
+            <div class="kpi-card" title="Edge Score of your strongest active strategy (see Strategy Comparison)"><div class="kpi-label"><span class="cal-kpi-icon"><svg class="icn" aria-hidden="true"><use href="#ic-target"></use></svg></span><span>Current edge</span> <span class="info-dot">i</span></div><div class="kpi-value gold" id="dash-bl-edge">—</div><div style="font-size:10px;color:var(--text3);margin-top:2px" id="dash-bl-edge-sub"></div></div>
+            <div class="kpi-card"><div class="kpi-label"><span class="cal-kpi-icon"><svg class="icn" aria-hidden="true"><use href="#ic-fire"></use></svg></span><span>Practice streak</span></div><div class="kpi-value teal" id="dash-bl-streak">—</div></div>
+          </div>
+
+          <!-- Trading Calendar (moved inline, no longer a sliding side panel) -->
+          <div class="cal2-sec-head-row">
+            <div class="sec-head" style="margin:0;flex:1"><svg class="icn" aria-hidden="true"><use href="#ic-calendar"></use></svg> Trading Calendar</div>
+            <button class="cal2-max-btn" onclick="calMaximizeToPage()" title="Open full Calendar page">
+              <svg class="icn" aria-hidden="true" viewBox="0 0 24 24"><path d="M9 3H3v6M15 3h6v6M9 21H3v-6M15 21h6v-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>Full calendar</span>
+            </button>
+          </div>
+          <div class="dash-cal-panel" id="dash-cal-panel">
+            <div class="dash-cal-top">
+              <div class="dash-cal-controls">
+                <select class="form-select" id="cal-acc-filter" onchange="_onCalAccFilterChange()" style="font-size:11px;padding:4px 8px;height:28px">
+                  <option value="">All accounts</option>
+                </select>
+                <input type="number" class="acc-size-input" id="cal-acc-size" value="5000" oninput="renderCalendar()" title="Account size for USD calc" style="width:72px;font-size:11px;padding:4px 6px;height:28px">
+              </div>
+            </div>
+
+            <div class="dash-cal-body" id="dash-cal-body">
+              <div class="cal-header" style="padding:8px 0 8px">
+                <div class="cal-nav" onclick="calNav(-1)">‹</div>
+                <div class="cal-month-label" id="cal-month-label">Loading…</div>
+                <div class="cal-nav" onclick="calNav(1)">›</div>
+              </div>
+
+              <div class="cal-kpi-row" id="cal-kpi-row"></div>
+
+              <div class="cal-grid-wrap">
+                <div class="cal-dow-row" id="cal-dow-row">
+                  <div class="cal-dow">SUN</div><div class="cal-dow">MON</div><div class="cal-dow">TUE</div>
+                  <div class="cal-dow">WED</div><div class="cal-dow">THU</div><div class="cal-dow">FRI</div><div class="cal-dow">SAT</div>
+                </div>
+                <div class="cal-days" id="cal-days"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pair Performance -->
+          <div class="sec-head">Pair Performance</div>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead id="pair-table-head"><tr><th class="sortable-th" onclick="buildPairTable('pair')">Pair ⇅</th><th class="sortable-th" onclick="buildPairTable('trades')">Trades ⇅</th><th class="sortable-th" onclick="buildPairTable('wr')">Win% ⇅</th><th class="sortable-th" onclick="buildPairTable('pnl')">Net PnL ⇅</th><th class="col-winbar">Win rate bar</th></tr></thead>
+              <tbody id="pair-table-body"></tbody>
+            </table>
+          </div>
+
+          <!-- Killzone -->
+          <div class="sec-head">Killzone Breakdown</div>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead id="kz-table-head"><tr><th class="sortable-th" onclick="buildKillzoneTable('session')">Session ⇅</th><th class="sortable-th" onclick="buildKillzoneTable('trades')">Trades ⇅</th><th class="sortable-th" onclick="buildKillzoneTable('wr')">Win% ⇅</th><th class="sortable-th" onclick="buildKillzoneTable('pnl')">Avg PnL ⇅</th><th>Grade</th></tr></thead>
+              <tbody id="kz-table-body"></tbody>
+            </table>
+          </div>
+
+          <!-- Day × Session Matrix -->
+          <div class="sec-head">Day × Session Win Rate <span style="font-size:10px;font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0;margin-left:6px">Which days are actually worth trading?</span></div>
+          <div style="background:var(--glass-0);border:1px solid var(--glass-border);border-radius:var(--r-md);padding:16px;margin-bottom:20px;overflow-x:auto">
+            <div id="day-session-matrix"></div>
+          </div>
+
+          <!-- Loss Pattern Breakdown -->
+          <div class="sec-head">Loss Pattern Audit <span style="font-size:10px;font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0;margin-left:6px">Why are you really losing?</span></div>
+          <div style="background:var(--glass-0);border:1px solid var(--glass-border);border-radius:var(--r-md);padding:16px;margin-bottom:20px">
+            <div id="loss-pattern-chart"></div>
+          </div>
+
+          <!-- Checklist Skip Analysis -->
+          <div class="sec-head">Checklist Discipline <span style="font-size:10px;font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0;margin-left:6px">Items skipped before losses vs wins</span></div>
+          <div style="background:var(--glass-0);border:1px solid var(--glass-border);border-radius:var(--r-md);padding:16px;margin-bottom:20px">
+            <div id="checklist-skip-analysis"></div>
+          </div>
+
+          <!-- Strategy -->
+          <div class="sec-head">Model Performance</div>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead id="strategy-table-head"><tr><th class="sortable-th" onclick="buildStrategyTable('strategy')">Model ⇅</th><th class="sortable-th" onclick="buildStrategyTable('trades')">Trades ⇅</th><th class="sortable-th" onclick="buildStrategyTable('wr')">Win% ⇅</th><th class="sortable-th" onclick="buildStrategyTable('pnl')">Avg PnL ⇅</th></tr></thead>
+              <tbody id="strategy-table-body"></tbody>
+            </table>
+          </div>
+
+          <!-- Monthly -->
+          <div class="sec-head">Monthly PnL</div>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead id="monthly-table-head"><tr><th class="sortable-th" onclick="buildMonthlyTable('month')">Month ⇅</th><th class="sortable-th" onclick="buildMonthlyTable('trades')">Trades ⇅</th><th class="sortable-th" onclick="buildMonthlyTable('wr')">Win% ⇅</th><th class="sortable-th" onclick="buildMonthlyTable('pnl')">Net PnL ⇅</th><th>Avg Win</th><th>Avg Loss</th><th class="sortable-th" onclick="buildMonthlyTable('streak')">Streak ⇅</th><th>Grade</th></tr></thead>
+              <tbody id="monthly-table-body"></tbody>
+            </table>
+          </div>
+
+          <!-- Equity Curve -->
+          <div class="sec-head" style="display:flex;align-items:center;justify-content:space-between">
+            Equity Curve
+            <div style="display:flex;gap:6px">
+              <button class="dash-filter-btn active" id="eq-btn-pct" onclick="setEqMode('pct',this)" style="font-size:10px;padding:3px 8px">%</button>
+              <button class="dash-filter-btn" id="eq-btn-usd" onclick="setEqMode('usd',this)" style="font-size:10px;padding:3px 8px">$</button>
+            </div>
+          </div>
+          <div style="background:var(--glass-0);border:1px solid var(--glass-border);border-radius:var(--r-md);padding:16px;margin-bottom:20px;position:relative">
+            <canvas id="equity-curve-canvas" style="width:100%;height:180px;display:block"></canvas>
+            <div id="equity-curve-empty" style="display:none;text-align:center;padding:40px;color:var(--text3);font-size:13px">No trades to chart yet</div>
+          </div>
+
+          <!-- Correlation Heatmap -->
+          <div class="sec-head">Pair × Session Heatmap <span style="font-size:10px;font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0;margin-left:6px">Win rate %</span></div>
+          <div style="background:var(--glass-0);border:1px solid var(--glass-border);border-radius:var(--r-md);padding:16px;margin-bottom:20px;overflow-x:auto">
+            <div id="corr-heatmap-wrap"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+         TRADE LOG PAGE
+    ═══════════════════════════════════════════════ -->
+    <div class="page" id="page-tradelog">
+      <div class="page-inner">
+        <div class="cover">
+          <div class="cover-label">Trade Database · All accounts</div>
+          <div class="cover-title">Trade Log</div>
+          <div class="cover-sub">Click any row to view details, upload charts and add notes</div>
+        </div>
+        <div class="filter-bar" style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+          <input type="text" class="form-input" id="search-input" placeholder="Search pair, date, killzone…" oninput="filterTable()" style="flex:1;min-width:140px">
+          <select class="form-select" id="filter-outcome" onchange="filterTable()" style="flex:1;min-width:110px">
+            <option value="">All outcomes</option>
+            <option value="Win">Win</option>
+            <option value="Loss">Loss</option>
+            <option value="B.E">B.E</option>
+          </select>
+          <select class="form-select" id="filter-kz" onchange="filterTable()" style="flex:1;min-width:120px">
+            <option value="">All killzones</option>
+            <option value="London">London</option>
+            <option value="New York">New York</option>
+            <option value="Asian">Asian</option>
+          </select>
+          <select class="form-select" id="filter-pair" onchange="filterTable()" style="flex:1;min-width:100px">
+            <option value="">All pairs</option>
+          </select>
+          <button onclick="exportTradesToCSV()" style="background:rgba(58,134,255,.1);border:1px solid rgba(58,134,255,.25);color:var(--blue);border-radius:var(--r-sm);padding:6px 14px;font-size:12px;cursor:pointer;white-space:nowrap" title="Export filtered trades to CSV"><svg class="icn" aria-hidden="true"><use href="#ic-download"></use></svg> CSV</button>
+        </div>
+        <div class="data-table-wrap">
+        <table class="data-table" id="trade-table">
+          <thead><tr><th id="tl-select-all-th" style="width:32px"></th><th>Date</th><th>Pair</th><th>Pos</th><th>R:R</th><th>PnL</th><th>Outcome</th><th>Killzone</th><th>Model</th><th>Account</th><th>Trade Rating</th><th></th></tr></thead>
+          <tbody id="trade-table-body"></tbody>
+        </table>
+        </div>
+        <!-- Bulk action bar -->
+        <div id="bulk-action-bar" style="display:none;align-items:center;gap:10px;padding:8px 12px;margin-top:8px;background:rgba(230,57,70,.08);border:1px solid rgba(230,57,70,.2);border-radius:8px">
+          <span id="bulk-count-lbl" style="font-size:13px;color:var(--red);font-weight:500"></span>
+          <button onclick="bulkDeleteSelected()" style="background:rgba(230,57,70,.15);border:1px solid rgba(230,57,70,.3);color:var(--red);border-radius:6px;padding:4px 14px;font-size:12px;cursor:pointer"><svg class="icn" aria-hidden="true"><use href="#ic-trash"></use></svg> Move to Trash</button>
+          <button onclick="bulkDuplicateSelected()" style="background:rgba(58,134,255,.12);border:1px solid rgba(58,134,255,.25);color:var(--blue);border-radius:6px;padding:4px 14px;font-size:12px;cursor:pointer"><svg class="icn" aria-hidden="true"><use href="#ic-copy"></use></svg> Duplicate</button>
+          <button onclick="_bulkSelected.clear();_updateBulkBar();document.querySelectorAll('.bulk-chk').forEach(c=>c.checked=false);document.querySelectorAll('.bulk-selected').forEach(r=>r.classList.remove('bulk-selected'))" style="background:var(--glass-1);border:1px solid var(--glass-border);color:var(--text2);border-radius:6px;padding:4px 14px;font-size:12px;cursor:pointer"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg> Cancel</button>
+          <div style="flex:1"></div>
+          <button onclick="exportTradesToCSV()" style="background:rgba(58,134,255,.12);border:1px solid rgba(58,134,255,.25);color:var(--blue);border-radius:6px;padding:4px 14px;font-size:12px;cursor:pointer"><svg class="icn" aria-hidden="true"><use href="#ic-download"></use></svg> Export CSV</button>
+        </div>
+        <div style="margin-top:12px;font-size:12px;color:var(--text3)" id="trade-count"></div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+         WATCHLIST PAGE
+    ═══════════════════════════════════════════════ -->
+    <div class="page" id="page-watchlist">
+      <div class="page-inner">
+        <div class="cover">
+          <div class="cover-label" id="wl-cover-label">Analysis Journal · Weekly Prep</div>
+          <div class="cover-title">Market Watchlist</div>
+          <div class="cover-sub">HTF <svg class="icn icn-sm" aria-hidden="true"><use href="#ic-arrow-right"></use></svg> Daily <svg class="icn icn-sm" aria-hidden="true"><use href="#ic-arrow-right"></use></svg> 4h <svg class="icn icn-sm" aria-hidden="true"><use href="#ic-arrow-right"></use></svg> 1h <svg class="icn icn-sm" aria-hidden="true"><use href="#ic-arrow-right"></use></svg> 30m <svg class="icn icn-sm" aria-hidden="true"><use href="#ic-arrow-right"></use></svg> LTF Entry · Complete every Sunday</div>
+        </div>
+
+        <!-- Quarter Navigator -->
+        <div class="wl-quarter-nav" id="wl-quarter-nav"></div>
+
+        <!-- Week selector bar -->
+        <div class="wl-week-bar" id="wl-week-bar">
+          <div class="wl-week-scroll" id="wl-week-scroll"></div>
+          <div class="wl-week-history" id="wl-week-history">
+            <button class="wl-week-history-btn" id="wl-week-history-btn" onclick="_wlToggleHistory(event)">
+              <span class="wl-week-history-ico"><svg class="icn" aria-hidden="true"><use href="#ic-clock"></use></svg></span>
+              <span>Past Weeks</span>
+              <span class="wl-week-history-count" id="wl-week-history-count"></span>
+              <span class="wl-week-history-arrow" id="wl-week-history-arrow">▾</span>
+            </button>
+            <div class="wl-week-history-panel" id="wl-week-history-panel" style="display:none"></div>
+          </div>
+          <button class="wl-add-week-btn" onclick="wlAddWeek()" title="Add new week">＋ New Week</button>
+        </div>
+
+        <!-- Active week content -->
+        <div id="wl-week-content">
+          <div class="wl-empty-state" id="wl-empty-state">
+            <div class="wl-empty-icon"><svg class="icn" aria-hidden="true"><use href="#ic-chart-bar"></use></svg></div>
+            <div class="wl-empty-title">No analysis yet</div>
+            <div class="wl-empty-sub">Click <strong>+ New Week</strong> to start your first weekly watchlist for this quarter.</div>
+          </div>
+        </div>
+
+        <!-- Modals -->
+        <div class="wl-modal-overlay" id="wl-modal-overlay" onclick="wlCloseModal()"></div>
+        <div class="wl-modal" id="wl-modal">
+          <div class="wl-modal-head">
+            <div class="wl-modal-title" id="wl-modal-title">New Week</div>
+            <button class="wl-modal-close" onclick="wlCloseModal()"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>
+          </div>
+          <div class="wl-modal-body" id="wl-modal-body"></div>
+        </div>
+
+        <!-- Pair modal -->
+        <div class="wl-modal-overlay" id="wl-pair-modal-overlay" onclick="wlClosePairModal()"></div>
+        <div class="wl-modal wl-modal-wide" id="wl-pair-modal">
+          <div class="wl-modal-head">
+            <div class="wl-modal-title" id="wl-pair-modal-title">Pair Analysis</div>
+            <button class="wl-modal-close" onclick="wlClosePairModal()"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>
+          </div>
+          <div class="wl-modal-body" id="wl-pair-modal-body"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+         TRADE ENTRY PAGE
+    ═══════════════════════════════════════════════ -->
+
+    <!-- ═══════════════════════════════════════════════
+         ACCOUNTS PAGE
+    ═══════════════════════════════════════════════ -->
+    <div class="page" id="page-accounts">
+      <div class="page-inner">
+        <div class="cover">
+          <div class="cover-label">Funded &amp; Paper Accounts</div>
+          <div class="cover-title">Account Tracker</div>
+          <div class="cover-sub">Track drawdown, targets, and payouts across all accounts</div>
+        </div>
+
+        <!-- Account cards grid -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div class="sec-head" style="margin-bottom:0">Accounts</div>
+          <button class="wl-add-week-btn" onclick="_openManageAccounts()"><svg class="icn" aria-hidden="true"><use href="#ic-settings"></use></svg> Manage Accounts</button>
+        </div>
+        <div class="acc-grid" id="accounts-grid"></div>
+
+        <!-- Account detail drawer -->
+        <div class="acc-detail-drawer" id="acc-detail-drawer" style="display:none">
+          <div class="acc-detail-body" id="acc-detail-body"></div>
+        </div>
+
+        <!-- Payout Log -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;margin-top:24px">
+          <div class="sec-head" style="margin-bottom:0">Payout Log</div>
+          <button class="wl-add-week-btn" onclick="accAddPayout()">＋ Add Payout</button>
+        </div>
+        <div class="data-table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Date</th><th>Account</th><th>Amount</th><th>Status</th><th></th></tr></thead>
+            <tbody id="payout-tbody"></tbody>
+          </table>
+        </div>
+
+        <!-- Milestones -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;margin-top:24px">
+          <div class="sec-head" style="margin-bottom:0">Milestones</div>
+          <button class="wl-add-week-btn" onclick="accAddMilestone()">＋ Add Milestone</button>
+        </div>
+        <div class="acc-progress-wrap">
+          <div class="acc-progress-label">
+            <span id="acc-progress-text">0 of 0 complete</span>
+            <span id="acc-progress-pct">0%</span>
+          </div>
+          <div class="acc-progress-bg">
+            <div class="acc-progress-fill" id="acc-progress-fill" style="width:0%"></div>
+          </div>
+        </div>
+        <div class="checklist-grid" id="milestones-list"></div>
+
+        <!-- Payout modal -->
+        <div class="wl-modal-overlay" id="acc-payout-overlay" onclick="accClosePayoutModal()"></div>
+        <div class="wl-modal" id="acc-payout-modal">
+          <div class="wl-modal-head">
+            <div class="wl-modal-title" id="acc-payout-modal-title">Add Payout</div>
+            <button class="wl-modal-close" onclick="accClosePayoutModal()"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>
+          </div>
+          <div class="wl-modal-body" id="acc-payout-modal-body"></div>
+        </div>
+
+        <!-- MT5 Connect modal -->
+        <div class="mt5-overlay" id="mt5-overlay" onclick="if(event.target===this)mt5CloseModal()"></div>
+        <div class="mt5-modal" id="mt5-modal">
+          <div class="mt5-modal-head">
+            <div class="mt5-modal-logo">
+              <span class="mt5-logo-icon">⑤</span>
+              <span class="mt5-logo-text">MetaTrader 5</span>
+              <span class="mt5-logo-badge">Connection</span>
+            </div>
+            <button class="wl-modal-close" onclick="mt5CloseModal()"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>
+          </div>
+          <div class="mt5-modal-body" id="mt5-modal-body"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+         BACKTESTING LAB — Phase 1: Strategy Library
+         Phase 2: Backtest Sessions + Manual Trade Simulator
+         (Chart Replay / live analytics land in later phases)
+    ═══════════════════════════════════════════════ -->
+    <div class="page" id="page-backtesting">
+      <div class="page-inner">
+        <div class="cover">
+          <div class="cover-label">Research · Refine · Prove Your Edge</div>
+          <div class="cover-title">Backtesting Lab</div>
+          <div class="cover-sub">Build strategies, run sessions, log simulated trades</div>
+        </div>
+
+        <div class="sec-head" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <div style="display:flex;align-items:center;gap:14px">
+            <span>Strategy Library</span>
+            <div class="bl-tabs" id="bl-tabs">
+              <button class="bl-tab active" onclick="_blTab('active',this)">Active</button>
+              <button class="bl-tab" onclick="_blTab('archived',this)">Archived</button>
+            </div>
+          </div>
+          <button onclick="_openStrategyEditModal(null)" style="font-size:11px;padding:4px 12px;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.3);color:var(--gold);border-radius:20px;cursor:pointer;font-family:inherit;font-weight:600;transition:all .15s" onmouseover="this.style.background='rgba(251,191,36,.22)'" onmouseout="this.style.background='rgba(251,191,36,.12)'">＋ New Strategy</button>
+        </div>
+
+        <div id="bl-strategy-cards" class="bl-strategy-grid"></div>
+
+        <div class="sec-head" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:26px">
+          <div style="display:flex;align-items:center;gap:14px">
+            <span>Backtest Sessions</span>
+            <div class="bl-tabs" id="bt-session-tabs">
+              <button class="bl-tab active" onclick="_btSessionTab('all',this)">All</button>
+              <button class="bl-tab" onclick="_btSessionTab('active',this)">Active</button>
+              <button class="bl-tab" onclick="_btSessionTab('completed',this)">Completed</button>
+            </div>
+          </div>
+          <button onclick="_openSessionEditModal(null)" style="font-size:11px;padding:4px 12px;background:rgba(96,165,250,.12);border:1px solid rgba(96,165,250,.3);color:var(--blue);border-radius:20px;cursor:pointer;font-family:inherit;font-weight:600;transition:all .15s" onmouseover="this.style.background='rgba(96,165,250,.22)'" onmouseout="this.style.background='rgba(96,165,250,.12)'">＋ New Session</button>
+        </div>
+
+        <div id="bt-session-cards" class="bl-strategy-grid"></div>
+
+        <div class="sec-head" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:26px">
+          <span>Screenshot Gallery</span>
+          <select class="form-select" id="bl-gallery-strategy-filter" onchange="_blRenderGallery()" style="font-size:11px;padding:4px 8px;height:30px;max-width:220px">
+            <option value="">All strategies</option>
+          </select>
+        </div>
+        <div id="bl-gallery-grid" class="bl-gallery-grid"></div>
+
+        <div class="sec-head" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:26px">
+          <span>Strategy Comparison</span>
+          <button onclick="_blExportLabReportPDF()" style="font-size:11px;padding:4px 12px;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.3);color:var(--gold);border-radius:20px;cursor:pointer;font-family:inherit;font-weight:600"><svg class="icn" aria-hidden="true"><use href="#ic-download"></use></svg> Download Lab Report (PDF)</button>
+        </div>
+        <div class="data-table-wrap">
+          <table class="data-table" id="bl-compare-table">
+            <thead><tr><th>Strategy</th><th>Trades</th><th>Win Rate</th><th>Avg RR</th><th>Profit Factor</th><th>Max DD</th><th>Edge Score</th></tr></thead>
+            <tbody id="bl-compare-tbody"></tbody>
+          </table>
+        </div>
+
+        <div class="sec-head" style="margin-top:22px">What's Next</div>
+        <div class="model-card" id="bl-roadmap-note" style="opacity:.8">
+          <div class="model-sub" style="margin-bottom:0">
+            Each session now includes an <strong>Analytics</strong> tab (equity curve, rolling win rate, R-multiple distribution, streaks, Monte Carlo) and an <strong>AI Review</strong> tab — open any session and use the tabs at the top. The <strong>Screenshot Gallery</strong> and <strong>Strategy Comparison</strong> below pull from every trade you've logged. A strategy that clears the bar (5+ tests, 55%+ win rate, 1.5+ profit factor) is flagged <strong>Strong Setup</strong> — one click on <strong>Save to Playbook</strong> promotes it into a real Model. Every session also shows up on your <strong>Calendar</strong> — tap the <svg class="icn" style="width:11px;height:11px;vertical-align:-1px"><use href="#ic-flask"></use></svg> on any day to drill into that day's sessions, trades, and Chart Replay.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+         PLAYBOOK PAGE
+    ═══════════════════════════════════════════════ -->
+    <div class="page" id="page-playbook">
+      <div class="page-inner">
+        <div class="cover">
+          <div class="cover-label">Your Rules · Your Edge · Your System</div>
+          <div class="cover-title">Trading Playbook</div>
+          <div class="cover-sub">Read this every morning before trading</div>
+        </div>
+        <div class="sec-head" style="display:flex;align-items:center;justify-content:space-between">
+          <span>Trade Models</span>
+          <button onclick="_openManageStrategies()" style="font-size:11px;padding:4px 12px;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.3);color:var(--gold);border-radius:20px;cursor:pointer;font-family:inherit;font-weight:600;transition:all .15s" onmouseover="this.style.background='rgba(251,191,36,.22)'" onmouseout="this.style.background='rgba(251,191,36,.12)'"><svg class="icn" aria-hidden="true"><use href="#ic-settings"></use></svg> Manage</button>
+        </div>
+        <div id="model-cards"></div>
+        <div class="sec-head">10 Rules Never Broken</div>
+        <div id="rules-list"></div>
+        <div class="sec-head">Trading Schedule — WAT (Lagos)</div>
+        <div class="data-table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Session</th><th>WAT Time</th><th>Priority</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td>Asian Open</td><td class="mono">1:00–5:00 AM</td><td><span class="pill pill-gold">Monitor</span></td><td>Range forms, 3am sweep</td></tr>
+            <tr><td class="bold">London Open</td><td class="mono">8:00–12:00 PM</td><td><span class="pill pill-red">PRIMARY</span></td><td>1am manipulation plays out</td></tr>
+            <tr><td class="bold">London/NY Overlap</td><td class="mono">1:00–5:00 PM</td><td><span class="pill pill-red">PRIMARY</span></td><td>Highest volume, best entries</td></tr>
+            <tr><td>NY Afternoon</td><td class="mono">5:00–8:00 PM</td><td><span class="pill pill-gold">Monitor</span></td><td>Continuation only</td></tr>
+            <tr><td style="color:var(--text3)">No Trade Zone</td><td class="mono">8PM–1AM</td><td><span class="pill pill-grey">AVOID</span></td><td>Low liquidity</td></tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+         GOALS PAGE
+    ═══════════════════════════════════════════════ -->
+    <div class="page" id="page-goals">
+      <div class="page-inner">
+        <div class="cover">
+          <div class="cover-label">Set It · Track It · Achieve It</div>
+          <div class="cover-title">Goals & Milestones</div>
+          <div class="cover-sub">Review every quarter · 2026 Trading Plan</div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <div class="sec-head" style="margin-bottom:0" id="goals-section-head">Goals</div>
+          <button class="wl-add-week-btn" onclick="goalsAddGroup()">＋ Add Group</button>
+        </div>
+        <div class="acc-progress-wrap">
+          <div class="acc-progress-label">
+            <span id="goals-progress-text">0 of 0 complete</span>
+            <span id="goals-progress-pct">0%</span>
+          </div>
+          <div class="acc-progress-bg">
+            <div class="acc-progress-fill" id="goals-progress-fill" style="width:0%"></div>
+          </div>
+        </div>
+        <div id="goals-list"></div>
+        <div class="sec-head">Personal Bests <span style="font-size:10px;color:var(--text3);font-weight:400;font-family:var(--font-mono)">· computed from your trades</span></div>
+        <div class="data-table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Metric</th><th>Record</th><th>Date</th><th>Pair</th></tr></thead>
+          <tbody id="goals-pb-tbody"></tbody>
+        </table>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <div class="sec-head" style="margin-bottom:0">Morning Affirmations</div>
+          <button class="wl-add-week-btn" onclick="affAddItem()">＋ Add</button>
+        </div>
+        <div id="affirmations"></div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+         QUARTER PAGE (dynamic)
+    ═══════════════════════════════════════════════ -->
+    <div class="page" id="page-quarter">
+      <div class="page-inner" id="quarter-page-inner">
+        <div style="color:var(--text2);padding:40px;text-align:center">Select a quarter from the sidebar</div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+         MONTHLY REVIEW PAGE
+    ═══════════════════════════════════════════════ -->
+    <div class="page" id="page-monthly">
+      <div class="page-inner">
+        <!-- Dynamic header -->
+        <div class="cover">
+          <div class="cover-label" id="mr-cover-label">Deep Performance Review</div>
+          <div class="cover-title" id="mr-cover-title">Monthly Review</div>
+          <div class="cover-sub" id="mr-cover-sub"></div>
+        </div>
+
+        <!-- Month navigator -->
+        <div class="mr-nav">
+          <button class="mr-nav-btn" onclick="mrNav(-1)">‹</button>
+          <span class="mr-nav-label" id="mr-nav-label">Loading…</span>
+          <button class="mr-nav-btn" onclick="mrNav(1)">›</button>
+        </div>
+
+        <!-- KPI grid -->
+        <div class="month-summary-grid" id="mr-stats-grid"></div>
+
+        <!-- Loss Audit -->
+        <div class="sec-head">Loss Audit</div>
+        <div class="data-table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Date</th><th>Pair</th><th>Model</th><th>PnL</th><th>Notes</th></tr></thead>
+            <tbody id="mr-loss-tbody"></tbody>
+          </table>
+        </div>
+
+        <!-- Pair breakdown -->
+        <div class="sec-head">Pair Breakdown</div>
+        <div class="data-table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Pair</th><th>Trades</th><th>Win%</th><th>Net PnL</th></tr></thead>
+            <tbody id="mr-pair-tbody"></tbody>
+          </table>
+        </div>
+
+        <!-- Reflection Journal -->
+        <div class="sec-head">Reflection Journal</div>
+        <div id="mr-reflections">
+          <div class="mr-reflect-block">
+            <div class="mr-reflect-label">What went well this month?</div>
+            <textarea class="notes-area mr-reflect-ta" id="mr-r1" placeholder="Discipline, executions, patterns that worked…" oninput="mrReflectDirty()"></textarea>
+          </div>
+          <div class="mr-reflect-block">
+            <div class="mr-reflect-label">Key mistakes &amp; root causes</div>
+            <textarea class="notes-area mr-reflect-ta" id="mr-r2" placeholder="What went wrong and why?" oninput="mrReflectDirty()"></textarea>
+          </div>
+          <div class="mr-reflect-block">
+            <div class="mr-reflect-label">Focus for next month</div>
+            <textarea class="notes-area mr-reflect-ta" id="mr-r3" placeholder="One or two things to lock in next month…" oninput="mrReflectDirty()"></textarea>
+          </div>
+          <div style="display:flex;justify-content:flex-end;margin-top:10px">
+            <button class="wl-btn-primary" id="mr-save-btn" onclick="mrSaveReflections()" style="display:none"><svg class="icn" aria-hidden="true"><use href="#ic-save"></use></svg> Save Reflections</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+         CALENDAR PAGE
+    ═══════════════════════════════════════════════ -->
+    <div class="page" id="page-calendar">
+      <div class="cal-page-scroll">
+        <!-- Account filter bar — mirrors the desktop dashboard calendar controls -->
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0">
+            <span style="font-size:11px;color:var(--text3);white-space:nowrap"><svg class="icn" aria-hidden="true"><use href="#ic-calendar"></use></svg> Trading Calendar</span>
+          </div>
+          <button class="cal2-min-btn" onclick="calMinimizeToDashboard()" title="Back to Dashboard">
+            <svg class="icn" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>Minimize</span>
+          </button>
+          <select class="form-select" id="cal-acc-filter-2" onchange="_onCalAccFilterChange2()" style="font-size:11px;padding:4px 8px;height:30px;flex:1;min-width:120px;max-width:200px">
+            <option value="">All accounts</option>
+          </select>
+          <input type="number" class="acc-size-input" id="cal-acc-size-2" value="5000" oninput="_onCalAccSize2Change()" title="Account size for USD calc" style="width:80px;font-size:11px;padding:4px 6px;height:30px">
+        </div>
+
+        <!-- Analytics cards — Net P&L / Trade win% / Profit factor -->
+        <div class="cal-an-grid" id="cal-an-row1"></div>
+        <!-- Analytics cards — Day win% / Avg win-loss trade -->
+        <div class="cal-an-grid row2" id="cal-an-row2"></div>
+
+        <!-- Trading Score + Monthly Intelligence -->
+        <div class="cal2-top-row">
+          <div class="cal2-score-card" id="cal2-score"></div>
+          <div class="cal2-insights-card" id="cal2-insights"></div>
+        </div>
+
+        <!-- AI Coach -->
+        <div class="cal2-coach-card" id="cal2-coach"></div>
+
+        <!-- Filters -->
+        <div class="cal2-filter-bar" id="cal2-filter-bar"></div>
+        <button class="cal2-filter-fab" id="cal2-filter-fab" onclick="calOpenFilterSheet()">
+          <svg class="icn" aria-hidden="true"><use href="#ic-sort"></use></svg> Filters
+          <span class="cal2-filter-fab-count" id="cal2-filter-fab-count" style="display:none"></span>
+        </button>
+
+        <div class="cal-wrap">
+          <!-- View mode / heatmap tabs -->
+          <div class="cal2-mode-tabs" id="cal2-mode-tabs"></div>
+          <div class="cal-page-header">
+            <div class="cal-nav" onclick="calNav(-1)">‹</div>
+            <div class="cal-month-label" id="cal-month-label-2">May 2026</div>
+            <div class="cal-nav" onclick="calNav(1)">›</div>
+            <button class="cal-today-btn" onclick="calGoToday()">This month</button>
+            <div class="cal-header-spacer"></div>
+            <div class="cal-header-icons">
+              <button class="cal-icon-btn" title="Calendar settings" onclick="openCalSettings()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+              </button>
+              <button class="cal-icon-btn" title="Export as image" onclick="calExportImage()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+              </button>
+              <button class="cal-icon-btn" title="About this calendar" onclick="showToast('Colored cells show daily P&amp;L outcome — green win, red loss, blue breakeven.','info')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+              </button>
+            </div>
+          </div>
+          <div class="cal-stats-pill-row" id="cal-stats-pill-2"></div>
+          <div class="cal-grid-with-weeks">
+            <div class="cal-grid-wrap">
+              <div class="cal-dow-row" id="cal-dow-row-2">
+                <div class="cal-dow">SUN</div><div class="cal-dow">MON</div><div class="cal-dow">TUE</div>
+                <div class="cal-dow">WED</div><div class="cal-dow">THU</div><div class="cal-dow">FRI</div><div class="cal-dow">SAT</div>
+              </div>
+              <div class="cal-days" id="cal-days-2"></div>
+            </div>
+            <div class="cal-week-col-wrap">
+              <div class="cal-week-col-heading">Weekly P&amp;L</div>
+              <div class="cal-week-col" id="cal-week-col-2"></div>
+            </div>
+          </div>
+          <div class="cal2-agenda-wrap" id="cal2-agenda-wrap" style="display:none">
+            <div class="cal2-agenda" id="cal2-agenda"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mobile: bottom-sheet filters -->
+      <div class="cal2-filter-sheet" id="cal2-filter-sheet">
+        <div class="cal2-filter-sheet-backdrop" onclick="calCloseFilterSheet()"></div>
+        <div class="cal2-filter-sheet-panel">
+          <div class="cal2-filter-sheet-handle"></div>
+          <div class="cal2-filter-sheet-head">
+            <span>Filter trades</span>
+            <button onclick="calCloseFilterSheet()"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>
+          </div>
+          <div class="cal2-filter-sheet-body" id="cal2-filter-sheet-body"></div>
+          <button class="cal2-filter-sheet-apply" onclick="calCloseFilterSheet()">Show results</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+         TRASH PAGE
+    ═══════════════════════════════════════════════ -->
+    <!-- ═══════════════════════════════════════════════
+         AI COACH PAGE
+    ═══════════════════════════════════════════════ -->
+    <div class="page" id="page-ai">
+      <div class="page-inner">
+
+        <!-- Page tabs: Coach vs Chat -->
+        <div class="ai-page-tabs">
+          <button class="ai-page-tab active" id="ai-tab-coach" onclick="aiPageTab('coach')">
+            <span>✦</span> AI Coach
+          </button>
+          <button class="ai-page-tab" id="ai-tab-chat" onclick="aiPageTab('chat')">
+            <span><svg class="icn" aria-hidden="true"><use href="#ic-speech"></use></svg></span> Chat
+            <span class="ai-chat-badge" id="ai-chat-badge" style="display:none"></span>
+          </button>
+        </div>
+
+        <!-- ══ COACH PANEL ══ -->
+        <div id="ai-coach-panel">
+
+        <!-- Cover -->
+        <div class="cover ai-cover">
+          <div class="cover-label">NxTGen Intelligence · Powered by Claude</div>
+          <div class="cover-title">AI Trading Coach</div>
+          <div class="cover-sub">Chart analysis · Pattern recognition · Psychology · Daily, weekly &amp; monthly reviews</div>
+        </div>
+
+        <!-- Mode selector tabs -->
+        <div class="ai-mode-bar">
+          <button class="ai-mode-btn active" data-mode="daily"   onclick="aiSetMode('daily')"><svg class="icn" aria-hidden="true"><use href="#ic-calendar"></use></svg> Daily Brief</button>
+          <button class="ai-mode-btn"         data-mode="weekly"  onclick="aiSetMode('weekly')"><svg class="icn" aria-hidden="true"><use href="#ic-chart-bar"></use></svg> Weekly Review</button>
+          <button class="ai-mode-btn"         data-mode="monthly" onclick="aiSetMode('monthly')"><svg class="icn" aria-hidden="true"><use href="#ic-calendar"></use></svg> Monthly Review</button>
+          <button class="ai-mode-btn"         data-mode="pattern" onclick="aiSetMode('pattern')"><svg class="icn" aria-hidden="true"><use href="#ic-flask"></use></svg> Pattern Analysis</button>
+          <button class="ai-mode-btn"         data-mode="psych"   onclick="aiSetMode('psych')"><svg class="icn" aria-hidden="true"><use href="#ic-brain"></use></svg> Psychology</button>
+          <button class="ai-mode-btn"         data-mode="plan"    onclick="aiSetMode('plan')"><svg class="icn" aria-hidden="true"><use href="#ic-map"></use></svg> Trading Plan</button>
+          <button class="ai-mode-btn"         data-mode="chart"   onclick="aiSetMode('chart')"><svg class="icn" aria-hidden="true"><use href="#ic-camera"></use></svg> Chart Read</button>
+        </div>
+
+        <!-- Context panel — changes per mode -->
+        <div class="ai-context-panel" id="ai-context-panel"></div>
+
+        <!-- Chart upload (only visible in chart mode) -->
+        <div class="ai-chart-upload-wrap" id="ai-chart-upload-wrap" style="display:none">
+          <div class="ai-chart-upload-zone" id="ai-chart-upload-zone"
+               onclick="document.getElementById('ai-chart-file').click()"
+               ondragover="aiChartDragOver(event)"
+               ondragleave="aiChartDragLeave(event)"
+               ondrop="aiChartDrop(event)">
+            <div class="ai-upload-icon"><svg class="icn" aria-hidden="true"><use href="#ic-camera"></use></svg></div>
+            <div class="ai-upload-text">Drop chart screenshots here or click to upload</div>
+            <div class="ai-upload-hint">Supports PNG, JPG, WebP · Multiple files OK</div>
+          </div>
+          <input type="file" id="ai-chart-file" accept="image/*" multiple style="display:none"
+                 onchange="aiHandleChartUpload(this)">
+          <div class="ai-chart-thumbs" id="ai-chart-thumbs"></div>
+        </div>
+
+        <!-- Question / prompt area -->
+        <div class="ai-prompt-wrap">
+          <textarea class="ai-prompt-input" id="ai-prompt-input"
+            placeholder="Ask anything… or press Analyse to get an automatic deep-dive based on your trade data."
+            rows="3"></textarea>
+          <div class="ai-prompt-actions">
+            <div class="ai-prompt-chips" id="ai-prompt-chips"></div>
+            <button class="ai-analyse-btn" id="ai-analyse-btn" onclick="aiRun()">
+              <span class="ai-btn-icon">✦</span>
+              <span id="ai-btn-label">Analyse</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Response area -->
+        <div class="ai-response-wrap" id="ai-response-wrap" style="display:none">
+          <div class="ai-response-header">
+            <div class="ai-response-badge">
+              <span class="ai-badge-dot"></span>
+              <span id="ai-response-mode-label">Analysis</span>
+            </div>
+            <div class="ai-response-meta" id="ai-response-meta"></div>
+            <button class="wl-week-btn" onclick="aiCopyResponse()" style="font-size:10px">⎘ Copy</button>
+            <button class="wl-week-btn" onclick="aiClear()" style="font-size:10px"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg> Clear</button>
+          </div>
+          <div class="ai-response-body" id="ai-response-body"></div>
+        </div>
+
+        <!-- Chat history -->
+        <div class="ai-history-wrap" id="ai-history-wrap" style="display:none">
+          <div class="sec-head" style="margin-bottom:10px">Conversation</div>
+          <div class="ai-history" id="ai-history"></div>
+        </div>
+
+        </div><!-- /ai-coach-panel -->
+
+        <!-- ══ CHAT PANEL ══ -->
+        <div id="ai-chat-panel" style="display:none">
+          <div class="chat-container">
+
+            <!-- Chat header -->
+            <div class="chat-header">
+              <div class="chat-header-info">
+                <div class="chat-avatar">✦</div>
+                <div>
+                  <div class="chat-header-name">NxTGen AI</div>
+                  <div class="chat-header-status" id="chat-status">
+                    <span class="chat-online-dot"></span> Online · Your personal trading coach
+                  </div>
+                </div>
+              </div>
+              <div class="chat-header-actions">
+                <button class="chat-action-btn" onclick="chatClearHistory()" title="Clear chat"><svg class="icn" aria-hidden="true"><use href="#ic-trash"></use></svg></button>
+                <button class="chat-action-btn" onclick="chatExport()" title="Export chat"><svg class="icn" aria-hidden="true"><use href="#ic-download"></use></svg></button>
+              </div>
+            </div>
+
+            <!-- Messages -->
+            <div class="chat-messages" id="chat-messages">
+              <!-- Welcome message injected by JS -->
+            </div>
+
+            <!-- Image preview strip (above input) -->
+            <div class="chat-image-preview" id="chat-image-preview" style="display:none"></div>
+
+            <!-- Slash command palette -->
+            <div class="chat-cmd-palette" id="chat-cmd-palette" style="display:none"></div>
+
+            <!-- Input area -->
+            <div class="chat-input-wrap" id="chat-input-wrap">
+              <button class="chat-attach-btn" onclick="document.getElementById('chat-file-input').click()" title="Attach chart">
+                <svg class="icn" aria-hidden="true"><use href="#ic-paperclip"></use></svg>
+              </button>
+              <input type="file" id="chat-file-input" accept="image/*" multiple style="display:none"
+                     onchange="chatHandleFiles(this)">
+              <textarea
+                class="chat-input"
+                id="chat-input"
+                placeholder="Ask anything… type / for commands"
+                rows="1"
+                onkeydown="chatKeyDown(event)"
+                oninput="chatInputChange(this)"
+              ></textarea>
+              <button class="chat-send-btn" id="chat-send-btn" onclick="chatSend()" title="Send">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13"></line>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+              </button>
+            </div>
+
+            <!-- Drag-drop overlay -->
+            <div class="chat-drop-overlay" id="chat-drop-overlay">
+              <div class="chat-drop-content">
+                <span><svg class="icn" aria-hidden="true"><use href="#ic-camera"></use></svg></span>
+                <span>Drop charts here</span>
+              </div>
+            </div>
+
+          </div>
+        </div><!-- /ai-chat-panel -->
+
+      </div>
+    </div>
+
+        <div class="page" id="page-trash">
+      <div class="page-inner">
+        <div class="cover" style="background:linear-gradient(135deg,#1a0a0a 0%,#2a1010 100%)">
+          <div class="cover-label" style="color:rgba(255,255,255,.85)">Deleted Trades · Recycle Bin</div>
+          <div class="cover-title">Trash</div>
+          <div class="cover-sub" style="color:rgba(255,255,255,.85)">Deleted trades are kept here. Restore anytime or permanently delete.</div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div id="trash-count" style="font-size:13px;color:var(--text2)"></div>
+          <button id="empty-trash-btn" class="btn" onclick="openEmptyTrashModal()" style="border-color:rgba(230,57,70,.3);color:var(--red);display:none"><svg class="icn" aria-hidden="true"><use href="#ic-trash"></use></svg> Empty Trash</button>
+        </div>
+        <div id="trash-list"></div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         PROFILE PAGE — Cloud synced
+    ═══════════════════════════════════════════════════════════ -->
+    <div class="page" id="page-profile">
+      <div class="page-inner">
+
+        <!-- Hero -->
+        <div class="profile-hero">
+          <div class="profile-hero-bg"></div>
+          <div class="profile-hero-content">
+            <div class="profile-avatar-wrap">
+              <div class="profile-avatar-ring">
+                <div class="profile-avatar" id="profile-avatar-display">TJ</div>
+              </div>
+              <button class="profile-avatar-edit-btn" onclick="document.getElementById('profile-avatar-upload').click()" title="Change avatar"><svg class="icn" aria-hidden="true"><use href="#ic-edit"></use></svg></button>
+              <input type="file" id="profile-avatar-upload" accept="image/*" style="display:none" onchange="profileHandleAvatar(event)">
+            </div>
+            <div class="profile-hero-info">
+              <div class="profile-hero-name" id="profile-hero-name">Trader</div>
+              <div class="profile-hero-email" id="profile-hero-email">—</div>
+              <div class="profile-hero-badges">
+                <span class="profile-badge blue">Free Plan</span>
+                <span class="profile-badge green"><svg class="icn" aria-hidden="true"><use href="#ic-cloud"></use></svg> Cloud Synced</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="profile-tabs">
+          <button class="profile-tab active" onclick="profileTab('account',this)">Account</button>
+          <button class="profile-tab" onclick="profileTab('billing',this)">Billing</button>
+          <button class="profile-tab" onclick="profileTab('settings',this)">Settings</button>
+          <button class="profile-tab" onclick="profileTab('security',this)">Security</button>
+        </div>
+
+        <!-- ── ACCOUNT ── -->
+        <div class="profile-section active" id="profile-tab-account">
+          <div class="profile-card">
+            <div class="profile-card-head">
+              <span class="profile-card-icon"><svg class="icn" aria-hidden="true"><use href="#ic-user"></use></svg></span>
+              <div>
+                <div class="profile-card-title">Personal Information</div>
+                <div class="profile-card-sub">Auto-filled from your registration — edit and save to sync across all devices</div>
+              </div>
+              <button class="btn btn-primary profile-save-btn" onclick="profileSaveAccount()">Save Changes</button>
+            </div>
+            <div class="profile-form-grid">
+              <div class="profile-field"><label class="profile-label">First Name</label><input class="profile-input" type="text" id="pf-fname" placeholder="e.g. Jordan"></div>
+              <div class="profile-field"><label class="profile-label">Last Name</label><input class="profile-input" type="text" id="pf-lname" placeholder="e.g. Williams"></div>
+              <div class="profile-field"><label class="profile-label">Display Name</label><input class="profile-input" type="text" id="pf-display" placeholder="How you appear in the app"></div>
+              <div class="profile-field"><label class="profile-label">Email</label><input class="profile-input" type="email" id="pf-email" placeholder="your@email.com" readonly style="opacity:.6;cursor:not-allowed"></div>
+              <div class="profile-field"><label class="profile-label">Phone (optional)</label><input class="profile-input" type="tel" id="pf-phone" placeholder="+1 234 567 8900"></div>
+              <div class="profile-field">
+                <label class="profile-label">Timezone</label>
+                <select class="profile-select" id="pf-timezone" onchange="_pfLiveUpdate('timezone', this.value)">
+                  <option value="UTC">UTC</option>
+                  <option value="exchange">Exchange (your local device time)</option>
+                  <option value="Pacific/Honolulu">(UTC-10) Honolulu</option>
+                  <option value="America/Anchorage">(UTC-8) Anchorage</option>
+                  <option value="America/Juneau">(UTC-8) Juneau</option>
+                  <option value="America/Los_Angeles">(UTC-7) Los Angeles</option>
+                  <option value="America/Phoenix">(UTC-7) Phoenix</option>
+                  <option value="America/Vancouver">(UTC-7) Vancouver</option>
+                  <option value="America/Denver">(UTC-6) Denver</option>
+                  <option value="America/Mexico_City">(UTC-6) Mexico City</option>
+                  <option value="America/El_Salvador">(UTC-6) San Salvador</option>
+                  <option value="America/Bogota">(UTC-5) Bogota</option>
+                  <option value="America/Chicago">(UTC-5) Chicago</option>
+                  <option value="America/Lima">(UTC-5) Lima</option>
+                  <option value="America/Caracas">(UTC-4) Caracas</option>
+                  <option value="America/New_York">(UTC-4) New York</option>
+                  <option value="America/Santiago">(UTC-4) Santiago</option>
+                  <option value="America/Toronto">(UTC-4) Toronto</option>
+                  <option value="America/Argentina/Buenos_Aires">(UTC-3) Buenos Aires</option>
+                  <option value="America/Halifax">(UTC-3) Halifax</option>
+                  <option value="America/Sao_Paulo">(UTC-3) Sao Paulo</option>
+                  <option value="America/Godthab">(UTC-2) Godthab</option>
+                  <option value="Atlantic/Azores">(UTC-1) Azores</option>
+                  <option value="Atlantic/Cape_Verde">(UTC-1) Cape Verde</option>
+                  <option value="Africa/Casablanca">(UTC+0) Casablanca</option>
+                  <option value="Europe/Dublin">(UTC+0) Dublin</option>
+                  <option value="Europe/Lisbon">(UTC+0) Lisbon</option>
+                  <option value="Europe/London">(UTC+0) London</option>
+                  <option value="Atlantic/Reykjavik">(UTC+0) Reykjavik</option>
+                  <option value="Africa/Algiers">(UTC+1) Algiers</option>
+                  <option value="Africa/Lagos">(UTC+1) Lagos</option>
+                  <option value="Africa/Tunis">(UTC+1) Tunis</option>
+                  <option value="Europe/Amsterdam">(UTC+2) Amsterdam</option>
+                  <option value="Europe/Belgrade">(UTC+2) Belgrade</option>
+                  <option value="Europe/Berlin">(UTC+2) Berlin</option>
+                  <option value="Europe/Bratislava">(UTC+2) Bratislava</option>
+                  <option value="Europe/Brussels">(UTC+2) Brussels</option>
+                  <option value="Europe/Budapest">(UTC+2) Budapest</option>
+                  <option value="Europe/Copenhagen">(UTC+2) Copenhagen</option>
+                  <option value="Africa/Johannesburg">(UTC+2) Johannesburg</option>
+                  <option value="Europe/Ljubljana">(UTC+2) Ljubljana</option>
+                  <option value="Europe/Luxembourg">(UTC+2) Luxembourg</option>
+                  <option value="Europe/Madrid">(UTC+2) Madrid</option>
+                  <option value="Europe/Malta">(UTC+2) Malta</option>
+                  <option value="Europe/Oslo">(UTC+2) Oslo</option>
+                  <option value="Europe/Paris">(UTC+2) Paris</option>
+                  <option value="Europe/Prague">(UTC+2) Prague</option>
+                  <option value="Europe/Rome">(UTC+2) Rome</option>
+                  <option value="Europe/Stockholm">(UTC+2) Stockholm</option>
+                  <option value="Europe/Vienna">(UTC+2) Vienna</option>
+                  <option value="Europe/Warsaw">(UTC+2) Warsaw</option>
+                  <option value="Europe/Zagreb">(UTC+2) Zagreb</option>
+                  <option value="Europe/Zurich">(UTC+2) Zurich</option>
+                  <option value="Europe/Riga">(UTC+3) Riga</option>
+                  <option value="Asia/Riyadh">(UTC+3) Riyadh</option>
+                  <option value="Europe/Sofia">(UTC+3) Sofia</option>
+                  <option value="Europe/Tallinn">(UTC+3) Tallinn</option>
+                  <option value="Europe/Vilnius">(UTC+3) Vilnius</option>
+                  <option value="Asia/Tehran">(UTC+3:30) Tehran</option>
+                  <option value="Asia/Dubai">(UTC+4) Dubai</option>
+                  <option value="Asia/Muscat">(UTC+4) Muscat</option>
+                  <option value="Asia/Kabul">(UTC+4:30) Kabul</option>
+                  <option value="Asia/Ashgabat">(UTC+5) Ashgabat</option>
+                  <option value="Asia/Almaty">(UTC+5) Astana</option>
+                  <option value="Asia/Karachi">(UTC+5) Karachi</option>
+                  <option value="Asia/Colombo">(UTC+5:30) Colombo</option>
+                  <option value="Asia/Kolkata">(UTC+5:30) Kolkata</option>
+                  <option value="Asia/Kathmandu">(UTC+5:45) Kathmandu</option>
+                  <option value="Asia/Dhaka">(UTC+6) Dhaka</option>
+                  <option value="Asia/Yangon">(UTC+6:30) Yangon</option>
+                  <option value="Asia/Bangkok">(UTC+7) Bangkok</option>
+                  <option value="Asia/Ho_Chi_Minh">(UTC+7) Ho Chi Minh</option>
+                  <option value="Asia/Jakarta">(UTC+7) Jakarta</option>
+                  <option value="Asia/Chongqing">(UTC+8) Chongqing</option>
+                  <option value="Asia/Hong_Kong">(UTC+8) Hong Kong</option>
+                  <option value="Asia/Kuala_Lumpur">(UTC+8) Kuala Lumpur</option>
+                  <option value="Asia/Manila">(UTC+8) Manila</option>
+                  <option value="Australia/Perth">(UTC+8) Perth</option>
+                  <option value="Asia/Shanghai">(UTC+8) Shanghai</option>
+                  <option value="Asia/Singapore">(UTC+8) Singapore</option>
+                  <option value="Asia/Taipei">(UTC+8) Taipei</option>
+                  <option value="Asia/Seoul">(UTC+9) Seoul</option>
+                  <option value="Asia/Tokyo">(UTC+9) Tokyo</option>
+                  <option value="Australia/Adelaide">(UTC+9:30) Adelaide</option>
+                  <option value="Australia/Brisbane">(UTC+10) Brisbane</option>
+                  <option value="Australia/Sydney">(UTC+10) Sydney</option>
+                  <option value="Pacific/Norfolk">(UTC+11) Norfolk Island</option>
+                  <option value="Pacific/Auckland">(UTC+12) New Zealand</option>
+                  <option value="Pacific/Chatham">(UTC+12:45) Chatham Islands</option>
+                  <option value="Pacific/Fakaofo">(UTC+13) Tokelau</option>
+                </select>
+              </div>
+              <div class="profile-field full"><label class="profile-label">Address</label><input class="profile-input" type="text" id="pf-address" placeholder="e.g. 12 Baker St, London, UK"></div>
+              <div class="profile-field full"><label class="profile-label">Bio / Trading Goal</label><textarea class="profile-textarea" id="pf-bio" placeholder="e.g. ICT trader aiming for funded accounts and consistent growth…"></textarea></div>
+            </div>
+          </div>
+
+          <div class="profile-card">
+            <div class="profile-card-head">
+              <span class="profile-card-icon"><svg class="icn" aria-hidden="true"><use href="#ic-chart-bar"></use></svg></span>
+              <div>
+                <div class="profile-card-title">Trading Profile</div>
+                <div class="profile-card-sub">Your style, experience level and preferred markets — synced to cloud</div>
+              </div>
+              <button class="btn btn-primary profile-save-btn" onclick="profileSaveTrading()">Save</button>
+            </div>
+            <div class="profile-form-grid">
+              <div class="profile-field">
+                <label class="profile-label">Experience Level</label>
+                <select class="profile-select" id="pf-exp">
+                  <option>Beginner (0–1 yr)</option><option>Intermediate (1–3 yrs)</option>
+                  <option>Advanced (3–5 yrs)</option><option>Professional (5+ yrs)</option>
+                </select>
+              </div>
+              <div class="profile-field">
+                <label class="profile-label">Primary Market</label>
+                <select class="profile-select" id="pf-market">
+                  <option>Forex</option><option>Futures (ES, NQ)</option>
+                  <option>Crypto</option><option>Metals (Gold/Silver)</option><option>Mixed</option>
+                </select>
+              </div>
+              <div class="profile-field">
+                <label class="profile-label">Preferred Session</label>
+                <select class="profile-select" id="pf-session">
+                  <option>London</option><option>New York</option>
+                  <option>Asian</option><option>All sessions</option>
+                </select>
+              </div>
+              <div class="profile-field">
+                <label class="profile-label">Default Risk %</label>
+                <select class="profile-select" id="pf-risk">
+                  <option>0.5%</option><option>1%</option><option>1.5%</option><option>2%</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── BILLING ── -->
+        <div class="profile-section" id="profile-tab-billing">
+          <div class="profile-card">
+            <div class="profile-card-head">
+              <span class="profile-card-icon"><svg class="icn" aria-hidden="true"><use href="#ic-card"></use></svg></span>
+              <div><div class="profile-card-title">Current Plan</div><div class="profile-card-sub">Manage your subscription and billing cycle</div></div>
+            </div>
+            <div class="billing-plans">
+              <div class="billing-plan active">
+                <div class="billing-plan-name">Free</div>
+                <div class="billing-plan-price">$0 <span>/mo</span></div>
+                <ul class="billing-plan-features">
+                  <li><svg class="icn icn-green" aria-hidden="true"><use href="#ic-check-c"></use></svg> Unlimited trade logging</li><li><svg class="icn icn-green" aria-hidden="true"><use href="#ic-check-c"></use></svg> Dashboard analytics</li>
+                  <li><svg class="icn icn-green" aria-hidden="true"><use href="#ic-check-c"></use></svg> Trade log &amp; calendar</li><li><svg class="icn icn-green" aria-hidden="true"><use href="#ic-check-c"></use></svg> Cloud sync (all devices)</li>
+                  <li><svg class="icn icn-red" aria-hidden="true"><use href="#ic-close-c"></use></svg> Unlimited AI Coach</li><li><svg class="icn icn-red" aria-hidden="true"><use href="#ic-close-c"></use></svg> Priority support</li>
+                </ul>
+                <div class="billing-plan-current-badge">Current Plan</div>
+              </div>
+              <div class="billing-plan" style="position:relative">
+                <div class="billing-plan-badge"><svg class="icn" aria-hidden="true"><use href="#ic-zap"></use></svg> Popular</div>
+                <div class="billing-plan-name">Pro</div>
+                <div class="billing-plan-price">$12 <span>/mo</span></div>
+                <ul class="billing-plan-features">
+                  <li><svg class="icn icn-green" aria-hidden="true"><use href="#ic-check-c"></use></svg> Everything in Free</li><li><svg class="icn icn-green" aria-hidden="true"><use href="#ic-check-c"></use></svg> Unlimited AI Coach</li>
+                  <li><svg class="icn icn-green" aria-hidden="true"><use href="#ic-check-c"></use></svg> Advanced pattern analysis</li><li><svg class="icn icn-green" aria-hidden="true"><use href="#ic-check-c"></use></svg> Custom report export</li>
+                  <li><svg class="icn icn-green" aria-hidden="true"><use href="#ic-check-c"></use></svg> Priority support</li><li><svg class="icn icn-green" aria-hidden="true"><use href="#ic-check-c"></use></svg> White-label trade cards</li>
+                </ul>
+                <button class="btn btn-primary" style="width:100%;margin-top:12px">Upgrade to Pro</button>
+              </div>
+              <div class="billing-plan">
+                <div class="billing-plan-name">Elite</div>
+                <div class="billing-plan-price">$29 <span>/mo</span></div>
+                <ul class="billing-plan-features">
+                  <li><svg class="icn icn-green" aria-hidden="true"><use href="#ic-check-c"></use></svg> Everything in Pro</li><li><svg class="icn icn-green" aria-hidden="true"><use href="#ic-check-c"></use></svg> Multi-account tracking</li>
+                  <li><svg class="icn icn-green" aria-hidden="true"><use href="#ic-check-c"></use></svg> Team / prop firm access</li><li><svg class="icn icn-green" aria-hidden="true"><use href="#ic-check-c"></use></svg> 1-on-1 coaching session</li>
+                  <li><svg class="icn icn-green" aria-hidden="true"><use href="#ic-check-c"></use></svg> White-label export</li><li><svg class="icn icn-green" aria-hidden="true"><use href="#ic-check-c"></use></svg> Dedicated support</li>
+                </ul>
+                <button class="btn" style="width:100%;margin-top:12px">Upgrade to Elite</button>
+              </div>
+            </div>
+          </div>
+          <div class="profile-card">
+            <div class="profile-card-head">
+              <span class="profile-card-icon"><svg class="icn" aria-hidden="true"><use href="#ic-receipt"></use></svg></span>
+              <div><div class="profile-card-title">Billing History</div><div class="profile-card-sub">Your past invoices and receipts</div></div>
+            </div>
+            <div class="billing-empty-state"><div style="font-size:28px;margin-bottom:8px"><svg class="icn" aria-hidden="true"><use href="#ic-inbox"></use></svg></div><div style="color:var(--text2);font-size:13px">No billing history yet</div></div>
+          </div>
+        </div>
+
+        <!-- ── SETTINGS ── -->
+        <div class="profile-section" id="profile-tab-settings">
+          <div class="profile-card">
+            <div class="profile-card-head">
+              <span class="profile-card-icon"><svg class="icn" aria-hidden="true"><use href="#ic-settings"></use></svg></span>
+              <div><div class="profile-card-title">App Preferences</div><div class="profile-card-sub">Synced to your account — same on every device</div></div>
+              <button class="btn btn-primary profile-save-btn" onclick="profileSaveSettings()">Save</button>
+            </div>
+            <div class="profile-form-grid">
+              <div class="profile-field"><label class="profile-label">Default Date Range</label>
+                <select class="profile-select" id="pf-daterange" onchange="_pfLiveUpdate('daterange', this.value)"><option>This Month</option><option>This Quarter</option><option>This Year</option><option>All Time</option></select></div>
+              <div class="profile-field"><label class="profile-label">Currency Display</label>
+                <select class="profile-select" id="pf-currency" onchange="_pfLiveUpdate('currency', this.value)"><option>% (Percentage)</option><option>USD ($)</option><option>GBP (£)</option><option>NGN (₦)</option><option>EUR (€)</option></select></div>
+              <div class="profile-field"><label class="profile-label">Week Starts On</label>
+                <select class="profile-select" id="pf-weekstart" onchange="_pfLiveUpdate('weekstart', this.value)"><option>Monday</option><option>Sunday</option></select></div>
+              <div class="profile-field"><label class="profile-label">Dashboard Default View</label>
+                <select class="profile-select" id="pf-defaultview" onchange="_pfLiveUpdate('defaultview', this.value)"><option>Quarterly</option><option>Monthly</option><option>Weekly</option></select></div>
+            </div>
+            <div style="margin-top:20px">
+              <div class="profile-toggle-row">
+                <div><div class="profile-toggle-label">Show Affirmation on Load</div><div class="profile-toggle-sub">Display a daily trading affirmation when the app opens</div></div>
+                <label class="profile-toggle-switch"><input type="checkbox" id="pf-affirmation" checked onchange="_pfLiveUpdate('affirmation', this.checked)"><span class="profile-toggle-track"></span></label>
+              </div>
+              <div class="profile-toggle-row">
+                <div><div class="profile-toggle-label">Sound Notifications</div><div class="profile-toggle-sub">Play a chime when a trade is saved or deleted</div></div>
+                <label class="profile-toggle-switch"><input type="checkbox" id="pf-sounds" onchange="_pfLiveUpdate('sounds', this.checked)"><span class="profile-toggle-track"></span></label>
+              </div>
+              <div class="profile-toggle-row">
+                <div><div class="profile-toggle-label">Compact Table View</div><div class="profile-toggle-sub">Reduce row height in Trade Log for denser viewing</div></div>
+                <label class="profile-toggle-switch"><input type="checkbox" id="pf-compact" onchange="_pfLiveUpdate('compact', this.checked)"><span class="profile-toggle-track"></span></label>
+              </div>
+              <div class="profile-toggle-row">
+                <div><div class="profile-toggle-label">Auto-Save Drafts</div><div class="profile-toggle-sub">Automatically save unfinished trade forms</div></div>
+                <label class="profile-toggle-switch"><input type="checkbox" id="pf-autosave" checked onchange="_pfLiveUpdate('autosave', this.checked)"><span class="profile-toggle-track"></span></label>
+              </div>
+            </div>
+          </div>
+          <div class="profile-card">
+            <div class="profile-card-head">
+              <span class="profile-card-icon"><svg class="icn" aria-hidden="true"><use href="#ic-server"></use></svg></span>
+              <div><div class="profile-card-title">Data Management</div><div class="profile-card-sub">Export your journal or manage your trade data</div></div>
+            </div>
+            <div class="profile-data-actions">
+              <button class="profile-data-btn" onclick="profileExportJSON()"><span><svg class="icn" aria-hidden="true"><use href="#ic-download"></use></svg></span><div><div>Export Trades (JSON)</div><div class="profile-data-btn-sub">Full backup of all your trade data</div></div></button>
+              <button class="profile-data-btn" onclick="profileExportCSV()"><span><svg class="icn" aria-hidden="true"><use href="#ic-chart-bar"></use></svg></span><div><div>Export Trades (CSV)</div><div class="profile-data-btn-sub">Open in Excel, Google Sheets, etc.</div></div></button>
+              <button class="profile-data-btn danger" onclick="profileConfirmClearData()"><span><svg class="icn" aria-hidden="true"><use href="#ic-trash"></use></svg></span><div><div>Clear All Trades</div><div class="profile-data-btn-sub">Permanently deletes all trade records from cloud</div></div></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── SECURITY ── -->
+        <div class="profile-section" id="profile-tab-security">
+          <div class="profile-card">
+            <div class="profile-card-head">
+              <span class="profile-card-icon"><svg class="icn" aria-hidden="true"><use href="#ic-key"></use></svg></span>
+              <div><div class="profile-card-title">Change Password</div><div class="profile-card-sub">Update your Supabase account password</div></div>
+            </div>
+            <div class="profile-form-grid" style="max-width:480px">
+              <div class="profile-field full"><label class="profile-label">Current Password</label><input class="profile-input" type="password" id="pf-pw-current" placeholder="Enter current password"></div>
+              <div class="profile-field full"><label class="profile-label">New Password</label><input class="profile-input" type="password" id="pf-pw-new" placeholder="Min. 8 characters"></div>
+              <div class="profile-field full"><label class="profile-label">Confirm New Password</label><input class="profile-input" type="password" id="pf-pw-confirm" placeholder="Repeat new password"></div>
+              <div class="profile-field full"><button class="btn btn-primary" onclick="profileChangePassword()" style="width:100%">Update Password</button></div>
+            </div>
+          </div>
+          <div class="profile-card">
+            <div class="profile-card-head">
+              <span class="profile-card-icon"><svg class="icn" aria-hidden="true"><use href="#ic-monitor"></use></svg></span>
+              <div><div class="profile-card-title">Active Sessions</div><div class="profile-card-sub">Devices currently logged in to your account</div></div>
+            </div>
+            <div class="profile-session-row">
+              <div class="profile-session-icon"><svg class="icn" aria-hidden="true"><use href="#ic-monitor"></use></svg></div>
+              <div>
+                <div class="profile-session-name">This device (Current session)</div>
+                <div class="profile-session-meta" id="profile-session-meta">Web browser · Active now</div>
+              </div>
+              <span class="pill pill-green" style="margin-left:auto;font-size:10px">Active</span>
+            </div>
+          </div>
+          <div class="profile-card danger-zone">
+            <div class="profile-card-head">
+              <span class="profile-card-icon"><svg class="icn icn-gold" aria-hidden="true"><use href="#ic-warning"></use></svg></span>
+              <div><div class="profile-card-title" style="color:var(--red)">Danger Zone</div><div class="profile-card-sub">Irreversible actions — proceed with caution</div></div>
+            </div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap">
+              <button class="btn" style="border-color:rgba(248,113,113,.3);color:var(--red)" onclick="profileSignOut()"><svg class="icn" aria-hidden="true"><use href="#ic-door-exit"></use></svg> Sign Out</button>
+              <button class="btn" style="border-color:rgba(248,113,113,.3);color:var(--red)" onclick="profileConfirmDeleteAccount()"><svg class="icn" aria-hidden="true"><use href="#ic-trash"></use></svg> Delete Account</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- /profile page -->
+
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<!-- ══ TRADE DETAIL PANEL ══ -->
+<div class="detail-panel" id="detail-panel">
+  <div id="detail-content"></div>
+  <input type="file" id="img-input" accept="image/*" style="display:none" onchange="handleImg(event)">
+</div>
+
+<!-- ══ NEW TRADE MODAL ══ -->
+<div class="modal-overlay" id="modal">
+  <div class="modal modal-box">
+    <div class="modal-head">
+      <div class="modal-title" style="display:flex;align-items:center;gap:10px">
+        <span style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,rgba(96,165,250,0.25),rgba(96,165,250,0.12));border:1px solid rgba(96,165,250,0.3);display:flex;align-items:center;justify-content:center;font-size:14px">+</span>
+        New Trade
+      </div>
+      <button class="modal-close" onclick="closeModal()"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>
+    </div>
+    <div class="modal-body">
+    <div class="form-grid modal-form-grid">
+      <div class="form-field"><label class="form-label">Date</label><input type="date" class="form-input" id="m-date"></div>
+      <div class="form-field"><label class="form-label">Pair</label>
+        <div style="display:flex;gap:6px">
+          <select class="form-select" id="m-pair" onchange="syncCustomPair(this.value)" style="flex:1">
+            <option>GBPUSD</option><option>XAUUSD</option><option>EURUSD</option><option>GBPJPY</option>
+            <option>USDCAD</option><option>ES</option><option>EURGBP</option><option>USDJPY</option>
+            <option>NASDAQ</option><option>BTCUSDT</option><option>ETHUSDT</option><option>GBPAUD</option>
+            <option>AUDUSD</option><option>NZDUSD</option><option>EURJPY</option><option>CADJPY</option>
+            <option>GBPCAD</option><option>EURCAD</option><option>XAGUSD</option><option>US30</option>
+            <option value="__custom__"><svg class="icn" aria-hidden="true"><use href="#ic-edit"></use></svg> Custom pair…</option>
+          </select>
+          <input type="text" class="form-input" id="m-pair-custom" placeholder="e.g. AUDCAD" style="width:110px;display:none">
+        </div>
+      </div>
+      <div class="form-field"><label class="form-label">Position</label>
+        <select class="form-select" id="m-pos"><option>Buy</option><option>Sell</option></select>
+      </div>
+      <div class="form-field"><label class="form-label">R:R</label><input type="text" class="form-input" id="m-rr" placeholder="1:3"></div>
+      <div class="form-field"><label class="form-label">PnL %</label><input type="number" class="form-input" id="m-pnl" step="0.1" placeholder="3.5"></div>
+      <div class="form-field"><label class="form-label">Outcome</label>
+        <select class="form-select" id="m-outcome" onchange="toggleLossReason(this.value)"><option>Win</option><option>Loss</option><option>B.E</option></select>
+      </div>
+      <!-- Loss Reason — shown only when outcome = Loss -->
+      <div class="form-field" id="loss-reason-field" style="display:none">
+        <label class="form-label" style="display:flex;align-items:center;gap:4px">Loss Reason <span style="color:var(--red);font-size:10px">required</span></label>
+        <select class="form-select" id="m-loss-reason">
+          <option value="">— Select reason —</option>
+          <option value="FOMO Entry">FOMO Entry</option>
+          <option value="Early Entry">Early Entry (no confirmation)</option>
+          <option value="Against HTF">Against HTF Bias</option>
+          <option value="Skipped Checklist">Skipped Checklist</option>
+          <option value="Wrong Session">Wrong Session / Outside KZ</option>
+          <option value="News Event">News Event / Spike</option>
+          <option value="Moved SL Early">Moved SL Too Early</option>
+          <option value="Revenge Trade">Revenge Trade</option>
+          <option value="Valid Loss">Valid Loss (followed plan)</option>
+        </select>
+      </div>
+      <div class="form-field"><label class="form-label">Killzone</label>
+        <select class="form-select" id="m-kz"><option>London</option><option>New York</option><option>Asian</option></select>
+      </div>
+      <div class="form-field"><label class="form-label">Model</label>
+        <select class="form-select" id="m-strat" onchange="syncCustomStrategy(this.value)">
+          <option>NxtGen - Mod</option>
+          <option>IRL &gt; ERL</option>
+          <option>ERL &gt; IRL</option>
+          <option value="__custom__">＋ Custom…</option>
+        </select>
+        <input type="text" class="form-input" id="m-strat-custom" placeholder="Enter model name…" style="display:none;margin-top:6px">
+      </div>
+      <div class="form-field"><label class="form-label">TF Alignment</label>
+        <select class="form-select" id="m-tf" onchange="syncCustomTF(this.value)">
+          <option>30m &gt; 3m</option>
+          <option>1h &gt; 5m</option>
+          <option>1h &gt; 3m</option>
+          <option>4h &gt; 15m</option>
+          <option>4h &gt; 5m</option>
+          <option>4h &gt; 3m</option>
+          <option>15m &gt; 3m</option>
+          <option value="__custom__">＋ Custom…</option>
+        </select>
+        <input type="text" class="form-input" id="m-tf-custom" placeholder="e.g. 2h &gt; 5m" style="display:none;margin-top:6px">
+      </div>
+      <div class="form-field"><label class="form-label" style="display:flex;align-items:center;justify-content:space-between">Account <button type="button" onclick="_openManageAccounts()" style="font-size:10px;padding:2px 8px;background:rgba(96,165,250,.12);border:1px solid rgba(96,165,250,.25);color:var(--blue);border-radius:4px;cursor:pointer;font-family:inherit;line-height:1.6"><svg class="icn" aria-hidden="true"><use href="#ic-settings"></use></svg> Manage</button></label>
+        <select class="form-select" id="m-acc"></select>
+      </div>
+      <div class="form-field"><label class="form-label">Rating</label>
+        <select class="form-select" id="m-rating"><option>★★★★★</option><option>★★★★☆</option><option>★★★☆☆</option><option>★★☆☆☆</option></select>
+      </div>
+      <div class="form-field"><label class="form-label">Risk Used</label>
+        <input type="text" class="form-input" id="m-risk" placeholder="e.g. 0.5%" inputmode="decimal">
+      </div>
+      <!-- Mental State -->
+      <div class="form-field">
+        <label class="form-label">Mental State</label>
+        <div class="mental-state-btns" id="mental-state-btns">
+          <button type="button" class="ms-btn ms-focused active" onclick="setMentalState('Focused',this)"><svg class="icn" aria-hidden="true"><use href="#ic-target"></use></svg> Focused</button>
+          <button type="button" class="ms-btn ms-neutral" onclick="setMentalState('Neutral',this)"><svg class="icn" aria-hidden="true"><use href="#ic-meh"></use></svg> Neutral</button>
+          <button type="button" class="ms-btn ms-distracted" onclick="setMentalState('Distracted',this)"><svg class="icn" aria-hidden="true"><use href="#ic-frown"></use></svg> Distracted</button>
+        </div>
+      </div>
+      <!-- Followed Plan -->
+      <div class="form-field">
+        <label class="form-label">Followed Plan?</label>
+        <div class="followed-plan-btns" id="followed-plan-btns">
+          <button type="button" class="fp-btn fp-yes active" onclick="setFollowedPlan('Yes',this)"><svg class="icn icn-green" aria-hidden="true"><use href="#ic-check-c"></use></svg> Yes</button>
+          <button type="button" class="fp-btn fp-partial" onclick="setFollowedPlan('Partial',this)"><svg class="icn icn-gold" aria-hidden="true"><use href="#ic-warning"></use></svg> Partial</button>
+          <button type="button" class="fp-btn fp-no" onclick="setFollowedPlan('No',this)"><svg class="icn icn-red" aria-hidden="true"><use href="#ic-close-c"></use></svg> No</button>
+        </div>
+      </div>
+      <div class="form-field full"><label class="form-label">Pre-Trade Notes</label><textarea class="form-textarea" id="m-pretrade" placeholder="Brief bias, setup thesis…"></textarea></div>
+      <div class="form-field full"><label class="form-label">Post-Trade Reflection</label><textarea class="form-textarea" id="m-notes" placeholder="What happened? What did you learn?"></textarea></div>
+      <!-- Pre-Trade Checklist -->
+      <div class="form-field full">
+        <label class="form-label">Pre-Trade Checklist <span style="font-size:10px;color:var(--text3);font-weight:400">(tick before entry)</span></label>
+        <div class="modal-checklist-grid" id="modal-checklist-grid"></div>
+      </div>
+      <!-- Checklist warning -->
+      <div id="modal-checklist-warn" style="display:none;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:var(--r-sm);background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);margin-top:4px" class="form-field full">
+        <span style="font-size:16px;flex-shrink:0"><svg class="icn icn-gold" aria-hidden="true"><use href="#ic-warning"></use></svg></span>
+        <div style="font-size:12px;color:var(--text2)">
+          <strong style="color:var(--gold)">Incomplete checklist</strong> — these items aren't ticked:<br>
+          <span class="mcw-items" style="color:var(--text3);font-size:11px"></span><br>
+          <span style="font-size:11px;color:var(--text3)">Click Save again to log anyway.</span>
+        </div>
+      </div>
+    </div>
+    </div><!-- /modal-body -->
+    <!-- Save bar — direct child of .modal flex column, never scrolls away -->
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTrade()"><svg class="icn" aria-hidden="true"><use href="#ic-save"></use></svg> Save Trade</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CALENDAR POPUP & TOOLTIP ══ -->
+<div class="cal-popup" id="cal-popup" style="display:none"></div>
+
+<div class="cal-settings-overlay" id="cal-settings-overlay" style="display:none" onclick="if(event.target===this) closeCalSettings()">
+  <div class="cal-settings-modal">
+    <div class="cal-settings-head">
+      <div class="cal-settings-title"><svg class="icn" aria-hidden="true"><use href="#ic-settings"></use></svg> Calendar Settings</div>
+      <button class="cal-popup-close" onclick="closeCalSettings()"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>
+    </div>
+    <div class="cal-settings-body">
+      <div class="cal-settings-field">
+        <label>Default currency</label>
+        <select class="form-select" id="cs-currency">
+          <option value="% (Percentage)">% (Percentage)</option>
+          <option value="USD ($)">USD ($)</option>
+          <option value="GBP (£)">GBP (£)</option>
+          <option value="NGN (₦)">NGN (₦)</option>
+          <option value="EUR (€)">EUR (€)</option>
+        </select>
+      </div>
+      <div class="cal-settings-field">
+        <label>Week starts on</label>
+        <select class="form-select" id="cs-weekstart">
+          <option value="Sunday">Sunday</option>
+          <option value="Monday">Monday</option>
+        </select>
+      </div>
+      <div class="cal-settings-field">
+        <label>Default account size (for % trades)</label>
+        <input type="number" class="form-select" id="cs-accsize" value="5000">
+      </div>
+    </div>
+    <div class="cal-settings-foot">
+      <button class="cal-today-btn" onclick="closeCalSettings()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCalSettings()">Save changes</button>
+    </div>
+  </div>
+</div>
+<div class="cal-tooltip" id="cal-tooltip" style="display:none"></div>
+
+<!-- ══ GLASS CONFIRM MODAL ══ -->
+<div class="glass-modal-overlay" id="glass-modal-overlay">
+  <div class="glass-modal" id="glass-modal">
+    <div class="glass-modal-icon" id="gm-icon"><svg class="icn icn-gold" aria-hidden="true"><use href="#ic-warning"></use></svg></div>
+    <div class="glass-modal-title" id="gm-title">Confirm</div>
+    <div class="glass-modal-body" id="gm-body"></div>
+    <div class="glass-modal-actions" id="gm-actions"></div>
+  </div>
+</div>
+
+<!-- ══ APP TOAST ══ -->
+<div class="app-toast" id="app-toast"></div>
+
+<!-- ══ Supabase SDK ══ -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<!-- ══ Charting: Lightweight Charts (free, no license needed) ══
+     Backtesting Lab's chart replay + drawing engine is built on
+     TradingView's open-source Lightweight Charts library, not the
+     paid Advanced Charting Library. tv-datafeed.js is still loaded
+     for TV_SYMBOL_CATALOG (used by the symbol search dialog) —
+     its TVDatafeed object itself is unused. -->
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<script src="tv-datafeed.js"></script>
+
+<!-- ══ Mobile sidebar toggle ══ -->
+<script>
+  function toggleSidebar() {
+    const sb  = document.getElementById('sidebar');
+    const ov  = document.getElementById('mob-overlay');
+    const btn = document.getElementById('sb-toggle-btn');
+    const isMobile = window.innerWidth <= 768;
+    if (isMobile) {
+      const isOpen = sb.classList.toggle('mob-open');
+      ov.classList.toggle('show', isOpen);
+      document.body.style.overflow = isOpen ? 'hidden' : '';
+      document.body.classList.toggle('sb-expanded', isOpen);
+      if (btn) btn.classList.toggle('active', isOpen);
+    } else {
+      const isCollapsed = sb.classList.toggle('sb-collapsed');
+      document.getElementById('main-layout').classList.toggle('sidebar-hidden', isCollapsed);
+      document.body.classList.toggle('sb-expanded', !isCollapsed);
+      if (btn) btn.classList.toggle('active', !isCollapsed);
+      localStorage.setItem('sb_collapsed', isCollapsed ? '1' : '0');
+    }
+  }
+  function closeSidebar() {
+    const sb  = document.getElementById('sidebar');
+    const ov  = document.getElementById('mob-overlay');
+    const btn = document.getElementById('sb-toggle-btn');
+    sb.classList.remove('mob-open');
+    ov.classList.remove('show');
+    document.body.style.overflow = '';
+    if (window.innerWidth <= 768) document.body.classList.remove('sb-expanded');
+    if (btn) btn.classList.remove('active');
+  }
+  // Restore sidebar collapsed state on desktop
+  (function() {
+    const collapsed = localStorage.getItem('sb_collapsed') === '1';
+    if (collapsed && window.innerWidth > 768) {
+      document.getElementById('sidebar').classList.add('sb-collapsed');
+      document.getElementById('main-layout').classList.add('sidebar-hidden');
+    } else if (window.innerWidth > 768) {
+      // Start with sidebar open on desktop by default
+      const btn = document.getElementById('sb-toggle-btn');
+      if (btn) btn.classList.add('active');
+      document.body.classList.add('sb-expanded');
+    }
+  })();
+
+  // Close sidebar on any nav item click on mobile
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.sb-item').forEach(function(item) {
+      item.addEventListener('click', function() {
+        if (window.innerWidth <= 768) closeSidebar();
+      });
+    });
+  });
+  // Close on resize back to desktop
+  window.addEventListener('resize', function() {
+    if (window.innerWidth > 768) closeSidebar();
+  });
+</script>
+
+<!-- ══ App Script — split into ordered chunks (loaded in the exact same order as the old single app.js, so execution behaves identically) ══ -->
+ <script src="realtime-sync.js"></script>
+<script src="js/core-utils-ai.js"></script>
+<script src="js/nav-dashboard-trades.js"></script>
+<script src="js/watchlist.js"></script>
+<script src="js/accounts.js"></script>
+<script src="js/playbook.js"></script>
+<script src="js/backtesting-lab.js"></script>
+<script src="js/dashboard-analytics.js"></script>
+<script src="js/chart-slots.js"></script>
+<script src="js/calendar.js"></script>
+<script src="js/trash.js"></script>
+<script src="js/core-modals-userbar.js"></script>
+<script src="js/share-scores-logos.js"></script>
+<script src="js/settings-fab-chat.js"></script>
+<script src="js/profile.js"></script>
+
+<!-- ══ MOBILE SIDEBAR OVERLAY ══ already present above ══ -->
+
+<!-- ══ MOBILE BOTTOM NAVIGATION BAR ══ -->
+<nav class="mob-bottom-nav" id="mob-bottom-nav">
+  <button class="mob-bottom-nav-item active" id="mob-nav-dashboard" onclick="nav('dashboard',null,'Dashboard');mobNavActivate('dashboard')" aria-label="Dashboard">
+    <span class="mob-nav-icon"><svg class="icn" aria-hidden="true"><use href="#ic-chart-bar"></use></svg></span>
+    <span class="mob-nav-label">Dashboard</span>
+  </button>
+  <button class="mob-bottom-nav-item" id="mob-nav-tradelog" onclick="nav('tradelog',null,'Trade Log');mobNavActivate('tradelog')" aria-label="Trades">
+    <span class="mob-nav-icon"><svg class="icn" aria-hidden="true"><use href="#ic-menu"></use></svg></span>
+    <span class="mob-nav-label">Trades</span>
+  </button>
+  <button class="mob-bottom-nav-item mob-nav-add-btn" id="mob-nav-add" onclick="openModal()" aria-label="New Trade">
+    <span class="mob-nav-icon">＋</span>
+    <span class="mob-nav-label">New Trade</span>
+  </button>
+  <button class="mob-bottom-nav-item" id="mob-nav-calendar" onclick="nav('calendar',null,'Calendar');mobNavActivate('calendar')" aria-label="Calendar">
+    <span class="mob-nav-icon"><svg class="icn" aria-hidden="true"><use href="#ic-calendar"></use></svg></span>
+    <span class="mob-nav-label">Calendar</span>
+  </button>
+  <button class="mob-bottom-nav-item" id="mob-nav-more" onclick="mobNavMore()" aria-label="More">
+    <span class="mob-nav-icon">•••</span>
+    <span class="mob-nav-label">More</span>
+    <span class="mob-nav-badge" id="mob-nav-trash-badge" style="display:none">0</span>
+  </button>
+</nav>
+
+<!-- ══ MOBILE MORE SHEET OVERLAY ══ -->
+<div class="mob-more-overlay" id="mob-more-overlay" onclick="mobMoreClose()"></div>
+
+<!-- ══ MOBILE MORE BOTTOM SHEET ══ -->
+<div class="mob-more-sheet" id="mob-more-sheet">
+  <div class="mob-more-handle"></div>
+  <div class="mob-more-title">More</div>
+  <div class="mob-more-grid">
+    <button class="mob-more-item" onclick="mobMoreNav('accounts','Account Tracker')">
+      <div class="mob-more-icon"><svg class="icn" aria-hidden="true"><use href="#ic-dollar-c"></use></svg></div>
+      <span>Accounts</span>
+    </button>
+    <button class="mob-more-item" onclick="mobMoreNav('watchlist','Weekly Watchlist')">
+      <div class="mob-more-icon"><svg class="icn" aria-hidden="true"><use href="#ic-clipboard"></use></svg></div>
+      <span>Watchlist</span>
+    </button>
+    <button class="mob-more-item" onclick="mobMoreNav('ai','AI Coach')">
+      <div class="mob-more-icon"><svg class="icn" aria-hidden="true"><use href="#ic-robot"></use></svg></div>
+      <span>AI Coach</span>
+    </button>
+    <button class="mob-more-item" onclick="mobMoreNav('backtesting','Backtesting Lab')">
+      <div class="mob-more-icon"><svg class="icn" aria-hidden="true"><use href="#ic-flask"></use></svg></div>
+      <span>Backtest Lab</span>
+    </button>
+    <button class="mob-more-item" onclick="mobMoreNav('monthly','Monthly Review')">
+      <div class="mob-more-icon"><svg class="icn" aria-hidden="true"><use href="#ic-trend-up"></use></svg></div>
+      <span>Monthly</span>
+    </button>
+    <button class="mob-more-item" onclick="mobMoreNav('goals','Goals')">
+      <div class="mob-more-icon"><svg class="icn" aria-hidden="true"><use href="#ic-target"></use></svg></div>
+      <span>Goals</span>
+    </button>
+    <button class="mob-more-item" onclick="mobMoreNav('playbook','Trading Playbook')">
+      <div class="mob-more-icon"><svg class="icn" aria-hidden="true"><use href="#ic-notebook"></use></svg></div>
+      <span>Playbook</span>
+    </button>
+    <button class="mob-more-item" onclick="mobMoreNav('profile','My Profile')">
+      <div class="mob-more-icon"><svg class="icn" aria-hidden="true"><use href="#ic-user"></use></svg></div>
+      <span>Profile</span>
+    </button>
+    <button class="mob-more-item" onclick="mobMoreNav('trash','Trash')">
+      <div class="mob-more-icon"><svg class="icn" aria-hidden="true"><use href="#ic-trash"></use></svg></div>
+      <span>Trash</span>
+      <span class="mob-nav-badge" id="mob-more-trash-badge" style="display:none">0</span>
+    </button>
+  </div>
+</div>
+
+<!-- Share Modal — injected dynamically by openShareModal() -->
+<div id="share-modal-overlay"></div>
+</body>
+</html>
