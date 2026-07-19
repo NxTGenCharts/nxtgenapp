@@ -3,6 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <script>
+  // Apply the saved (or system) theme to <html> immediately, before any CSS
+  // loads or paints, so there is no flash of the wrong theme when arriving
+  // here from the landing page or login screen. Shared 'nxtgen_theme' key.
+  (function () {
+    try {
+      var t = localStorage.getItem('nxtgen_theme');
+      if (t !== 'light' && t !== 'dark') {
+        t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      }
+      document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : '');
+    } catch (e) {}
+  })();
+</script>
+<script>
   // Restore the real URL (e.g. /tradelog) after the 404.html redirect trick,
   // so the address bar is correct before app.js reads it to pick the page.
   (function () {

@@ -2,6 +2,21 @@
 <html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
+  <script>
+    // Apply the saved (or system) theme to <html> immediately, before any CSS
+    // loads or paints, so there is no flash of the wrong theme when arriving
+    // here from the landing page. Shared 'nxtgen_theme' key with the rest of
+    // the app.
+    (function () {
+      try {
+        var t = localStorage.getItem('nxtgen_theme');
+        if (t !== 'light' && t !== 'dark') {
+          t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        }
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
   <meta name="theme-color" content="#07090f" id="themeColorMeta" />
   <title>NxTGen Trading Journal — Sign In</title>
@@ -511,14 +526,16 @@
     if (event === 'SIGNED_IN' && session) window.location.replace(_postLoginDestination());
   });
 
-  const savedTheme = localStorage.getItem('nxtgen-theme') || 'dark';
-  document.documentElement.setAttribute('data-theme', savedTheme);
+  // Theme was already applied to <html> by the inline script in <head>
+  // (before first paint) — just sync the toggle button and meta color here.
+  const savedTheme = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
   updateThemeToggle(savedTheme);
+  document.getElementById('themeColorMeta').content = savedTheme === 'dark' ? '#07090f' : '#f0f4f8';
 
   function toggleTheme() {
     const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', next);
-    localStorage.setItem('nxtgen-theme', next);
+    localStorage.setItem('nxtgen_theme', next);
     updateThemeToggle(next);
     document.getElementById('themeColorMeta').content = next === 'dark' ? '#07090f' : '#f0f4f8';
   }

@@ -862,7 +862,10 @@ function toggleTheme() {
 }
 function loadTheme() {
   try {
-    const t = localStorage.getItem('nxtgen_theme') || 'dark';
+    let t = localStorage.getItem('nxtgen_theme');
+    if (t !== 'light' && t !== 'dark') {
+      t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
     const isDark = t !== 'light';
     document.documentElement.setAttribute('data-theme', isDark ? '' : 'light');
     const btn = document.getElementById('theme-btn');
