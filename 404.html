@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NxTGen Trading Journal</title>
+<!--
+  GitHub Pages is static hosting — there's no real file at paths like /tradelog
+  or /calendar, so a direct visit or page refresh on those URLs hits this 404
+  page. We stash the intended path and bounce to the real index.html, which
+  restores the URL and routes to the right in-app page on load.
+-->
+<script>
+  sessionStorage.setItem('nxtgen_redirect', location.pathname + location.search + location.hash);
+  location.replace('/');
+</script>
+</head>
+<body></body>
+</html>
