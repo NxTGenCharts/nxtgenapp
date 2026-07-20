@@ -890,15 +890,25 @@ function updateClock() {
   if (!el) return;
   const tz = getUserTz();
   const now = new Date();
-  let date, time;
+  // Below ~1200px the chip switches to a compact "Jul 20 • 11:48 PM" form
+  // (no weekday, no seconds, no UTC offset) so it never crowds the other
+  // topbar controls or wraps. Full width keeps the detailed format.
+  const compact = window.innerWidth <= 1200;
+  let date, time, offset;
   try {
-    date = now.toLocaleDateString('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric' });
-    time = now.toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    date = now.toLocaleDateString('en-US', { timeZone: tz, weekday: compact ? undefined : 'short', month: 'short', day: 'numeric' });
+    time = now.toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', second: compact ? undefined : '2-digit', hour12: true });
+    offset = getUserTzOffsetLabel(tz);
   } catch (e) {
-    date = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-    time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    date = now.toLocaleDateString('en-US', { weekday: compact ? undefined : 'short', month: 'short', day: 'numeric' });
+    time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: compact ? undefined : '2-digit', hour12: true });
+    offset = getUserTzOffsetLabel(tz);
   }
-  el.textContent = date + '  ' + time + '  ' + getUserTzOffsetLabel(tz);
+  el.textContent = compact ? (date + ' • ' + time) : (date + '  ' + time + '  ' + offset);
+  el.setAttribute('aria-label', date + ' ' + time + ' ' + offset);
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('resize', () => { if (typeof updateClock === 'function') updateClock(); });
 }
 
 // ── TAB SWITCHING ─────────────────────────────────────

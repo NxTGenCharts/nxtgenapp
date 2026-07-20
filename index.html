@@ -84,6 +84,7 @@
 <link rel="stylesheet" href="css/profile.css">
 <link rel="stylesheet" href="css/final-misc.css">
 <link rel="stylesheet" href="css/signals.css">
+<link rel="stylesheet" href="css/premium-controls.css">
 </head>
 <body>
 <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden" id="icon-sprite">
@@ -204,10 +205,10 @@
     <span class="page-name" id="topbar-page">Dashboard</span>
   </div>
   <div class="topbar-right">
-    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme" id="theme-btn"><svg class="icn" aria-hidden="true"><use href="#ic-moon"></use></svg></button>
-    <button class="btn btn-primary" onclick="openModal()">+ New Trade</button>
-    <span class="topbar-clock" id="topbar-clock"></span>
-    <button class="topbar-avatar" id="topbar-avatar-btn" title="My Profile">
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme" id="theme-btn"><svg class="icn" aria-hidden="true"><use href="#ic-moon"></use></svg></button>
+    <button class="btn btn-primary" onclick="openModal()"><span class="btn-icon" aria-hidden="true">+</span><span class="btn-label">New Trade</span></button>
+    <span class="topbar-clock" id="topbar-clock" role="status" aria-label="Current date and time"></span>
+    <button class="topbar-avatar" id="topbar-avatar-btn" title="My Profile" aria-label="My Profile">
       <span id="topbar-avatar-initials">TJ</span>
     </button>
   </div>
