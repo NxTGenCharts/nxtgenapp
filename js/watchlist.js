@@ -1841,6 +1841,12 @@ async function _wlDeleteDayChart(weekId, day, idx) {
 }
 
 /* ── Day chart thumbnail with drag-reorder support ── */
+function _wlOpenDayChartLightbox(weekId, day, idx) {
+  const week = _wlData.find(w => w.id === weekId);
+  if (!week || !week.dailyPlans || !week.dailyPlans[day]) return;
+  const urls = (week.dailyPlans[day].charts || []).map(c => c.url);
+  _wlOpenLightbox(urls[idx], urls, idx);
+}
 function _wlDayChartThumbHtml(weekId, day, c, ci) {
   return `
     <div class="wl-day-chart-thumb-wrap" draggable="true"
@@ -1848,7 +1854,7 @@ function _wlDayChartThumbHtml(weekId, day, c, ci) {
       ondrop="_wlDayChartDrop(event,'${weekId}','${day}',${ci})" ondragend="_wlChartDragEnd(event)">
       <span class="wl-chart-thumb-drag" title="Drag to reorder">${icon('sort')}</span>
       <img class="wl-day-chart-thumb" src="${c.url}" alt="chart ${ci+1}"
-        onclick="_wlOpenLightbox('${c.url}')">
+        onclick="_wlOpenDayChartLightbox('${weekId}','${day}',${ci})">
       <div class="wl-day-chart-label">${c.label || ''}</div>
       <button class="wl-day-chart-del" onclick="_wlDeleteDayChart('${weekId}','${day}',${ci})" title="Remove"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>
     </div>`;
@@ -2542,6 +2548,19 @@ function _wlStarPicker(value, onClickFn) {
 }
 
 /* ── EXPANDABLE PAIR ANALYSIS modal — Weekly → Daily → 4H → 1H → Execution timeline ── */
+const _WL_STAGE_TAGS = { Weekly: ['Weekly'], Daily: ['Daily'], '4H': ['4H'], '1H': ['1H'], Execution: ['Entry','Results'] };
+function _wlOpenPairChartLightbox(weekId, pairIdx, stageOrAll, idx) {
+  const week = _wlData.find(w => w.id === weekId);
+  if (!week) return;
+  const p = week.pairs[pairIdx];
+  if (!p) return;
+  const charts = p.charts || [];
+  const list = stageOrAll === 'all'
+    ? charts
+    : charts.filter(c => (_WL_STAGE_TAGS[stageOrAll] || []).includes(c.tag));
+  const urls = list.map(c => c.url);
+  _wlOpenLightbox(urls[idx], urls, idx);
+}
 function _wlShowPairViewModal(weekId, pairIdx, p) {
   _wlNormPair(p);
   const priClass  = p.priority === 'high' ? 'high' : p.priority === 'med' ? 'med' : 'low';
@@ -2577,7 +2596,7 @@ function _wlShowPairViewModal(weekId, pairIdx, p) {
       <div class="wl-stage-body">
         <div class="wl-stage-charts">
           ${stageCharts.length
-            ? stageCharts.map(c => `<img class="wl-stage-chart-thumb" src="${c.url}" alt="${stage} chart" onclick="_wlOpenLightbox('${c.url}')" loading="lazy">`).join('')
+            ? stageCharts.map((c, sci) => `<img class="wl-stage-chart-thumb" src="${c.url}" alt="${stage} chart" onclick="_wlOpenPairChartLightbox('${weekId}',${pairIdx},'${stage}',${sci})" loading="lazy">`).join('')
             : `<div class="wl-stage-no-chart">No ${stage.toLowerCase()} screenshots yet</div>`}
         </div>
         <div class="wl-stage-field">
@@ -2635,7 +2654,7 @@ function _wlShowPairViewModal(weekId, pairIdx, p) {
         ? `<div class="wl-view-chart-grid">${charts.map((c, ci) =>
             `<div class="wl-view-chart-item">
               <input type="checkbox" class="wl-compare-check" onclick="event.stopPropagation();_wlToggleCompareSelect('${c.url}',this)">
-              <img src="${c.url}" alt="chart ${ci+1}" loading="lazy" onclick="_wlOpenLightbox('${c.url}')">
+              <img src="${c.url}" alt="chart ${ci+1}" loading="lazy" onclick="_wlOpenPairChartLightbox('${weekId}',${pairIdx},'all',${ci})">
               <div class="wl-view-chart-label">${c.tag ? `[${c.tag}] ` : ''}${c.label || 'Chart ' + (ci+1)}</div>
             </div>`
           ).join('')}</div>`
@@ -2717,7 +2736,7 @@ function _wlChartThumbHtml(c, ci) {
       ondragstart="_wlChartDragStart(event,${ci})" ondragover="_wlChartDragOver(event)"
       ondrop="_wlChartDrop(event,${ci})" ondragend="_wlChartDragEnd(event)">
       <span class="wl-chart-thumb-drag" title="Drag to reorder">${icon('sort')}</span>
-      <img class="wl-chart-thumb" src="${c.url}" alt="chart" onclick="_wlOpenLightbox('${c.url}')">
+      <img class="wl-chart-thumb" src="${c.url}" alt="chart" onclick="_wlOpenLightbox('${c.url}', _wlPendingCharts.map(x=>x.url), ${ci})">
       <select class="wl-chart-thumb-tag" onchange="_wlSetPendingChartTag(${ci},this.value)">
         <option value=""${!c.tag ? ' selected' : ''}>Untagged</option>
         ${_WL_CHART_TAGS.map(t => `<option value="${t}"${c.tag===t?' selected':''}>${t}</option>`).join('')}
@@ -3016,7 +3035,7 @@ function wlClosePairModal() {
 /* ══════════════════════════════════════════════════════════════════
    LIGHTBOX v2 — zoom/pan, fullscreen, and a lightweight annotation tool
    ══════════════════════════════════════════════════════════════════ */
-let _wlLb = { url: '', scale: 1, tx: 0, ty: 0, panning: false, lastX: 0, lastY: 0 };
+let _wlLb = { url: '', urls: [], index: 0, scale: 1, tx: 0, ty: 0, panning: false, lastX: 0, lastY: 0 };
 
 /* ── Paste-to-upload: Ctrl+V a copied screenshot straight into the watchlist ── */
 if (typeof document !== 'undefined') {
@@ -3049,7 +3068,19 @@ if (typeof document !== 'undefined') {
   });
 }
 
-function _wlOpenLightbox(url) {
+// `urls` (optional) is the full sibling gallery this image belongs to — an
+// array of url strings, or an array of chart objects with a `.url` field.
+// `index` (optional) is url's position within that array. When both are
+// given, the lightbox shows prev/next controls and a "2 / 5" counter, and
+// supports ArrowLeft/ArrowRight, </>, and swipe to move between them.
+function _wlOpenLightbox(url, urls, index) {
+  const list = Array.isArray(urls) && urls.length
+    ? urls.map(u => (typeof u === 'string' ? u : (u && u.url) || ''))
+    : [url];
+  const idx = Number.isInteger(index) && index >= 0 && index < list.length
+    ? index
+    : Math.max(0, list.indexOf(url));
+
   let lb = document.getElementById('wl-lightbox');
   if (!lb) {
     lb = document.createElement('div');
@@ -3062,19 +3093,56 @@ function _wlOpenLightbox(url) {
         <button onclick="_wlLbResetZoom()" title="Reset zoom">${icon('refresh')}</button>
         <button onclick="_wlLbFullscreen()" title="Fullscreen">${icon('monitor')}</button>
         <button onclick="_wlOpenAnnotate()" title="Annotate">${icon('edit')}</button>
+        <span class="wl-lb-toolbar-sep"></span>
+        <span class="wl-lb-counter" id="wl-lb-counter" hidden></span>
         <button class="wl-lightbox-close" onclick="_wlCloseLightbox()" title="Close">${icon('close')}</button>
       </div>
+      <button class="wl-lb-nav wl-lb-nav-prev" id="wl-lb-prev" onclick="_wlLbNav(-1)" title="Previous (←)" aria-label="Previous image" hidden>
+        ${icon('chevron-right', {cls:'icn-flip'})}
+      </button>
+      <button class="wl-lb-nav wl-lb-nav-next" id="wl-lb-next" onclick="_wlLbNav(1)" title="Next (→)" aria-label="Next image" hidden>
+        ${icon('chevron-right')}
+      </button>
       <div class="wl-lb-stage" id="wl-lb-stage">
         <img id="wl-lb-img" src="" alt="chart" draggable="false">
       </div>`;
     lb.addEventListener('click', e => { if (e.target === lb || e.target.id === 'wl-lb-stage') _wlCloseLightbox(); });
     document.body.appendChild(lb);
     _wlWireLightboxPanZoom();
+    _wlWireLightboxSwipe();
   }
-  document.getElementById('wl-lb-img').src = url;
-  _wlLb = { url, scale: 1, tx: 0, ty: 0, panning: false, lastX: 0, lastY: 0 };
+  _wlLb = { url: list[idx], urls: list, index: idx, scale: 1, tx: 0, ty: 0, panning: false, lastX: 0, lastY: 0 };
+  document.getElementById('wl-lb-img').src = _wlLb.url;
   _wlLbApplyTransform();
+  _wlLbUpdateNav();
   lb.classList.add('open');
+}
+
+function _wlLbUpdateNav() {
+  const prev = document.getElementById('wl-lb-prev');
+  const next = document.getElementById('wl-lb-next');
+  const counter = document.getElementById('wl-lb-counter');
+  const multi = _wlLb.urls.length > 1;
+  if (prev) prev.hidden = !multi;
+  if (next) next.hidden = !multi;
+  if (counter) {
+    counter.hidden = !multi;
+    if (multi) counter.textContent = (_wlLb.index + 1) + ' / ' + _wlLb.urls.length;
+  }
+}
+
+// direction: -1 for previous, 1 for next. Wraps around at either end.
+function _wlLbNav(direction) {
+  if (_wlLb.urls.length <= 1) return;
+  const total = _wlLb.urls.length;
+  const nextIdx = (_wlLb.index + direction + total) % total;
+  _wlLb.index = nextIdx;
+  _wlLb.url = _wlLb.urls[nextIdx];
+  _wlLb.scale = 1; _wlLb.tx = 0; _wlLb.ty = 0;
+  const img = document.getElementById('wl-lb-img');
+  if (img) img.src = _wlLb.url;
+  _wlLbApplyTransform();
+  _wlLbUpdateNav();
 }
 
 function _wlCloseLightbox() {
@@ -3124,7 +3192,42 @@ function _wlWireLightboxPanZoom() {
     _wlLbApplyTransform();
   });
   window.addEventListener('mouseup', () => { _wlLb.panning = false; });
-  window.addEventListener('keydown', e => { if (e.key === 'Escape') _wlCloseLightbox(); });
+  window.addEventListener('keydown', e => {
+    const lb = document.getElementById('wl-lightbox');
+    if (!lb || !lb.classList.contains('open')) return;
+    if (e.key === 'Escape') { _wlCloseLightbox(); return; }
+    // Only navigate the gallery when not zoomed in — at scale 1 there's
+    // nothing to pan, so arrows/</> are unambiguously "change image".
+    if (_wlLb.scale > 1) return;
+    if (e.key === 'ArrowLeft' || e.key === '<' || e.key === ',') { _wlLbNav(-1); }
+    else if (e.key === 'ArrowRight' || e.key === '>' || e.key === '.') { _wlLbNav(1); }
+  });
+}
+
+// Swipe support (touch): a horizontal drag over the stage moves to the
+// prev/next image, mirroring the </> keyboard shortcuts. Only active at
+// scale 1 — once zoomed in, a touch drag pans the image instead.
+function _wlWireLightboxSwipe() {
+  const stage = document.getElementById('wl-lb-stage');
+  if (!stage) return;
+  let startX = 0, startY = 0, tracking = false;
+  const THRESHOLD = 40;
+  stage.addEventListener('touchstart', e => {
+    if (_wlLb.scale > 1 || e.touches.length !== 1) { tracking = false; return; }
+    tracking = true;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+  }, { passive: true });
+  stage.addEventListener('touchend', e => {
+    if (!tracking) return;
+    tracking = false;
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - startX;
+    const dy = touch.clientY - startY;
+    if (Math.abs(dx) > THRESHOLD && Math.abs(dx) > Math.abs(dy)) {
+      _wlLbNav(dx < 0 ? 1 : -1);
+    }
+  }, { passive: true });
 }
 
 /* ── Annotation tool: arrows, boxes, text over the currently-open lightbox image ── */
