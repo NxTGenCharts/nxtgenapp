@@ -83,6 +83,7 @@
 <link rel="stylesheet" href="css/ai-coach-and-late-misc.css">
 <link rel="stylesheet" href="css/profile.css">
 <link rel="stylesheet" href="css/final-misc.css">
+<link rel="stylesheet" href="css/signals.css">
 </head>
 <body>
 <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden" id="icon-sprite">
@@ -243,6 +244,7 @@
       <div class="sb-section-label">Resources</div>
       <div class="sb-item ai-glow" onclick="nav('ai',this,'AI Coach')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-robot"></use></svg></span><span class="lbl">AI Coach</span></div>
       <div class="sb-item" onclick="nav('backtesting',this,'Backtesting Lab')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-flask"></use></svg></span><span class="lbl">Backtesting Lab</span></div>
+      <div class="sb-item" onclick="nav('signals',this,'Signals')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-zap"></use></svg></span><span class="lbl">Signals</span></div>
       <div class="sb-item" onclick="nav('playbook',this,'Trading Playbook')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-notebook"></use></svg></span><span class="lbl">Playbook</span></div>
       <div class="sb-item" onclick="nav('goals',this,'Goals & Milestones')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-target"></use></svg></span><span class="lbl">Goals</span></div>
       <div class="sb-item" onclick="nav('monthly',this,'Monthly Review')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-trend-up"></use></svg></span><span class="lbl">Monthly Review</span></div>
@@ -783,6 +785,11 @@
         </div>
       </div>
     </div>
+
+    <!-- ═══════════════════════════════════════════════
+         SIGNALS PAGE — content rendered by js/signals.js
+    ═══════════════════════════════════════════════ -->
+    <div class="page" id="page-signals"></div>
 
     <!-- ═══════════════════════════════════════════════
          PLAYBOOK PAGE
@@ -1818,6 +1825,7 @@
 <script src="js/share-scores-logos.js"></script>
 <script src="js/settings-fab-chat.js"></script>
 <script src="js/profile.js"></script>
+<script src="js/signals.js"></script>
 
 <!-- ══ MOBILE SIDEBAR OVERLAY ══ already present above ══ -->
 
@@ -1869,6 +1877,10 @@
     <button class="mob-more-item" onclick="mobMoreNav('backtesting','Backtesting Lab')">
       <div class="mob-more-icon"><svg class="icn" aria-hidden="true"><use href="#ic-flask"></use></svg></div>
       <span>Backtest Lab</span>
+    </button>
+    <button class="mob-more-item" onclick="mobMoreNav('signals','Signals')">
+      <div class="mob-more-icon"><svg class="icn" aria-hidden="true"><use href="#ic-zap"></use></svg></div>
+      <span>Signals</span>
     </button>
     <button class="mob-more-item" onclick="mobMoreNav('monthly','Monthly Review')">
       <div class="mob-more-icon"><svg class="icn" aria-hidden="true"><use href="#ic-trend-up"></use></svg></div>

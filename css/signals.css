@@ -1,0 +1,339 @@
+/* ══════════════════════════════════════════════════════════════
+   NxTGen Journal — signals.css
+   Signals page: matches the existing Liquid Glass design system.
+   Reuses tokens from base-tokens-layout.css — no new colors invented.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Page header ─────────────────────────────────────────────── */
+.sig-header{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  gap:16px;margin-bottom:16px;flex-wrap:wrap;
+}
+.sig-header-title{font-family:var(--font-head);font-size:22px;font-weight:800;letter-spacing:-0.5px;color:var(--text)}
+.sig-header-sub{font-size:12.5px;color:var(--text2);margin-top:4px}
+.sig-header-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn-ripple{position:relative;overflow:hidden}
+.btn-ripple .ripple{
+  position:absolute;border-radius:50%;transform:scale(0);
+  background:rgba(255,255,255,0.35);pointer-events:none;
+  animation:sig-ripple 0.6s var(--ease-out);
+}
+@keyframes sig-ripple{to{transform:scale(3);opacity:0}}
+
+/* ── Stat cards ───────────────────────────────────────────────── */
+.sig-stats-grid{
+  display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:16px;
+}
+@media (max-width:1400px){.sig-stats-grid{grid-template-columns:repeat(4,1fr)}}
+@media (max-width:980px){.sig-stats-grid{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:640px){.sig-stats-grid{grid-template-columns:repeat(2,1fr)}}
+
+.sig-stat-card{
+  background:var(--glass-1);
+  backdrop-filter:var(--blur-md);-webkit-backdrop-filter:var(--blur-md);
+  border:1px solid var(--glass-border);
+  border-radius:var(--r-lg);padding:13px 14px;
+  position:relative;overflow:hidden;
+  box-shadow:var(--shadow-sm);
+  transition:var(--t-med);
+  opacity:0;transform:translateY(10px);
+  animation:sig-card-in 0.42s var(--ease-out) forwards;
+}
+.sig-stats-grid .sig-stat-card:nth-child(1){animation-delay:.02s}
+.sig-stats-grid .sig-stat-card:nth-child(2){animation-delay:.05s}
+.sig-stats-grid .sig-stat-card:nth-child(3){animation-delay:.08s}
+.sig-stats-grid .sig-stat-card:nth-child(4){animation-delay:.11s}
+.sig-stats-grid .sig-stat-card:nth-child(5){animation-delay:.14s}
+.sig-stats-grid .sig-stat-card:nth-child(6){animation-delay:.17s}
+.sig-stats-grid .sig-stat-card:nth-child(n+7){animation-delay:.2s}
+@keyframes sig-card-in{to{opacity:1;transform:translateY(0)}}
+.sig-stat-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent 0%,var(--glass-shine) 50%,transparent 100%);
+}
+.sig-stat-card:hover{
+  background:var(--glass-2);border-color:var(--glass-border-h);
+  box-shadow:var(--shadow-md);transform:translateY(-3px);
+}
+.sig-stat-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.sig-stat-icon{
+  width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.sig-stat-icon .icn{width:14px;height:14px}
+.sig-stat-icon.blue{background:linear-gradient(135deg,rgba(96,165,250,0.22),rgba(96,165,250,0.10));color:var(--blue);border:1px solid rgba(96,165,250,0.25)}
+.sig-stat-icon.green{background:linear-gradient(135deg,rgba(52,211,153,0.22),rgba(52,211,153,0.10));color:var(--green);border:1px solid rgba(52,211,153,0.25)}
+.sig-stat-icon.red{background:linear-gradient(135deg,rgba(248,113,113,0.22),rgba(248,113,113,0.10));color:var(--red);border:1px solid rgba(248,113,113,0.25)}
+.sig-stat-icon.gold{background:linear-gradient(135deg,rgba(251,191,36,0.22),rgba(251,191,36,0.10));color:var(--gold);border:1px solid rgba(251,191,36,0.25)}
+.sig-stat-icon.purple{background:linear-gradient(135deg,rgba(167,139,250,0.22),rgba(167,139,250,0.10));color:var(--purple);border:1px solid rgba(167,139,250,0.25)}
+.sig-stat-icon.teal{background:linear-gradient(135deg,rgba(45,212,191,0.22),rgba(45,212,191,0.10));color:var(--teal);border:1px solid rgba(45,212,191,0.25)}
+.sig-stat-label{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em}
+.sig-stat-value{font-family:var(--font-head);font-size:19px;font-weight:800;color:var(--text);letter-spacing:-0.3px;font-variant-numeric:tabular-nums}
+.sig-stat-value.green{color:var(--green)}
+.sig-stat-value.red{color:var(--red)}
+.sig-stat-value.gold{color:var(--gold)}
+.sig-stat-spark{width:100%;height:22px;margin-top:6px;display:block}
+
+/* ── Filter bar ───────────────────────────────────────────────── */
+.sig-filter-bar{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  margin-bottom:14px;padding-bottom:2px;
+}
+.sig-filter-scroll{display:flex;gap:6px;flex-wrap:wrap;flex:1}
+.sig-chip{
+  padding:6px 13px;border-radius:var(--r-full);font-size:11.5px;font-weight:500;
+  background:var(--glass-1);border:1px solid var(--glass-border);color:var(--text2);
+  cursor:pointer;transition:var(--t-fast);white-space:nowrap;user-select:none;
+}
+.sig-chip:hover{background:var(--glass-2);color:var(--text);border-color:var(--glass-border-h);transform:translateY(-1px)}
+.sig-chip.active{
+  background:linear-gradient(135deg,rgba(96,165,250,0.22),rgba(96,165,250,0.12));
+  border-color:rgba(96,165,250,0.4);color:var(--blue);font-weight:700;
+  box-shadow:var(--glow-blue);
+}
+.sig-search-wrap{position:relative;flex-shrink:0;min-width:180px}
+.sig-search-wrap .icn{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:13px;height:13px;color:var(--text3)}
+.sig-search-wrap input{
+  width:100%;padding:7px 12px 7px 30px;border-radius:var(--r-full);
+  background:var(--glass-1);border:1px solid var(--glass-border);color:var(--text);
+  font-size:12px;outline:none;transition:var(--t-fast);
+}
+.sig-search-wrap input:focus{border-color:rgba(96,165,250,0.5);background:var(--glass-2)}
+.sig-view-toggle{display:flex;gap:2px;background:var(--glass-1);border:1px solid var(--glass-border);border-radius:var(--r-sm);padding:2px;flex-shrink:0}
+.sig-view-toggle button{
+  padding:5px 10px;border-radius:6px;border:none;background:transparent;color:var(--text3);
+  cursor:pointer;font-size:12px;display:flex;align-items:center;gap:5px;transition:var(--t-fast);
+}
+.sig-view-toggle button .icn{width:13px;height:13px}
+.sig-view-toggle button.active{background:var(--glass-3);color:var(--text);box-shadow:var(--shadow-xs)}
+
+/* ── Badges: status / direction / market / confidence ────────── */
+.sig-badge{
+  display:inline-flex;align-items:center;gap:5px;padding:4px 10px;
+  border-radius:var(--r-full);font-size:10.5px;font-weight:700;
+  letter-spacing:.02em;white-space:nowrap;border:1px solid transparent;
+}
+.sig-badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
+.sig-badge-waiting{background:var(--glass-1);color:var(--text2);border-color:var(--glass-border)}
+.sig-badge-active{background:rgba(96,165,250,0.14);color:var(--blue);border-color:rgba(96,165,250,0.3);box-shadow:0 0 12px rgba(96,165,250,0.12)}
+.sig-badge-partial{background:rgba(251,191,36,0.14);color:var(--gold);border-color:rgba(251,191,36,0.3)}
+.sig-badge-tp1_hit,.sig-badge-tp2_hit,.sig-badge-tp3_hit{background:var(--green-dim);color:var(--green);border-color:rgba(52,211,153,0.3)}
+.sig-badge-stopped_out{background:var(--red-dim);color:var(--red);border-color:rgba(248,113,113,0.3)}
+.sig-badge-cancelled,.sig-badge-expired{background:var(--glass-1);color:var(--text3);border-color:var(--glass-border)}
+.sig-badge-active .dot{animation:sig-pulse 1.4s ease-in-out infinite}
+@keyframes sig-pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 currentColor}50%{opacity:.5}}
+
+.sig-dir-badge{
+  display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:var(--r-sm);
+  font-size:12px;font-weight:800;letter-spacing:.03em;font-family:var(--font-mono);
+}
+.sig-dir-badge.buy{background:var(--green-dim);color:var(--green);border:1px solid rgba(52,211,153,0.3);box-shadow:var(--glow-green)}
+.sig-dir-badge.sell{background:var(--red-dim);color:var(--red);border:1px solid rgba(248,113,113,0.3);box-shadow:var(--glow-red)}
+
+.sig-market-badge{
+  display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:var(--r-sm);
+  font-size:10.5px;font-weight:600;background:var(--glass-1);border:1px solid var(--glass-border);color:var(--text2);
+}
+.sig-market-badge .icn{width:11px;height:11px}
+
+/* ── Confidence meter ─────────────────────────────────────────── */
+.sig-conf{display:flex;flex-direction:column;gap:4px;min-width:80px}
+.sig-conf-top{display:flex;justify-content:space-between;font-size:10px;color:var(--text2);font-weight:600}
+.sig-conf-track{height:5px;border-radius:var(--r-full);background:var(--glass-2);overflow:hidden}
+.sig-conf-fill{height:100%;border-radius:var(--r-full);width:0;transition:width 1s var(--ease-out)}
+.sig-conf-fill.low{background:linear-gradient(90deg,var(--text3),var(--text2))}
+.sig-conf-fill.medium{background:linear-gradient(90deg,var(--blue),#93c5fd)}
+.sig-conf-fill.high{background:linear-gradient(90deg,var(--teal),#5eead4)}
+.sig-conf-fill.very_high{background:linear-gradient(90deg,var(--gold),#fde68a)}
+
+/* ── Table ────────────────────────────────────────────────────── */
+.sig-table-card{
+  background:var(--glass-1);backdrop-filter:var(--blur-md);-webkit-backdrop-filter:var(--blur-md);
+  border:1px solid var(--glass-border);border-radius:var(--r-lg);
+  box-shadow:var(--shadow-sm);overflow:hidden;margin-bottom:18px;
+}
+.sig-table-scroll{overflow-x:auto}
+.sig-table-scroll table{width:100%;border-collapse:collapse;min-width:1240px}
+.sig-table-scroll th{
+  padding:10px 14px;text-align:left;font-size:9.5px;font-weight:700;color:var(--text3);
+  text-transform:uppercase;letter-spacing:.09em;border-bottom:1px solid var(--glass-border);
+  white-space:nowrap;position:sticky;top:0;background:var(--bg3);backdrop-filter:var(--blur-sm);z-index:2;
+}
+.sig-table-scroll td{
+  padding:11px 14px;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border2);
+  white-space:nowrap;vertical-align:middle;
+}
+.sig-row{cursor:pointer;transition:var(--t-fast);opacity:0;animation:sig-row-in .35s var(--ease-out) forwards}
+.sig-row:hover td{background:var(--glass-2);color:var(--text)}
+.sig-row:last-child td{border-bottom:none}
+@keyframes sig-row-in{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:translateX(0)}}
+.sig-pair-cell{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--text)}
+.sig-pair-flag{
+  width:22px;height:22px;border-radius:6px;background:var(--glass-2);border:1px solid var(--glass-border);
+  display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:var(--text2);flex-shrink:0;
+}
+.sig-mono{font-family:var(--font-mono);font-size:11.5px}
+.sig-rr-cell{font-family:var(--font-mono);font-weight:700;color:var(--text)}
+.sig-pips-pos{color:var(--green);font-weight:700;font-family:var(--font-mono)}
+.sig-pips-neg{color:var(--red);font-weight:700;font-family:var(--font-mono)}
+.sig-row-actions{display:flex;gap:4px}
+.sig-row-actions button{
+  width:26px;height:26px;border-radius:var(--r-sm);background:var(--glass-1);border:1px solid var(--glass-border);
+  color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:var(--t-fast);
+}
+.sig-row-actions button:hover{background:var(--glass-2);color:var(--text);transform:translateY(-1px)}
+.sig-row-actions .icn{width:12px;height:12px}
+.sig-table-empty{padding:60px 20px;text-align:center;color:var(--text3);font-size:13px}
+
+/* ── Card view ────────────────────────────────────────────────── */
+.sig-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-bottom:18px}
+.sig-card{
+  background:var(--glass-1);backdrop-filter:var(--blur-md);-webkit-backdrop-filter:var(--blur-md);
+  border:1px solid var(--glass-border);border-radius:var(--r-lg);padding:16px;cursor:pointer;
+  transition:var(--t-med);position:relative;overflow:hidden;box-shadow:var(--shadow-sm);
+  opacity:0;transform:translateY(12px);animation:sig-card-in .4s var(--ease-out) forwards;
+}
+.sig-card:hover{background:var(--glass-2);border-color:var(--glass-border-h);box-shadow:var(--shadow-md);transform:translateY(-3px)}
+.sig-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.sig-card-pair{font-family:var(--font-head);font-size:16px;font-weight:800;color:var(--text)}
+.sig-card-meta-row{display:flex;align-items:center;justify-content:space-between;margin:10px 0;font-size:11px;color:var(--text3)}
+.sig-card-levels{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0;font-family:var(--font-mono)}
+.sig-card-level{text-align:center;padding:6px 4px;border-radius:var(--r-sm);background:var(--glass-1);border:1px solid var(--border2)}
+.sig-card-level .lbl{font-size:8.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;display:block;margin-bottom:2px}
+.sig-card-level .val{font-size:11.5px;font-weight:700;color:var(--text)}
+.sig-card-progress{margin:10px 0}
+.sig-card-spark{width:100%;height:36px;display:block;margin:8px 0}
+.sig-card-foot{display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:1px solid var(--border2)}
+.sig-card-social{display:flex;gap:10px}
+.sig-social-btn{display:flex;align-items:center;gap:4px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;transition:var(--t-fast)}
+.sig-social-btn:hover{color:var(--blue)}
+.sig-social-btn.active{color:var(--red)}
+.sig-social-btn .icn{width:13px;height:13px}
+
+/* ── Progress tracker (timeline) ─────────────────────────────── */
+.sig-timeline{display:flex;align-items:center;gap:0;margin:14px 0}
+.sig-tl-step{display:flex;flex-direction:column;align-items:center;flex:1;position:relative}
+.sig-tl-dot{
+  width:20px;height:20px;border-radius:50%;background:var(--glass-2);border:2px solid var(--glass-border);
+  display:flex;align-items:center;justify-content:center;transition:var(--t-med);z-index:1;flex-shrink:0;
+}
+.sig-tl-dot .icn{width:10px;height:10px;opacity:0}
+.sig-tl-step.done .sig-tl-dot{background:var(--green);border-color:var(--green);box-shadow:var(--glow-green)}
+.sig-tl-step.done .sig-tl-dot .icn{opacity:1;color:#04140d}
+.sig-tl-step.current .sig-tl-dot{background:var(--blue);border-color:var(--blue);box-shadow:0 0 0 4px rgba(96,165,250,0.18);animation:sig-tl-glow 1.6s ease-in-out infinite}
+@keyframes sig-tl-glow{0%,100%{box-shadow:0 0 0 4px rgba(96,165,250,0.18)}50%{box-shadow:0 0 0 8px rgba(96,165,250,0.06)}}
+.sig-tl-line{position:absolute;top:9px;left:50%;width:100%;height:2px;background:var(--glass-border);z-index:0}
+.sig-tl-step:last-child .sig-tl-line{display:none}
+.sig-tl-step.done .sig-tl-line{background:var(--green)}
+.sig-tl-label{font-size:8.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-top:6px;text-align:center;font-weight:600}
+.sig-tl-step.done .sig-tl-label,.sig-tl-step.current .sig-tl-label{color:var(--text)}
+
+/* ── Price ladder ─────────────────────────────────────────────── */
+.sig-ladder{
+  border-radius:var(--r-lg);overflow:hidden;border:1px solid var(--glass-border);
+  background:var(--glass-1);margin:14px 0;
+}
+.sig-ladder-row{
+  display:flex;align-items:center;justify-content:space-between;padding:10px 16px;
+  border-bottom:1px solid var(--border2);font-family:var(--font-mono);
+}
+.sig-ladder-row:last-child{border-bottom:none}
+.sig-ladder-row .lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3)}
+.sig-ladder-row .val{font-size:14px;font-weight:800}
+.sig-ladder-row.tp3 .val,.sig-ladder-row.tp2 .val,.sig-ladder-row.tp1 .val{color:var(--green)}
+.sig-ladder-row.tp1{background:rgba(52,211,153,0.05)}
+.sig-ladder-row.tp2{background:rgba(52,211,153,0.08)}
+.sig-ladder-row.tp3{background:rgba(52,211,153,0.11)}
+.sig-ladder-row.entry{background:rgba(96,165,250,0.08)}
+.sig-ladder-row.entry .val{color:var(--blue)}
+.sig-ladder-row.sl{background:rgba(248,113,113,0.08)}
+.sig-ladder-row.sl .val{color:var(--red)}
+.sig-ladder-rr{
+  display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;
+  background:linear-gradient(135deg,rgba(251,191,36,0.10),rgba(251,191,36,0.04));
+  font-family:var(--font-mono);font-weight:800;color:var(--gold);font-size:13px;
+}
+
+/* ── Confluence chips ─────────────────────────────────────────── */
+.sig-confluence-list{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.sig-confluence-chip{
+  padding:4px 10px;border-radius:var(--r-full);font-size:10.5px;font-weight:600;
+  background:rgba(167,139,250,0.12);color:var(--purple);border:1px solid rgba(167,139,250,0.25);
+}
+
+/* ── Signal detail drawer sections ───────────────────────────── */
+.sig-drawer-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px}
+.sig-drawer-close{
+  background:var(--glass-1);border:1px solid var(--glass-border);color:var(--text2);
+  width:30px;height:30px;border-radius:var(--r-sm);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:var(--t-fast);
+}
+.sig-drawer-close:hover{background:var(--glass-2);color:var(--text);transform:scale(1.06)}
+.sig-section-title{
+  font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--text3);
+  margin:18px 0 8px;display:flex;align-items:center;gap:6px;
+}
+.sig-section-title .icn{width:12px;height:12px}
+.sig-body-text{font-size:12.5px;line-height:1.6;color:var(--text2)}
+.sig-chart-frame{
+  width:100%;border-radius:var(--r-md);overflow:hidden;border:1px solid var(--glass-border);
+  background:var(--glass-1);aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;
+  color:var(--text3);font-size:12px;position:relative;
+}
+.sig-chart-frame img{width:100%;height:100%;object-fit:cover}
+.sig-checklist{display:flex;flex-direction:column;gap:6px}
+.sig-checklist-item{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2)}
+.sig-checklist-item .chk{
+  width:16px;height:16px;border-radius:5px;border:1.5px solid var(--glass-border-h);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.sig-checklist-item.checked .chk{background:var(--green);border-color:var(--green)}
+.sig-checklist-item.checked .chk .icn{width:10px;height:10px;color:#04140d}
+.sig-comment{display:flex;gap:8px;padding:8px 0;border-bottom:1px solid var(--border2)}
+.sig-comment-avatar{width:26px;height:26px;border-radius:50%;background:var(--glass-2);border:1px solid var(--glass-border);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--text2)}
+.sig-comment-body{font-size:12px;color:var(--text2);flex:1}
+.sig-comment-meta{font-size:10px;color:var(--text3);margin-top:2px}
+
+/* ── Calendar view ───────────────────────────────────────────── */
+.sig-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:18px}
+.sig-cal-dow{font-size:9.5px;font-weight:700;color:var(--text3);text-transform:uppercase;text-align:center;padding-bottom:4px;letter-spacing:.08em}
+.sig-cal-cell{
+  min-height:74px;border-radius:var(--r-md);padding:6px 7px;background:var(--glass-1);
+  border:1px solid var(--glass-border);cursor:pointer;transition:var(--t-fast);display:flex;flex-direction:column;gap:3px;
+}
+.sig-cal-cell:hover{background:var(--glass-2);border-color:var(--glass-border-h);transform:translateY(-1px)}
+.sig-cal-cell.empty{background:transparent;border-color:transparent;cursor:default}
+.sig-cal-cell.empty:hover{transform:none}
+.sig-cal-date{font-size:10.5px;font-weight:700;color:var(--text3)}
+.sig-cal-stat{font-size:9.5px;color:var(--text2);font-family:var(--font-mono)}
+.sig-cal-stat.green{color:var(--green)}
+.sig-cal-stat.red{color:var(--red)}
+
+/* ── Analytics grid ──────────────────────────────────────────── */
+.sig-analytics-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
+@media (max-width:980px){.sig-analytics-grid{grid-template-columns:1fr 1fr}}
+@media (max-width:640px){.sig-analytics-grid{grid-template-columns:1fr}}
+.sig-analytics-card{
+  background:var(--glass-1);border:1px solid var(--glass-border);border-radius:var(--r-lg);
+  padding:14px 16px;box-shadow:var(--shadow-sm);
+}
+.sig-analytics-title{font-size:11px;font-weight:700;color:var(--text2);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.sig-analytics-title .icn{width:12px;height:12px}
+
+/* ── Counter animation helper ────────────────────────────────── */
+.sig-counting{font-variant-numeric:tabular-nums}
+
+/* ── Mobile ──────────────────────────────────────────────────── */
+@media (max-width:768px){
+  .sig-table-card{display:none}
+  .sig-cards-grid{grid-template-columns:1fr}
+  .sig-header-actions .btn span.lbl-full{display:none}
+  #sig-fab-new{
+    position:fixed;right:18px;bottom:82px;z-index:120;width:52px;height:52px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;font-size:22px;
+    background:linear-gradient(135deg,var(--blue),#4f8ff0);color:#fff;border:none;
+    box-shadow:0 10px 28px rgba(96,165,250,0.4);cursor:pointer;
+  }
+  .detail-panel#signal-drawer{width:100vw}
+}
+@media (min-width:769px){#sig-fab-new{display:none}}
