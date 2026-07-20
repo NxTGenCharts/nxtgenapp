@@ -382,6 +382,12 @@
   opacity:.5;pointer-events:none;
 }
 
+.nx-dropzone-body{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:6px;
+  width:100%;
+}
+
 .nx-dropzone-icon{
   width:34px;height:34px;
   color:var(--blue);
