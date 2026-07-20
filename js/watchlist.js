@@ -28,17 +28,23 @@ const _WL_BIAS_OPTS = ['bull','bear','neu'];
    All of this lives inside the existing `pairs` / `checklist` JSONB
    columns already on journal_watchlist — no schema changes needed.
    ══════════════════════════════════════════════════════════════════ */
-const _WL_LIQ_ITEMS = [
-  { k: 'eqHighs',  l: 'Equal Highs' },
-  { k: 'eqLows',   l: 'Equal Lows' },
-  { k: 'sweep',    l: 'Liquidity Sweep' },
-  { k: 'fvg',      l: 'FVG' },
-  { k: 'ob',       l: 'Order Block' },
-  { k: 'breaker',  l: 'Breaker' },
-  { k: 'mss',      l: 'MSS' },
-  { k: 'bos',      l: 'BOS' },
-  { k: 'pdArray',  l: 'PD Array' },
-];
+/* User-customizable Liquidity / Confluence checklist items — stored
+   locally per device. New users start with an empty list and add their
+   own items via the "Manage" button wherever this checklist appears
+   (Liquidity Checklist on the pair form, Confluences on each stage). */
+const _WL_CONFLUENCE_ITEMS_KEY = 'wl_confluence_items_v1';
+function _wlConfluenceItemsAll() {
+  try { return JSON.parse(localStorage.getItem(_WL_CONFLUENCE_ITEMS_KEY) || '[]'); }
+  catch (e) { return []; }
+}
+function _wlSaveConfluenceItemDefs(items) {
+  try { localStorage.setItem(_WL_CONFLUENCE_ITEMS_KEY, JSON.stringify(items)); } catch (e) {}
+}
+// Only items the user has left visible — this is what actually renders
+// as chips and counts toward the X/Y confirmations badge.
+function _wlConfluenceItems() {
+  return _wlConfluenceItemsAll().filter(i => i.visible !== false);
+}
 // Pulls the live list of models from the Playbook page's "Manage Models"
 // data (_pbData.models) instead of a hardcoded list, so the Watchlist's
 // model dropdowns always stay in sync with whatever the user has defined
@@ -54,7 +60,7 @@ const _WL_CHART_TAGS = ['Weekly','Daily','4H','1H','Entry','Results'];
 
 function _wlEmptyLiq() {
   const o = {};
-  _WL_LIQ_ITEMS.forEach(i => o[i.k] = false);
+  _wlConfluenceItemsAll().forEach(i => o[i.k] = false);
   return o;
 }
 
@@ -85,17 +91,25 @@ function _wlNormPair(p) {
   return p;
 }
 
-const _WL_CHECKLIST_ITEMS = [
-  { k: 'htfBias',         l: 'HTF Bias' },
-  { k: 'weeklyLiquidity', l: 'Weekly Liquidity' },
-  { k: 'dailyBias',       l: 'Daily Bias' },
-  { k: 'pdArrays',        l: 'Mark PD Arrays' },
-  { k: 'newsReviewed',    l: 'Major News Reviewed' },
-  { k: 'correlatedAssets',l: 'Correlated Assets Checked' },
-  { k: 'smtChecked',      l: 'SMT Checked' },
-  { k: 'riskCalculated',  l: 'Risk Calculated' },
-  { k: 'sessionPlanReady',l: 'Session Plan Ready' },
-];
+/* User-customizable Weekly Preparation Checklist items — stored locally
+   per device. New users start with an empty list and add their own
+   items via the "Manage" button on the checklist card. */
+const _WL_CHECKLIST_ITEMS_KEY = 'wl_checklist_items_v1';
+function _wlChecklistItems() {
+  try { return JSON.parse(localStorage.getItem(_WL_CHECKLIST_ITEMS_KEY) || '[]'); }
+  catch (e) { return []; }
+}
+function _wlSaveChecklistItemDefs(items) {
+  try { localStorage.setItem(_WL_CHECKLIST_ITEMS_KEY, JSON.stringify(items)); } catch (e) {}
+}
+
+/* Turns a label into a unique, storage-safe key for a new custom item. */
+function _wlSlugKey(label, existingKeys) {
+  let base = (label || 'item').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'item';
+  let key = base, n = 1;
+  while (existingKeys.includes(key)) key = `${base}_${++n}`;
+  return key;
+}
 
 /* Fill in any fields missing from legacy week rows. Mutates + returns week.meta. */
 function _wlNormWeekMeta(week) {
@@ -109,9 +123,9 @@ function _wlNormWeekMeta(week) {
   if (m.calendarReviewed == null) m.calendarReviewed = false;
   if (!m.checklist) {
     m.checklist = {};
-    _WL_CHECKLIST_ITEMS.forEach(i => m.checklist[i.k] = false);
+    _wlChecklistItems().forEach(i => m.checklist[i.k] = false);
   } else {
-    _WL_CHECKLIST_ITEMS.forEach(i => { if (m.checklist[i.k] == null) m.checklist[i.k] = false; });
+    _wlChecklistItems().forEach(i => { if (m.checklist[i.k] == null) m.checklist[i.k] = false; });
   }
   if (!m.focus) m.focus = { mainPair: '', secondaryPair: '', avoidPair: '', maxTrades: null, maxRisk: null, objective: '' };
   else {
@@ -632,25 +646,36 @@ function _wlBuildMarketOverview(week) {
 function _wlBuildWeeklyChecklist(week) {
   _wlNormWeekMeta(week);
   const cl = week.meta.checklist;
-  const doneCount = _WL_CHECKLIST_ITEMS.reduce((s, i) => s + (cl[i.k] ? 1 : 0), 0);
-  const pct = Math.round((doneCount / _WL_CHECKLIST_ITEMS.length) * 100);
+  const items = _wlChecklistItems();
+  const doneCount = items.reduce((s, i) => s + (cl[i.k] ? 1 : 0), 0);
+  const pct = items.length ? Math.round((doneCount / items.length) * 100) : 0;
 
-  const rows = _WL_CHECKLIST_ITEMS.map(item => `
+  const rows = items.map(item => `
     <button class="wl-checklist-row${cl[item.k] ? ' checked' : ''}" onclick="_wlToggleWeeklyChecklistItem('${week.id}','${item.k}')">
       <span class="wl-checklist-box">${icon(cl[item.k] ? 'check' : 'dot-o')}</span>
       <span>${item.l}</span>
     </button>`).join('');
 
+  const body = items.length ? `<div class="wl-checklist-grid">${rows}</div>` : `
+    <div class="wl-checklist-empty">
+      <p>No checklist items yet — this list is yours to define.</p>
+      <button class="wl-btn-secondary" onclick="_wlOpenManageChecklistModal()">${icon('settings')} Set Up Checklist</button>
+    </div>`;
+
   return `
   <div class="wl-checklist-card">
     <div class="wl-checklist-head">
-      <div class="wl-checklist-title">Weekly Preparation Checklist</div>
+      <div class="wl-checklist-title">
+        Weekly Preparation Checklist
+        <button class="wl-checklist-manage-btn" onclick="_wlOpenManageChecklistModal()" title="Customize checklist items">${icon('settings')}</button>
+      </div>
+      ${items.length ? `
       <div class="wl-checklist-pct-wrap">
         <div class="wl-factor-bar-track" style="width:90px"><div class="wl-factor-bar-fill" style="width:${pct}%"></div></div>
         <span class="wl-checklist-pct">${pct}%</span>
-      </div>
+      </div>` : ''}
     </div>
-    <div class="wl-checklist-grid">${rows}</div>
+    ${body}
   </div>`;
 }
 
@@ -729,7 +754,7 @@ function _wlComputeCoachInsights(week) {
   // Missing confluences
   pairs.forEach(p => {
     const { checked, total } = _wlLiqCount(p.liq);
-    if (checked < 3 && p.direction !== 'wait') {
+    if (total > 0 && checked < 3 && p.direction !== 'wait') {
       insights.push({ sev: 'warn', text: `${p.name} has only ${checked}/${total} confluences confirmed but direction is set to ${p.direction === 'long' ? 'Long' : 'Short'} — consider waiting for more confirmation.` });
     }
   });
@@ -759,15 +784,18 @@ function _wlComputeCoachInsights(week) {
   // Confidence vs confluence mismatch
   pairs.forEach(p => {
     const { checked, total } = _wlLiqCount(p.liq);
-    if (p.confidence >= 75 && checked <= 2) {
+    if (total > 0 && p.confidence >= 75 && checked <= 2) {
       insights.push({ sev: 'warn', text: `${p.name} confidence is ${p.confidence}% but only ${checked}/${total} confluences are checked off — high confidence without confirmation is a common overtrading trigger.` });
     }
   });
 
   // Checklist completion
-  const clCheckedCount = _WL_CHECKLIST_ITEMS.reduce((s, i) => s + (week.meta.checklist[i.k] ? 1 : 0), 0);
-  if (clCheckedCount < _WL_CHECKLIST_ITEMS.length * 0.5) {
-    insights.push({ sev: 'info', text: `Weekly preparation checklist is only ${Math.round(clCheckedCount/_WL_CHECKLIST_ITEMS.length*100)}% complete — finish it before the week's first session for a cleaner read on the market.` });
+  const _clItems = _wlChecklistItems();
+  if (_clItems.length) {
+    const clCheckedCount = _clItems.reduce((s, i) => s + (week.meta.checklist[i.k] ? 1 : 0), 0);
+    if (clCheckedCount < _clItems.length * 0.5) {
+      insights.push({ sev: 'info', text: `Weekly preparation checklist is only ${Math.round(clCheckedCount/_clItems.length*100)}% complete — finish it before the week's first session for a cleaner read on the market.` });
+    }
   }
 
   // News warnings
@@ -1025,8 +1053,8 @@ async function _wlSetReflectionConfidence(weekId, val) {
 let _wlShowArchived = {}; // weekId → bool
 
 function _wlLiqCount(liq) {
-  const total = _WL_LIQ_ITEMS.length;
-  const checked = liq ? _WL_LIQ_ITEMS.reduce((s, i) => s + (liq[i.k] ? 1 : 0), 0) : 0;
+  const total = _wlConfluenceItems().length;
+  const checked = liq ? _wlConfluenceItems().reduce((s, i) => s + (liq[i.k] ? 1 : 0), 0) : 0;
   return { checked, total };
 }
 
@@ -1079,7 +1107,7 @@ function _wlPairCardHtml(week, p, pi) {
         <div class="wl-card-meta-row">
           <span class="wl-badge ${dirClass}" style="font-size:10px;padding:3px 9px">${dirLabel}</span>
           ${p.model ? `<span class="wl-model-chip">${p.model}</span>` : ''}
-          <span class="wl-confluence-chip">${checked}/${total} confirmations</span>
+          ${total > 0 ? `<span class="wl-confluence-chip">${checked}/${total} confirmations</span>` : ''}
         </div>
 
         <div class="wl-card-stars-row">
@@ -2580,7 +2608,8 @@ function _wlShowPairViewModal(weekId, pairIdx, p) {
     const bClass = sd.bias === 'bull' ? 'bull' : sd.bias === 'bear' ? 'bear' : 'neu';
     const bLabel = sd.bias === 'bull' ? `${icon('arrow-up')} Bull` : sd.bias === 'bear' ? `${icon('arrow-down')} Bear` : '→ Neu';
     const stageCharts = charts.filter(c => stageKeyToTags[stage].includes(c.tag));
-    const liqGrid = _WL_LIQ_ITEMS.map(item => `
+    const confItems = _wlConfluenceItems();
+    const liqGrid = confItems.map(item => `
       <button class="wl-stage-liq-chip${sd.liq[item.k] ? ' checked' : ''}"
         onclick="_wlToggleStageLiq('${weekId}',${pairIdx},'${stage}','${item.k}')">
         ${icon(sd.liq[item.k] ? 'check' : 'dot-o')} ${item.l}
@@ -2610,8 +2639,10 @@ function _wlShowPairViewModal(weekId, pairIdx, p) {
             onblur="_wlSaveStageField('${weekId}',${pairIdx},'${stage}','liquidityTargets',this.value)">${sd.liquidityTargets || ''}</textarea>
         </div>
         <div class="wl-stage-field">
-          <label>Confluences</label>
-          <div class="wl-stage-liq-grid">${liqGrid}</div>
+          <label>Confluences <button class="wl-checklist-manage-btn" onclick="_wlOpenManageConfluenceModal()" title="Customize confluence items">${icon('settings')}</button></label>
+          ${confItems.length
+            ? `<div class="wl-stage-liq-grid">${liqGrid}</div>`
+            : `<div class="wl-stage-no-chart">No confluence items defined yet — tap the gear icon to add your own.</div>`}
         </div>
         <div class="wl-stage-field wl-stage-risk-row">
           <label>Risk</label>
@@ -2632,7 +2663,7 @@ function _wlShowPairViewModal(weekId, pairIdx, p) {
           ${p.priority === 'high' ? `${icon('dot',{cls:'icn-red'})} High` : p.priority === 'med' ? `${icon('dot',{cls:'icn-gold'})} Medium` : `${icon('dot',{cls:'icn-green'})} Low`}
         </span>
         ${p.model ? `<span class="wl-model-chip">${p.model}</span>` : ''}
-        <span class="wl-confluence-chip">${checked}/${total} confirmations</span>
+        ${total > 0 ? `<span class="wl-confluence-chip">${checked}/${total} confirmations</span>` : ''}
       </div>
       <div class="wl-view-header-row2">
         ${_wlRingSvg(p.confidence, {size:48, stroke:5, centerHtml:`<span class="wl-mini-ring-num">${p.confidence}</span>`})}
@@ -2788,7 +2819,7 @@ function _wlShowPairModal(pair) {
   window._wlFormRisk       = pair ? pair.risk : 0;
   window._wlFormLiq        = pair ? {...pair.liq} : _wlEmptyLiq();
 
-  const liqCheckboxes = _WL_LIQ_ITEMS.map(item => `
+  const liqCheckboxes = _wlConfluenceItems().map(item => `
     <button type="button" class="wl-stage-liq-chip${window._wlFormLiq[item.k] ? ' checked' : ''}" id="wl-p-liq-${item.k}"
       onclick="_wlFormToggleLiq('${item.k}')">
       ${icon(window._wlFormLiq[item.k] ? 'check' : 'dot-o')} ${item.l}
@@ -2846,8 +2877,13 @@ function _wlShowPairModal(pair) {
       <div class="wl-tf-selector" id="wl-tf-selector">${tfRows}</div>
     </div>
     <div class="wl-form-row">
-      <label class="wl-form-label">Liquidity Checklist</label>
-      <div class="wl-stage-liq-grid">${liqCheckboxes}</div>
+      <label class="wl-form-label">Liquidity Checklist <button type="button" class="wl-checklist-manage-btn" onclick="_wlOpenManageConfluenceModal()" title="Customize checklist items">${icon('settings')}</button></label>
+      ${_wlConfluenceItems().length
+        ? `<div class="wl-stage-liq-grid">${liqCheckboxes}</div>`
+        : `<div class="wl-checklist-empty" style="padding:14px 0">
+             <p style="margin:0 0 8px">No confluence items defined yet.</p>
+             <button type="button" class="wl-btn-secondary" onclick="_wlOpenManageConfluenceModal()">${icon('settings')} Set Up Confluences</button>
+           </div>`}
     </div>
     <div class="wl-form-2col">
       <div class="wl-form-row">
@@ -2906,8 +2942,8 @@ function _wlFormToggleLiq(key) {
   const btn = document.getElementById(`wl-p-liq-${key}`);
   if (btn) {
     btn.classList.toggle('checked', window._wlFormLiq[key]);
-    const item = _WL_LIQ_ITEMS.find(i => i.k === key);
-    btn.innerHTML = `${icon(window._wlFormLiq[key] ? 'check' : 'dot-o')} ${item.l}`;
+    const item = _wlConfluenceItemsAll().find(i => i.k === key);
+    btn.innerHTML = `${icon(window._wlFormLiq[key] ? 'check' : 'dot-o')} ${item ? item.l : ''}`;
   }
 }
 
@@ -3029,6 +3065,114 @@ function wlClosePairModal() {
   _wlEditingPairWeekId = null;
   _wlEditingPairIdx    = null;
   _wlPendingCharts     = [];
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   MANAGE ITEMS MODAL — lets the user define their own Weekly
+   Preparation Checklist and Liquidity/Confluence checklist items.
+   Shared by both lists; `kind` is 'checklist' or 'confluence'.
+   ══════════════════════════════════════════════════════════════════ */
+let _wlManageKind = null; // 'checklist' | 'confluence'
+
+function _wlManageConfig(kind) {
+  return kind === 'confluence'
+    ? {
+        title: 'Manage Confluence Items',
+        subtitle: 'These items power the Liquidity Checklist and the per-stage Confluences list. Untick "Show" to hide an item without losing its history.',
+        getAll: _wlConfluenceItemsAll,
+        save: _wlSaveConfluenceItemDefs,
+        toggleable: true,
+      }
+    : {
+        title: 'Manage Weekly Checklist Items',
+        subtitle: 'Define the items you want to prep every week. Add as many as you like — this list is entirely yours.',
+        getAll: _wlChecklistItems,
+        save: _wlSaveChecklistItemDefs,
+        toggleable: false,
+      };
+}
+
+function _wlOpenManageChecklistModal()  { _wlOpenManageModal('checklist'); }
+function _wlOpenManageConfluenceModal() { _wlOpenManageModal('confluence'); }
+
+function _wlOpenManageModal(kind) {
+  _wlManageKind = kind;
+  document.getElementById('wl-manage-modal-title').textContent = _wlManageConfig(kind).title;
+  _wlRenderManageModalBody();
+  document.getElementById('wl-manage-modal-overlay').classList.add('open');
+  document.getElementById('wl-manage-modal').classList.add('open');
+}
+
+function _wlCloseManageModal() {
+  document.getElementById('wl-manage-modal-overlay').classList.remove('open');
+  document.getElementById('wl-manage-modal').classList.remove('open');
+  _wlManageKind = null;
+  // Re-render whatever's on screen so the updated lists show immediately
+  if (typeof _wlRenderWeeks === 'function') _wlRenderWeeks();
+  if (_wlEditingPairWeekId !== null && _wlEditingPairIdx !== null) {
+    const week = _wlData.find(w => w.id === _wlEditingPairWeekId);
+    const pair = week && week.pairs[_wlEditingPairIdx];
+    if (pair) _wlShowPairModal(pair);
+  }
+}
+
+function _wlRenderManageModalBody() {
+  const cfg = _wlManageConfig(_wlManageKind);
+  const items = cfg.getAll();
+
+  const rows = items.length ? items.map(item => `
+    <div class="wl-manage-item-row">
+      ${cfg.toggleable ? `
+        <button class="wl-manage-vis-btn${item.visible === false ? '' : ' on'}"
+          onclick="_wlManageToggleVisible('${item.k}')"
+          title="${item.visible === false ? 'Hidden — tap to show' : 'Visible — tap to hide'}">
+          ${icon(item.visible === false ? 'eye-off' : 'eye')}
+        </button>` : ''}
+      <span class="wl-manage-item-label">${item.l}</span>
+      <button class="wl-manage-remove-btn" onclick="_wlManageRemoveItem('${item.k}')" title="Remove item">${icon('trash')}</button>
+    </div>`).join('') : `<div class="wl-checklist-empty"><p>Nothing here yet — add your first item below.</p></div>`;
+
+  document.getElementById('wl-manage-modal-body').innerHTML = `
+    <p class="wl-manage-subtitle">${cfg.subtitle}</p>
+    <div class="wl-manage-item-list" id="wl-manage-item-list">${rows}</div>
+    <div class="wl-manage-add-row">
+      <input type="text" class="wl-form-input" id="wl-manage-new-item" placeholder="e.g. ${_wlManageKind === 'confluence' ? 'Inducement' : 'Check Correlated Pairs'}"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();_wlManageAddItem();}">
+      <button class="wl-btn-primary" onclick="_wlManageAddItem()">+ Add</button>
+    </div>
+    <div class="wl-form-actions">
+      <button class="wl-btn-secondary" onclick="_wlCloseManageModal()">Done</button>
+    </div>`;
+}
+
+function _wlManageAddItem() {
+  const input = document.getElementById('wl-manage-new-item');
+  const label = (input.value || '').trim();
+  if (!label) return;
+  const cfg = _wlManageConfig(_wlManageKind);
+  const items = cfg.getAll();
+  const key = _wlSlugKey(label, items.map(i => i.k));
+  const newItem = _wlManageKind === 'confluence' ? { k: key, l: label, visible: true } : { k: key, l: label };
+  items.push(newItem);
+  cfg.save(items);
+  input.value = '';
+  _wlRenderManageModalBody();
+}
+
+function _wlManageRemoveItem(key) {
+  const cfg = _wlManageConfig(_wlManageKind);
+  const items = cfg.getAll().filter(i => i.k !== key);
+  cfg.save(items);
+  _wlRenderManageModalBody();
+}
+
+function _wlManageToggleVisible(key) {
+  const cfg = _wlManageConfig(_wlManageKind);
+  const items = cfg.getAll();
+  const item = items.find(i => i.k === key);
+  if (item) item.visible = item.visible === false ? true : false;
+  cfg.save(items);
+  _wlRenderManageModalBody();
 }
 
 /* ── Lightbox ── */
