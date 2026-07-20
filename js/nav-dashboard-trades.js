@@ -1888,15 +1888,26 @@ function openModal(prefill) {
   const lrf = document.getElementById('loss-reason-field'); if (lrf) lrf.style.display = 'none';
   const lrSel = document.getElementById('m-loss-reason'); if (lrSel) lrSel.value = '';
   const mcg = document.getElementById('modal-checklist-grid');
-  if (mcg) mcg.innerHTML = CHECKLIST_ITEMS.map((item, i) =>
-    `<div class="mcl-item" id="mcl-${i}" onclick="_toggleModalCheck(${i})">
-      <div class="cl-box"></div><span class="cl-text">${item}</span>
-    </div>`).join('');
+  if (mcg) _renderModalChecklistGrid();
   if (prefill && prefill.date) document.getElementById('m-date').value = prefill.date;
   document.getElementById('modal').classList.add('open');
   if (!prefill) _restoreDraftIfAny();
 }
 function closeModal() { document.getElementById('modal').classList.remove('open'); }
+// Rebuilds the Pre-Trade Checklist grid inside the New Trade modal from the
+// current CHECKLIST_ITEMS. Called on modal open, and again any time the
+// user adds/renames/deletes/reorders items via "Manage" so the form stays
+// in sync. If the list itself changed shape, any ticks made so far are
+// cleared since their positions no longer map to the same items.
+function _renderModalChecklistGrid() {
+  const mcg = document.getElementById('modal-checklist-grid');
+  if (!mcg) return;
+  _modalChecklist = [];
+  mcg.innerHTML = CHECKLIST_ITEMS.map((item, i) =>
+    `<div class="mcl-item" id="mcl-${i}" onclick="_toggleModalCheck(${i})">
+      <div class="cl-box"></div><span class="cl-text">${item}</span>
+    </div>`).join('');
+}
 // Close the New Trade modal when tapping/clicking the backdrop behind it —
 // e.target === e.currentTarget means the click landed on the overlay itself,
 // not on the sheet or any of its form fields/buttons.
@@ -1957,8 +1968,10 @@ async function saveTrade() {
   if (!dateVal) { alert('Please select a date'); return; }
 
   // ── Pre-trade checklist enforcement ──────────────────────────────────
-  // Key checklist items that should be confirmed before saving (indices match CHECKLIST_ITEMS)
-  const coreChecks = [0, 2, 4, 6]; // HTF PDA, Liquidity Sweep, CISD, Active Killzone
+  // Key checklist items that should be confirmed before saving (indices match CHECKLIST_ITEMS
+  // at the time they were set; filtered so a shorter/edited user list never throws or points at
+  // the wrong item — see _renderModalChecklistGrid()/Manage Checklist).
+  const coreChecks = [0, 2, 4, 6].filter(i => i < CHECKLIST_ITEMS.length);
   const missedCore = coreChecks.filter(i => !_modalChecklist.includes(i)).map(i => CHECKLIST_ITEMS[i]);
   if (missedCore.length > 0 && !_checklistWarningAcked) {
     // Show inline warning but allow override

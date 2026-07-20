@@ -358,6 +358,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     _btLoadTrades(),
     _accLoad(),
     _profileLoad(),
+    _checklistItemsLoad(),
   ]);
   await runAutoCleanup();
 
@@ -748,6 +749,124 @@ function _refreshAccountDropdowns() {
     const cur = sel.value;
     sel.innerHTML = _buildAccountOptions(cur);
   });
+}
+
+// ── MANAGE CHECKLIST — full CRUD + per-user Supabase persistence ────────
+// Mirrors the Manage Accounts UX above. Users can add, rename, delete and
+// reorder their own Pre-Trade Checklist items; nothing here is hardcoded.
+function _openManageChecklist() {
+  const existing = document.getElementById('chk-manager-overlay');
+  if (existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'chk-manager-overlay';
+  overlay.className = 'acc-manager-overlay';
+  overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+  overlay.innerHTML = `
+  <div class="acc-manager-modal">
+    <div class="acc-manager-header">
+      <span><svg class="icn" aria-hidden="true"><use href="#ic-settings"></use></svg> Manage Checklist</span>
+      <button onclick="document.getElementById('chk-manager-overlay').remove()" class="acc-mgr-close"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>
+    </div>
+    <div class="acc-manager-body">
+      <div style="font-size:11px;color:var(--text3);line-height:1.5;margin-bottom:2px">
+        These items appear on every new trade's Pre-Trade Checklist. Reordering or deleting an item only
+        changes what shows on <em>new</em> trades going forward — checklist ticks already saved on past
+        trades stay attached to that item's original position.
+      </div>
+      <div id="chk-mgr-list" class="acc-mgr-list"></div>
+      <div class="acc-mgr-add-row">
+        <input type="text" id="chk-mgr-input" class="acc-mgr-input" placeholder="New checklist item (e.g. News check clear)…" onkeydown="if(event.key==='Enter')_addChecklistItem()">
+        <button onclick="_addChecklistItem()" class="acc-mgr-add-btn">＋ Add</button>
+      </div>
+      <button onclick="_resetChecklistToDefaults()" class="acc-mgr-btn" style="align-self:flex-start;font-size:11px;padding:5px 10px">Reset to defaults</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  _rebuildChecklistMgrList();
+  requestAnimationFrame(() => overlay.classList.add('open'));
+}
+
+function _rebuildChecklistMgrList() {
+  const list = CHECKLIST_ITEMS;
+  const el = document.getElementById('chk-mgr-list');
+  if (!el) return;
+  el.innerHTML = list.length ? list.map((label, i) => `
+    <div class="acc-mgr-item" id="chk-mgr-item-${i}">
+      <div class="acc-mgr-item-left" style="flex:1;min-width:0">
+        <span class="acc-mgr-name">${label}</span>
+      </div>
+      <div class="acc-mgr-actions">
+        <button onclick="_moveChecklistItem(${i},-1)" class="acc-mgr-btn"${i === 0 ? ' disabled' : ''} title="Move up">↑</button>
+        <button onclick="_moveChecklistItem(${i},1)" class="acc-mgr-btn"${i === list.length - 1 ? ' disabled' : ''} title="Move down">↓</button>
+        <button onclick="_editChecklistItem(${i})" class="acc-mgr-btn edit" title="Rename"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        <button onclick="_deleteChecklistItem(${i})" class="acc-mgr-btn del" title="Delete"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+      </div>
+    </div>`).join('') : '<div class="acc-mgr-empty">No checklist items yet — add one below.</div>';
+}
+
+async function _addChecklistItem() {
+  const inp = document.getElementById('chk-mgr-input'); if (!inp) return;
+  const label = inp.value.trim(); if (!label) return;
+  const list = [...CHECKLIST_ITEMS];
+  if (list.includes(label)) { showToast('That item already exists', 'danger'); return; }
+  list.push(label);
+  await _checklistItemsSave(list);
+  inp.value = '';
+  _rebuildChecklistMgrList();
+  _renderModalChecklistGrid();
+  showToast('Checklist item added ✓', 'restore');
+}
+
+function _editChecklistItem(i) {
+  const list = CHECKLIST_ITEMS;
+  const item = document.getElementById('chk-mgr-item-' + i); if (!item) return;
+  item.innerHTML = `
+    <div style="display:flex;gap:6px;align-items:center;width:100%">
+      <input type="text" class="acc-mgr-input" id="chk-edit-${i}" value="${list[i]}" style="flex:1"
+        onkeydown="if(event.key==='Enter')_saveEditChecklistItem(${i})">
+      <div class="acc-mgr-actions">
+        <button onclick="_saveEditChecklistItem(${i})" class="acc-mgr-btn edit" title="Save">✓</button>
+        <button onclick="_rebuildChecklistMgrList()" class="acc-mgr-btn" title="Cancel"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>
+      </div>
+    </div>`;
+  document.getElementById('chk-edit-' + i)?.focus();
+}
+
+async function _saveEditChecklistItem(i) {
+  const inp = document.getElementById('chk-edit-' + i); if (!inp) return;
+  const label = inp.value.trim(); if (!label) return;
+  const list = [...CHECKLIST_ITEMS];
+  list[i] = label;
+  await _checklistItemsSave(list);
+  _rebuildChecklistMgrList();
+  _renderModalChecklistGrid();
+  showToast('Checklist item updated ✓', 'restore');
+}
+
+async function _deleteChecklistItem(i) {
+  const list = [...CHECKLIST_ITEMS];
+  list.splice(i, 1);
+  await _checklistItemsSave(list);
+  _rebuildChecklistMgrList();
+  _renderModalChecklistGrid();
+  showToast('Checklist item deleted', 'restore');
+}
+
+async function _moveChecklistItem(i, dir) {
+  const list = [...CHECKLIST_ITEMS];
+  const j = i + dir;
+  if (j < 0 || j >= list.length) return;
+  [list[i], list[j]] = [list[j], list[i]];
+  await _checklistItemsSave(list);
+  _rebuildChecklistMgrList();
+  _renderModalChecklistGrid();
+}
+
+async function _resetChecklistToDefaults() {
+  await _checklistItemsSave([...DEFAULT_CHECKLIST_ITEMS]);
+  _rebuildChecklistMgrList();
+  _renderModalChecklistGrid();
+  showToast('Checklist reset to defaults ✓', 'restore');
 }
 
 function _onCalAccFilterChange() {

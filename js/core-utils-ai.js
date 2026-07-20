@@ -569,7 +569,13 @@ const SEED_TRADES = [
   {id:20,date:"2026-04-09",pair:"XAUUSD",pos:"Buy",rr:"1:4",pnl:4,outcome:"Win",kz:"London",strategy:"IRL > ERL",tf:"1h > 3m",account:"GFT $10k - P1",rating:5,notes:"Strong week for gold. Daily IRL into previous week low swept. 1h OB entry. Clean delivery.",pretrade:"Daily bullish gold bias",emotion:"Confident",risk:"1%",checklist:[0,1,2,3,4,5,6,7],charts:[]},
 ];
 
-const CHECKLIST_ITEMS=["HTF PDA confirmed","4h Profiling","Liquidity Sweep","SMT Divergence","CISD Confirmed","R:R ≥ 1:2","Active Killzone"];
+// Pre-Trade Checklist — fully user-definable (add/edit/delete/reorder via
+// "Manage" on the New Trade form). DEFAULT_CHECKLIST_ITEMS is only the
+// starting point for brand-new users; CHECKLIST_ITEMS is the live list
+// actually rendered everywhere and is reassigned once the user's own
+// saved list loads from the cloud — see _checklistItemsLoad() below.
+const DEFAULT_CHECKLIST_ITEMS=["HTF PDA confirmed","4h Profiling","Liquidity Sweep","SMT Divergence","CISD Confirmed","R:R ≥ 1:2","Active Killzone"];
+let CHECKLIST_ITEMS=[...DEFAULT_CHECKLIST_ITEMS];
 const EMOTIONS=["Calm","Relaxed","Confident","Focused","Neutral","Anxious","Impatient","Fearful","Greedy","Revenge"];
 const CHART_LABELS=["Daily HTF","4h Structure","1h Confirm","30m Trigger","3m/5m Entry","Result"];
 const RULES=["Never trade without HTF bias confirmed","Never enter without an active killzone","Never risk more than 1% on funded accounts","Never chase price — missed entry = no entry","Never move SL before 30% of target is hit","Never trade 15 min before/after red news","Never skip the entry checklist","Never take more than 2 trades per day","Never take a 3★ or below setup","Never trade while angry, fearful or revenge-seeking"];
@@ -638,6 +644,67 @@ let _modalChecklist = []; // checked items in new-trade modal
 let _checklistWarningAcked = false; // allows bypass on second save click
 let _modalMentalState = 'Focused'; // mental state for new-trade modal
 let _modalFollowedPlan = 'Yes';    // followed plan for new-trade modal
+
+// ══════════════════════════════════════════════════════
+// PRE-TRADE CHECKLIST ITEMS — per-user, cloud-synced via journal_checklist_items
+// Table DDL (run once in Supabase SQL editor):
+//
+//  CREATE TABLE IF NOT EXISTS journal_checklist_items (
+//    id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+//    user_id     uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL UNIQUE,
+//    items       jsonb DEFAULT '[]'::jsonb,
+//    updated_at  timestamptz DEFAULT now()
+//  );
+//  ALTER TABLE journal_checklist_items ENABLE ROW LEVEL SECURITY;
+//  CREATE POLICY "Users manage own checklist items"
+//    ON journal_checklist_items FOR ALL USING (auth.uid() = user_id);
+//
+// Until that table exists in a given Supabase project, load/save below fail
+// gracefully and the app just falls back to DEFAULT_CHECKLIST_ITEMS for the
+// session (nothing else in the boot sequence breaks).
+// ══════════════════════════════════════════════════════
+let _checklistRowId = null;
+
+async function _checklistItemsLoad() {
+  if (!_currentUser) return;
+  try {
+    const { data, error } = await sb
+      .from('journal_checklist_items')
+      .select('id, items')
+      .eq('user_id', _currentUser.id)
+      .maybeSingle();
+    if (error) { console.warn('checklistItemsLoad:', error.message); return; }
+    if (data) {
+      _checklistRowId = data.id;
+      if (Array.isArray(data.items) && data.items.length) CHECKLIST_ITEMS = data.items;
+    } else {
+      // First login — seed the row with the defaults so future edits have something to update
+      await _checklistItemsSave([...DEFAULT_CHECKLIST_ITEMS]);
+    }
+  } catch (err) {
+    console.warn('checklistItemsLoad failed, using defaults:', err.message || err);
+  }
+}
+
+async function _checklistItemsSave(list) {
+  if (!_currentUser) return false;
+  CHECKLIST_ITEMS = list;
+  try {
+    const row = { user_id: _currentUser.id, items: list, updated_at: new Date().toISOString() };
+    if (_checklistRowId) {
+      const { error } = await sb.from('journal_checklist_items').update(row).eq('id', _checklistRowId);
+      if (error) throw error;
+    } else {
+      const { data, error } = await sb.from('journal_checklist_items').insert(row).select('id').single();
+      if (error) throw error;
+      if (data) _checklistRowId = data.id;
+    }
+    return true;
+  } catch (err) {
+    showToast('Checklist save failed: ' + (err.message || err), 'danger');
+    return false;
+  }
+}
 let _eqCurveMode = 'pct'; // equity curve display mode
 // Dashboard date range filter — null means all-time
 let _dashFilter = { from: null, to: null, preset: 'all' };

@@ -1674,7 +1674,9 @@
       <div class="form-field full"><label class="form-label">Post-Trade Reflection</label><textarea class="form-textarea" id="m-notes" placeholder="What happened? What did you learn?"></textarea></div>
       <!-- Pre-Trade Checklist -->
       <div class="form-field full">
-        <label class="form-label">Pre-Trade Checklist <span style="font-size:10px;color:var(--text3);font-weight:400">(tick before entry)</span></label>
+        <label class="form-label" style="display:flex;align-items:center;justify-content:space-between"><span>Pre-Trade Checklist <span style="font-size:10px;color:var(--text3);font-weight:400">(tick before entry)</span></span>
+          <button type="button" onclick="_openManageChecklist()" style="font-size:10px;padding:2px 8px;background:rgba(96,165,250,.12);border:1px solid rgba(96,165,250,.25);color:var(--blue);border-radius:4px;cursor:pointer;font-family:inherit;line-height:1.6"><svg class="icn" aria-hidden="true"><use href="#ic-settings"></use></svg> Manage</button>
+        </label>
         <div class="modal-checklist-grid" id="modal-checklist-grid"></div>
       </div>
       <!-- Checklist warning -->
