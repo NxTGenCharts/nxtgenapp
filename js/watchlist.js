@@ -1570,7 +1570,7 @@ async function _wlCycleDayPairBias(weekId, day, pairName, btn) {
   week.dailyPlans[day].pairs = pairs;
   // Update button instantly without full re-render
   const bLabel = newBias === 'bull' ? '<svg class="icn" aria-hidden="true"><use href="#ic-arrow-up"></use></svg> Bull' : newBias === 'bear' ? '<svg class="icn" aria-hidden="true"><use href="#ic-arrow-down"></use></svg> Bear' : '→ Neu';
-  btn.textContent = bLabel;
+  btn.innerHTML = bLabel;
   btn.className = `wl-day-bias-btn ${newBias}`;
   await _wlSaveWeek(week);
 }
