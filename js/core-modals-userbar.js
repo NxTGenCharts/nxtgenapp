@@ -778,7 +778,7 @@ function _openManageChecklist() {
         <input type="text" id="chk-mgr-input" class="acc-mgr-input" placeholder="New checklist item (e.g. News check clear)…" onkeydown="if(event.key==='Enter')_addChecklistItem()">
         <button onclick="_addChecklistItem()" class="acc-mgr-add-btn">＋ Add</button>
       </div>
-      <button onclick="_resetChecklistToDefaults()" class="acc-mgr-btn" style="align-self:flex-start;font-size:11px;padding:5px 10px">Reset to defaults</button>
+      <button onclick="_resetChecklistToDefaults()" class="acc-mgr-reset-btn">↺ Reset to defaults</button>
     </div>
   </div>`;
   document.body.appendChild(overlay);
