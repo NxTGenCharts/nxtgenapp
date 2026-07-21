@@ -86,6 +86,7 @@
 <link rel="stylesheet" href="css/signals.css?v=202607202045">
 <link rel="stylesheet" href="css/premium-controls.css?v=202607202045">
 <link rel="stylesheet" href="css/profile-premium.css?v=202607211200">
+<link rel="stylesheet" href="css/dashboard-premium.css?v=202607211400">
 </head>
 <body>
 <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden" id="icon-sprite">
@@ -281,9 +282,21 @@
 
           <!-- Cover / quarter banner -->
           <div class="cover" id="dash-cover">
-            <div class="cover-label" id="dash-cover-period">QUARTERLY PERFORMANCE · 2026</div>
-            <div class="cover-title" id="dash-cover-title">Loading…</div>
-            <div class="cover-sub" id="dash-cover-sub"><span id="dash-cover-sub-text">Loading…</span> · <span id="dash-last-updated" style="opacity:.7">Loading...</span></div>
+            <div class="cover-top-row">
+              <div>
+                <div class="cover-label" id="dash-cover-period">QUARTERLY PERFORMANCE · 2026</div>
+                <div class="cover-title" id="dash-cover-title">Loading…</div>
+                <div class="cover-sub" id="dash-cover-sub"><span id="dash-cover-sub-text">Loading…</span> · <span id="dash-last-updated" style="opacity:.7">Loading...</span></div>
+              </div>
+              <div class="cover-intel" aria-hidden="false">
+                <div class="cover-clock" id="dash-live-clock" title="Local time">--:--:--</div>
+                <div class="cover-wave" id="dash-hero-wave"></div>
+              </div>
+            </div>
+            <div class="cover-progress-row" id="dash-quarter-progress-row">
+              <div class="cover-progress-label"><span id="dash-quarter-progress-label">Quarter progress</span> <span id="dash-quarter-progress-pct">—</span></div>
+              <div class="cover-progress-track"><div class="cover-progress-fill" id="dash-quarter-progress-fill"></div></div>
+            </div>
           </div>
 
           <!-- KPI rows -->
@@ -317,17 +330,22 @@
                 <div class="cal-an-card cal-an-card--toggle" id="kpi-pnl-card" onclick="toggleNetPnl()" title="Tap to toggle $ / %">
                   <div class="cal-an-left">
                     <div class="cal-an-label"><span class="cal-kpi-icon"><svg class="icn" aria-hidden="true"><use href="#ic-dollar-c"></use></svg></span><span>Net P&amp;L</span> <span class="info-dot">i</span> <span class="cal-an-toggle-hint">tap to toggle</span></div>
-                    <div class="cal-an-value green" id="kpi-pnl">—</div>
+                    <div class="cal-an-value-row">
+                      <div class="cal-an-value green" id="kpi-pnl">—</div>
+                      <span class="pf3-compare-arrow" id="kpi-pnl-compare" title="vs previous period"></span>
+                    </div>
                     <canvas id="kpi-sparkline" style="width:100%;height:28px;margin-top:4px;display:none"></canvas>
+                    <div id="kpi-pnl-apex" class="pf3-spark-mount"></div>
                   </div>
                   <div class="cal-an-badge" id="kpi-total-badge">0</div>
                 </div>
-                <div class="cal-an-card">
+                <div class="cal-an-card" id="kpi-wr-card">
                   <div class="cal-an-left">
-                    <div class="cal-an-label"><span class="cal-kpi-icon"><svg class="icn" aria-hidden="true"><use href="#ic-target"></use></svg></span><span>Win rate</span> <span class="info-dot">i</span></div>
+                    <div class="cal-an-label"><span class="cal-kpi-icon"><svg class="icn" aria-hidden="true"><use href="#ic-target"></use></svg></span><span>Win rate</span> <span class="info-dot">i</span> <span class="cal-an-toggle-hint">tap for detail</span></div>
                     <div class="cal-an-value green" id="kpi-wr">—</div>
                   </div>
                   <div class="cal-an-gauge-col" id="kpi-wr-gauge"></div>
+                  <div class="pf3-apex-ring-mount" id="kpi-wr-apex"></div>
                 </div>
                 <div class="cal-an-card cal-an-card--toggle" id="kpi-pf-card" onclick="togglePf()" title="Tap to toggle Profit Factor / Expectancy">
                   <div class="cal-an-left">
@@ -335,15 +353,17 @@
                     <div class="cal-an-value gold" id="kpi-pf">—</div>
                   </div>
                   <div class="cal-an-ring-col" id="kpi-pf-ring"></div>
+                  <div class="pf3-apex-ring-mount" id="kpi-pf-apex"></div>
                 </div>
               </div>
 
               <!-- Row 2: win streak + avg win/loss bar (mirrors Calendar page's Day win % / Avg win-loss row) -->
               <div class="cal-an-grid row2 dash-an-row2">
-                <div class="cal-an-card">
+                <div class="cal-an-card" id="kpi-ws-card" title="Tap for streak history">
                   <div class="cal-an-left">
                     <div class="cal-an-label"><span class="cal-kpi-icon"><svg class="icn" aria-hidden="true"><use href="#ic-fire"></use></svg></span><span>Win streak</span> <span class="info-dot">i</span></div>
                     <div class="cal-an-value teal" id="kpi-ws">—</div>
+                    <div class="pf3-dot-timeline" id="kpi-ws-timeline"></div>
                   </div>
                 </div>
                 <div class="cal-an-card" id="kpi-awl-card" title="Average win and average loss per trade, in both $ and %">
@@ -372,8 +392,8 @@
                 <div class="kpi-card"><div class="kpi-label"><span class="cal-kpi-icon"><svg class="icn" aria-hidden="true"><use href="#ic-folder"></use></svg></span><span>Total trades</span></div><div class="kpi-value blue" id="kpi-total">—</div></div>
                 <div class="kpi-card" title="Average planned risk:reward ratio across your logged trades"><div class="kpi-label"><span class="cal-kpi-icon"><svg class="icn" aria-hidden="true"><use href="#ic-ruler"></use></svg></span><span>Avg risk:reward</span></div><div class="kpi-value blue" id="kpi-rr">—</div></div>
                 <div class="kpi-card"><div class="kpi-label"><span class="cal-kpi-icon"><svg class="icn" aria-hidden="true"><use href="#ic-shield"></use></svg></span><span>Max drawdown</span></div><div class="kpi-value green" id="kpi-dd">—</div></div>
-                <div class="kpi-card" title="% of trades rated 4-star or 5-star — your execution quality score">
-                  <div class="kpi-label"><span class="cal-kpi-icon"><svg class="icn" aria-hidden="true"><use href="#ic-brain"></use></svg></span><span>Consistency score</span></div>
+                <div class="kpi-card" id="kpi-consistency-card" title="% of trades rated 4-star or 5-star — your execution quality score. Tap for the full breakdown.">
+                  <div class="kpi-label"><span class="cal-kpi-icon"><svg class="icn" aria-hidden="true"><use href="#ic-brain"></use></svg></span><span>Consistency score</span> <span class="pf3-expand-hint">tap for detail</span></div>
                   <div class="kpi-value blue" id="kpi-consistency">—</div>
                   <div style="font-size:10px;color:var(--text3);margin-top:2px" id="kpi-consistency-sub"></div>
                 </div>
@@ -387,6 +407,7 @@
                 <span class="nxt-score-badge">BETA</span>
               </div>
               <div class="nxt-score-body">
+                <div class="pf3-score-ring-mount" id="nxt-score-ring-mount"></div>
                 <div class="nxt-score-tri-wrap" id="nxt-score-tri-wrap"></div>
               </div>
               <div class="nxt-score-foot">
@@ -397,10 +418,11 @@
           </div>
 
           <!-- Insight -->
-          <div class="insight">
+          <div class="insight" id="dash-insight-fallback">
             <span class="insight-ico"><svg class="icn" aria-hidden="true"><use href="#ic-bulb"></use></svg></span>
             <span class="insight-text" id="dash-insight-text">Analysing your data…</span>
           </div>
+          <div class="pf3-insight-chips" id="dash-insight-chips" style="display:none"></div>
 
           <!-- Backtesting Lab widgets (Phase 7) — pulls live from journal_backtest_lab + journal_backtest_trades -->
           <div class="cal2-sec-head-row">
@@ -509,15 +531,18 @@
           </div>
 
           <!-- Equity Curve -->
-          <div class="sec-head" style="display:flex;align-items:center;justify-content:space-between">
+          <div class="sec-head" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
             Equity Curve
-            <div style="display:flex;gap:6px">
-              <button class="dash-filter-btn active" id="eq-btn-pct" onclick="setEqMode('pct',this)" style="font-size:10px;padding:3px 8px">%</button>
-              <button class="dash-filter-btn" id="eq-btn-usd" onclick="setEqMode('usd',this)" style="font-size:10px;padding:3px 8px">$</button>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="dash-filter-btn active" id="eq-btn-pct" onclick="setEqMode('pct',this)" style="font-size:10px;padding:3px 8px">Equity %</button>
+              <button class="dash-filter-btn" id="eq-btn-usd" onclick="setEqMode('usd',this)" style="font-size:10px;padding:3px 8px">Balance $</button>
+              <button class="dash-filter-btn" id="eq-btn-profit" onclick="setEqMode('profit',this)" style="font-size:10px;padding:3px 8px">Profit / Trade</button>
+              <label class="pf3-dd-toggle" title="Overlay drawdown from running peak"><input type="checkbox" id="eq-dd-toggle" onchange="pf3ToggleDrawdown(this.checked)"> Drawdown</label>
             </div>
           </div>
           <div style="background:var(--glass-0);border:1px solid var(--glass-border);border-radius:var(--r-md);padding:16px;margin-bottom:20px;position:relative">
-            <canvas id="equity-curve-canvas" style="width:100%;height:180px;display:block"></canvas>
+            <canvas id="equity-curve-canvas" style="width:100%;height:180px;display:none"></canvas>
+            <div id="equity-curve-apex"></div>
             <div id="equity-curve-empty" style="display:none;text-align:center;padding:40px;color:var(--text3);font-size:13px">No trades to chart yet</div>
           </div>
 
@@ -2148,6 +2173,11 @@
 <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <script src="tv-datafeed.js"></script>
 
+<!-- ══ Charting: ApexCharts (free, MIT) — powers the interactive
+     analytics objects on the Dashboard (radial gauges, sparklines,
+     radar chart, equity curve with zoom/crosshair). ══ -->
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.49.1/dist/apexcharts.min.js"></script>
+
 <!-- ══ Mobile sidebar toggle ══ -->
 <script>
   function toggleSidebar() {
@@ -2224,6 +2254,7 @@
 <script src="js/settings-fab-chat.js?v=202607202045"></script>
 <script src="js/profile.js?v=202607202045"></script>
 <script src="js/profile-premium.js?v=202607211200"></script>
+<script src="js/dashboard-premium.js?v=202607211400"></script>
 <script src="js/signals.js?v=202607202045"></script>
 
 <!-- ══ MOBILE SIDEBAR OVERLAY ══ already present above ══ -->

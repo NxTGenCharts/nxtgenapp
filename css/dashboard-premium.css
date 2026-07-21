@@ -1,0 +1,213 @@
+/* ══════════════════════════════════════════════════════════════════
+   DASHBOARD — Premium Analytical Layer
+   Scope: #page-dashboard only. Loaded last so it wins the cascade.
+   Pairs with js/dashboard-premium.js (ApexCharts-powered visuals).
+   ══════════════════════════════════════════════════════════════════ */
+
+:root{ --pf3-ease: cubic-bezier(0.16, 1, 0.3, 1); }
+
+/* ══ Hero cover ══════════════════════════════════════════════════ */
+.cover-top-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+.cover-intel{ display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0; }
+.cover-clock{
+  font-family: var(--font-mono); font-size:15px; font-weight:700; letter-spacing:.5px;
+  color: var(--text); font-variant-numeric: tabular-nums;
+  padding:5px 12px; border-radius:var(--r-full);
+  background: var(--glass-2); border:1px solid var(--glass-border);
+}
+.cover-wave{ width:120px; height:32px; }
+.cover-wave svg{ display:block; width:100%; height:100%; }
+.cover-progress-row{ margin-top:16px; }
+.cover-progress-label{
+  display:flex; justify-content:space-between; font-size:10.5px; color:var(--text3);
+  margin-bottom:6px; font-weight:600; letter-spacing:.2px;
+}
+.cover-progress-track{ height:6px; border-radius:var(--r-full); background:var(--glass-2); overflow:hidden; }
+.cover-progress-fill{
+  height:100%; width:0%; border-radius:var(--r-full);
+  background: linear-gradient(90deg, var(--blue), var(--purple));
+  transition: width 1s var(--pf3-ease);
+  position:relative;
+}
+.cover-progress-fill::after{
+  content:''; position:absolute; right:0; top:50%; width:10px; height:10px; border-radius:50%;
+  background:#fff; transform:translate(50%,-50%); box-shadow:0 0 8px rgba(96,165,250,0.8);
+}
+@media (max-width:640px){
+  .cover-top-row{ flex-direction:column; }
+  .cover-intel{ flex-direction:row; align-items:center; width:100%; justify-content:space-between; }
+}
+
+/* ══ KPI value row (Net P&L comparison arrow) ═══════════════════ */
+.cal-an-value-row{ display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+.pf3-compare-arrow{
+  display:inline-flex; align-items:center; gap:3px;
+  font-size:11px; font-weight:700; padding:2px 7px; border-radius:var(--r-full);
+  background: var(--glass-2); border:1px solid var(--glass-border);
+}
+.pf3-compare-arrow.up{ color:var(--green); background:var(--green-dim); border-color:rgba(52,211,153,.25); }
+.pf3-compare-arrow.down{ color:var(--red); background:var(--red-dim); border-color:rgba(248,113,113,.25); }
+.pf3-compare-arrow:empty{ display:none; }
+
+/* ══ Sparkline / gauge / ring ApexCharts mounts ═════════════════ */
+.pf3-spark-mount{ margin-top:2px; }
+.pf3-spark-mount .apexcharts-canvas{ margin:0 auto; }
+.pf3-apex-ring-mount{ position:relative; }
+.pf3-apex-ring-mount .apexcharts-canvas{ margin:0 auto; }
+
+/* ══ Card lift + glow-follows-mouse + animated border ═══════════ */
+#page-dashboard .cal-an-card,
+#page-dashboard .kpi-card,
+#page-dashboard .nxt-score-card{
+  position: relative;
+  overflow: hidden;
+  transition: transform 260ms var(--pf3-ease), box-shadow 260ms var(--pf3-ease), border-color 260ms var(--pf3-ease);
+  cursor: default;
+}
+#page-dashboard .cal-an-card[id],
+#page-dashboard .kpi-card[id]{ cursor: pointer; }
+#page-dashboard .cal-an-card:hover,
+#page-dashboard .kpi-card:hover,
+#page-dashboard .nxt-score-card:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(0,0,0,0.28);
+  border-color: var(--glass-border-h);
+}
+.pf3-glow{
+  position:absolute; width:180px; height:180px; border-radius:50%;
+  background: radial-gradient(circle, rgba(96,165,250,0.16), transparent 70%);
+  pointer-events:none; opacity:0; transition:opacity 220ms ease;
+  transform:translate(-50%,-50%);
+  z-index:0;
+}
+#page-dashboard .cal-an-card:hover .pf3-glow,
+#page-dashboard .kpi-card:hover .pf3-glow{ opacity:1; }
+
+.pf3-expand-hint,.cal-an-toggle-hint{
+  font-size:9px; font-weight:700; letter-spacing:.3px; text-transform:uppercase;
+  color:var(--text3); opacity:0; transition:opacity 200ms ease; margin-left:4px;
+}
+#page-dashboard .cal-an-card:hover .pf3-expand-hint,
+#page-dashboard .kpi-card:hover .pf3-expand-hint{ opacity:.75; }
+
+/* ══ Win streak dot timeline ═════════════════════════════════════ */
+.pf3-dot-timeline{ display:flex; gap:4px; margin-top:8px; align-items:center; }
+.pf3-dot{
+  width:7px; height:7px; border-radius:50%; background:var(--glass-3);
+  transition: transform 200ms var(--pf3-ease);
+}
+.pf3-dot.win{ background:var(--green); box-shadow:0 0 6px rgba(52,211,153,.5); }
+.pf3-dot.loss{ background:var(--red); box-shadow:0 0 6px rgba(248,113,113,.4); }
+.pf3-dot.be{ background:var(--blue); }
+.pf3-dot.current{ animation: pf3-dot-pulse 1.6s ease-in-out infinite; }
+@keyframes pf3-dot-pulse{
+  0%,100%{ transform:scale(1); }
+  50%{ transform:scale(1.5); }
+}
+
+/* ══ Balance beam (avg win/loss) ══════════════════════════════════ */
+.cal-an-bar-track{ position:relative; overflow:visible !important; }
+.cal-an-bar-track::after{
+  content:''; position:absolute; top:-4px; left:50%; width:2px; height:calc(100% + 8px);
+  background: var(--text3); opacity:.35; transform:translateX(-50%);
+}
+.cal-an-bar-seg{ transition: width 700ms var(--pf3-ease); }
+
+/* ══ NxTGen score ring wrap ═══════════════════════════════════════ */
+.nxt-score-body{ position:relative; }
+.pf3-score-ring-mount{
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  pointer-events:none;
+}
+.pf3-score-ring-mount .apexcharts-canvas{ margin:0 auto; }
+.nxt-score-card.pf3-pulse-up{ animation: pf3-score-glow 1.4s var(--pf3-ease); }
+@keyframes pf3-score-glow{
+  0%{ box-shadow: 0 0 0 rgba(52,211,153,0); }
+  30%{ box-shadow: 0 0 32px rgba(52,211,153,.45); }
+  100%{ box-shadow: 0 0 0 rgba(52,211,153,0); }
+}
+
+/* ══ Insight chips ═══════════════════════════════════════════════ */
+.pf3-insight-chips{
+  display:flex; flex-wrap:wrap; gap:8px; margin: 4px 0 20px;
+}
+.pf3-insight-chip{
+  display:flex; align-items:flex-start; gap:8px;
+  padding:10px 14px; border-radius: var(--r-lg);
+  background: var(--glass-1); border:1px solid var(--glass-border);
+  font-size:12px; line-height:1.5; color:var(--text2);
+  max-width:420px; flex:1 1 260px;
+  transition: transform 200ms var(--pf3-ease), border-color 200ms var(--pf3-ease);
+  animation: pf3-chip-in 320ms var(--pf3-ease) backwards;
+}
+.pf3-insight-chip:hover{ transform: translateY(-1px); border-color: var(--glass-border-h); }
+.pf3-insight-chip .pf3-chip-ico{
+  width:20px; height:20px; border-radius:50%; flex-shrink:0; margin-top:1px;
+  display:flex; align-items:center; justify-content:center;
+  background: var(--blue-dim); color: var(--blue);
+}
+.pf3-insight-chip.warn .pf3-chip-ico{ background: rgba(251,191,36,0.15); color: var(--gold); }
+.pf3-insight-chip.danger .pf3-chip-ico{ background: var(--red-dim); color: var(--red); }
+.pf3-insight-chip.good .pf3-chip-ico{ background: var(--green-dim); color: var(--green); }
+.pf3-insight-chip .pf3-chip-ico .icn{ width:11px; height:11px; }
+.pf3-insight-chip strong{ color: var(--text); }
+@keyframes pf3-chip-in{ from{ opacity:0; transform: translateY(6px); } to{ opacity:1; transform:translateY(0); } }
+
+/* ══ Equity curve controls ═══════════════════════════════════════ */
+.pf3-dd-toggle{
+  display:inline-flex; align-items:center; gap:5px;
+  font-size:10px; color:var(--text3); font-weight:600; cursor:pointer;
+  padding:3px 8px; border-radius:var(--r-full); border:1px solid var(--glass-border); background:var(--glass-1);
+}
+.pf3-dd-toggle input{ accent-color: var(--red); width:12px; height:12px; cursor:pointer; }
+#equity-curve-apex .apexcharts-canvas{ margin:0 auto; }
+#equity-curve-apex{ min-height:200px; }
+
+/* ══ Tap-to-expand detail popover (shared component) ═════════════ */
+.pf3-popover-backdrop{
+  position:fixed; inset:0; z-index:9990; background:rgba(3,6,12,0.55);
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  opacity:0; transition: opacity 200ms ease; display:flex; align-items:center; justify-content:center; padding:20px;
+}
+.pf3-popover-backdrop.show{ opacity:1; }
+.pf3-popover{
+  width:100%; max-width:440px; max-height:85vh; overflow-y:auto;
+  background: linear-gradient(180deg, var(--glass-3), var(--glass-1));
+  border:1px solid var(--glass-border-h); border-radius: var(--r-2xl);
+  box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+  padding:22px 22px 20px;
+  transform: translateY(14px) scale(.97); transition: transform 240ms var(--pf3-ease);
+}
+.pf3-popover-backdrop.show .pf3-popover{ transform: translateY(0) scale(1); }
+.pf3-popover-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+.pf3-popover-title{ font-size:15px; font-weight:800; font-family: var(--font-head); }
+.pf3-popover-close{
+  width:28px; height:28px; border-radius:50%; background:var(--glass-2); border:1px solid var(--glass-border);
+  color:var(--text2); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;
+}
+.pf3-popover-close .icn{ width:13px; height:13px; }
+.pf3-popover-chart{ margin-bottom:16px; }
+.pf3-popover-stat-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.pf3-popover-stat{
+  padding:11px 13px; border-radius: var(--r-md); background:var(--glass-1); border:1px solid var(--glass-border);
+}
+.pf3-popover-stat-label{ font-size:10px; color:var(--text3); font-weight:700; text-transform:uppercase; letter-spacing:.3px; margin-bottom:4px; }
+.pf3-popover-stat-value{ font-family: var(--font-mono); font-size:15px; font-weight:800; }
+
+/* ══ Reduced motion respect (mirrors profile Interface toggle) ═══ */
+html.nx-reduce-motion .pf3-dot.current{ animation:none !important; }
+html.nx-reduce-motion .nxt-score-card.pf3-pulse-up{ animation:none !important; }
+html.nx-reduce-motion .pf3-insight-chip{ animation:none !important; }
+
+/* ══ Mobile ═══════════════════════════════════════════════════════ */
+@media (max-width:768px){
+  .pf3-popover{ max-width:none; border-radius: var(--r-xl) var(--r-xl) 0 0; align-self:flex-end; max-height:80vh; }
+  .pf3-popover-backdrop{ align-items:flex-end; padding:0; }
+  .pf3-insight-chip{ flex:1 1 100%; max-width:none; }
+  .cover-wave{ width:90px; }
+  .pf3-popover-stat-grid{ grid-template-columns:1fr 1fr; }
+}
+@media (max-width:420px){
+  .cover-clock{ font-size:13px; padding:4px 9px; }
+  .pf3-popover-stat-grid{ grid-template-columns:1fr; }
+}
