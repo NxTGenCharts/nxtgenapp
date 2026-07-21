@@ -76,9 +76,15 @@ html.nx-reduce-motion .cal2-insight-card{ animation:none !important; }
    Base rule lives in dashboard-premium.css (.pf3-popover-backdrop,
    blur(3px)) and is shared by both pages. Loaded after it, so this
    wins the cascade for #page-calendar without touching the dashboard. */
-#page-calendar .pf3-popover-backdrop{
-  background: linear-gradient(180deg, #0a0f1c 0%, #060910 100%);
-  background-color: #070b14; /* solid fallback if gradient/backdrop-filter is unsupported */
+#page-calendar .pf3-popover-backdrop,
+html.dark #page-calendar .pf3-popover-backdrop,
+html[data-theme="dark"] #page-calendar .pf3-popover-backdrop,
+body.dark #page-calendar .pf3-popover-backdrop,
+.dark #page-calendar .pf3-popover-backdrop{
+  background: linear-gradient(180deg, #0a0f1c 0%, #060910 100%) !important;
+  background-color: #070b14 !important; /* solid fallback if gradient/backdrop-filter is unsupported */
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 /* ══ Mobile ═══════════════════════════════════════════════════════ */
