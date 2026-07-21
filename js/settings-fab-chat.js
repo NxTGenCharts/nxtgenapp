@@ -181,6 +181,7 @@ function _ensureAffirmationUI() {
   });
   _initFabPosition(document.getElementById('affirmation-fab'));
   _renderFabIcon(document.getElementById('affirmation-fab'));
+  if (typeof _nxSyncFabVisibility === 'function') _nxSyncFabVisibility();
 }
 
 // ── FAB mode (two-in-one: Daily Affirmations <svg class="icn" aria-hidden="true"><use href="#ic-swap"></use></svg> AI Chat) ──────────────────
@@ -239,30 +240,68 @@ function _fabDefaultXY(el) {
   return { x: window.innerWidth - w - 20, y: window.innerHeight - h - 90 - navH };
 }
 function _initFabPosition(el) {
-  // Always start at the default position on load/reload — dragging only
-  // repositions the FAB for the current session, it is never persisted.
-  try { localStorage.removeItem(_FAB_POS_KEY); } catch (e) {}
-  const d = _fabDefaultXY(el);
+  // Default behavior: always start at the default corner on load/reload —
+  // dragging only repositions the FAB for the current session, never
+  // persisted. If the person has turned on "Remember last widget position"
+  // (Settings → Floating Assistant), we restore the saved spot instead.
+  const prefs = (typeof _nxGetPrefs === 'function') ? _nxGetPrefs() : {};
+  let start = null;
+  if (prefs.fabRememberPos) {
+    try { start = JSON.parse(localStorage.getItem(_FAB_POS_KEY) || 'null'); } catch (e) {}
+  } else {
+    try { localStorage.removeItem(_FAB_POS_KEY); } catch (e) {}
+  }
+  const d = start || _fabDefaultXY(el);
   _setFabXY(el, d.x, d.y);
   _makeFabDraggable(el);
+  _fabSetupIdleMinimize(el);
   window.addEventListener('resize', () => {
     // Recompute against the default corner so the FAB stays clear of the
     // bottom nav / screen edge on resize, rather than freezing wherever
-    // it was last dragged to.
-    const d = _fabDefaultXY(el);
-    _setFabXY(el, d.x, d.y);
+    // it was last dragged to (unless a remembered position was restored).
+    const p2 = (typeof _nxGetPrefs === 'function') ? _nxGetPrefs() : {};
+    if (p2.fabRememberPos) return;
+    const d2 = _fabDefaultXY(el);
+    _setFabXY(el, d2.x, d2.y);
   });
+}
+
+/* ── Minimize the FAB after a period of inactivity (opt-in) ──────────────── */
+function _fabSetupIdleMinimize(el) {
+  let idleTimer = null;
+  function reset() {
+    el.classList.remove('fab-minimized');
+    if (idleTimer) clearTimeout(idleTimer);
+    const prefs = (typeof _nxGetPrefs === 'function') ? _nxGetPrefs() : {};
+    if (prefs.fabMinimizeInactive) idleTimer = setTimeout(() => el.classList.add('fab-minimized'), 8000);
+  }
+  ['mousemove', 'touchstart', 'keydown', 'click', 'scroll'].forEach(ev => window.addEventListener(ev, reset, { passive: true }));
+  reset();
 }
 function _fabClick(el) {
   if (el.dataset.justDragged) return;
-  const mode = _getFabMode();
+  const prefs = (typeof _nxGetPrefs === 'function') ? _nxGetPrefs() : {};
+  let mode = _getFabMode();
+  if (mode === 'chat' && prefs.fabShowChat === false) mode = 'affirmation';
+  if (mode === 'affirmation' && prefs.fabShowAffirmation === false) mode = 'chat';
+  if (mode === 'chat' && prefs.fabShowChat === false) {
+    if (typeof showToast === 'function') showToast('AI Chat is turned off in Floating Assistant settings', 'info');
+    return;
+  }
+  if (mode === 'affirmation' && prefs.fabShowAffirmation === false) {
+    if (typeof showToast === 'function') showToast('Daily Affirmation is turned off in Floating Assistant settings', 'info');
+    return;
+  }
   if (mode === 'chat') {
     openFloatingChat();
   } else {
     openAffirmationModal();
   }
-  // Toggle so the next tap triggers the other function
-  _setFabMode(mode === 'chat' ? 'affirmation' : 'chat');
+  // Toggle so the next tap triggers the other function, skipping any mode
+  // the person has disabled.
+  const next = mode === 'chat' ? 'affirmation' : 'chat';
+  const nextAllowed = next === 'chat' ? prefs.fabShowChat !== false : prefs.fabShowAffirmation !== false;
+  _setFabMode(nextAllowed ? next : mode);
   _renderFabIcon(el);
 }
 
@@ -296,6 +335,8 @@ function _makeFabDraggable(el) {
   let dragging = false, moved = false, startX = 0, startY = 0, origX = 0, origY = 0;
   const THRESHOLD = 6;
   function onDown(e) {
+    const prefs = (typeof _nxGetPrefs === 'function') ? _nxGetPrefs() : {};
+    if (prefs.fabDraggable === false) return;
     dragging = true; moved = false;
     const p = e.touches ? e.touches[0] : e;
     startX = p.clientX; startY = p.clientY;
@@ -325,6 +366,20 @@ function _makeFabDraggable(el) {
     document.removeEventListener('touchmove', onMove);
     document.removeEventListener('touchend', onUp);
     if (moved) {
+      const prefs = (typeof _nxGetPrefs === 'function') ? _nxGetPrefs() : {};
+      let finalPos = null;
+      if (prefs.fabSnapEdges) {
+        const rect = el.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const snapLeft = cx < window.innerWidth / 2;
+        finalPos = _setFabXY(el, snapLeft ? 10 : window.innerWidth - rect.width - 10, rect.top);
+      } else {
+        const rect = el.getBoundingClientRect();
+        finalPos = { x: rect.left, y: rect.top };
+      }
+      if (prefs.fabRememberPos) {
+        try { localStorage.setItem(_FAB_POS_KEY, JSON.stringify(finalPos)); } catch (e) {}
+      }
       // Position is intentionally NOT persisted — the FAB always returns
       // to its default corner on the next load/reload.
       el.dataset.justDragged = '1';

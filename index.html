@@ -85,6 +85,7 @@
 <link rel="stylesheet" href="css/final-misc.css?v=202607202045">
 <link rel="stylesheet" href="css/signals.css?v=202607202045">
 <link rel="stylesheet" href="css/premium-controls.css?v=202607202045">
+<link rel="stylesheet" href="css/profile-premium.css?v=202607211200">
 </head>
 <body>
 <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden" id="icon-sprite">
@@ -1229,8 +1230,9 @@
       <div class="page-inner">
 
         <!-- Hero -->
-        <div class="profile-hero">
+        <div class="profile-hero" id="profile-hero">
           <div class="profile-hero-bg"></div>
+          <div class="profile-hero-glow"></div>
           <div class="profile-hero-content">
             <div class="profile-avatar-wrap">
               <div class="profile-avatar-ring">
@@ -1240,22 +1242,32 @@
               <input type="file" id="profile-avatar-upload" accept="image/*" style="display:none" onchange="profileHandleAvatar(event)">
             </div>
             <div class="profile-hero-info">
-              <div class="profile-hero-name" id="profile-hero-name">Trader</div>
+              <div class="profile-hero-toprow">
+                <div class="profile-hero-name" id="profile-hero-name">Trader</div>
+                <button class="pf2-quickedit-btn" onclick="pf2QuickEdit()" title="Jump to account fields"><svg class="icn" aria-hidden="true"><use href="#ic-edit"></use></svg> Quick Edit Profile</button>
+              </div>
               <div class="profile-hero-email" id="profile-hero-email">—</div>
               <div class="profile-hero-badges">
-                <span class="profile-badge blue">Free Plan</span>
-                <span class="profile-badge green"><svg class="icn" aria-hidden="true"><use href="#ic-cloud"></use></svg> Cloud Synced</span>
+                <span class="profile-badge blue" id="profile-plan-badge">Free Plan</span>
+                <span class="profile-badge green" id="profile-cloud-badge"><svg class="icn" aria-hidden="true"><use href="#ic-cloud"></use></svg> Cloud Synced</span>
+                <span class="profile-badge muted" id="profile-streak-badge" style="display:none"><svg class="icn" aria-hidden="true"><use href="#ic-fire"></use></svg> <span id="profile-streak-num">0</span>-day streak</span>
+              </div>
+              <div class="profile-hero-meta">
+                <span class="pf2-meta-item"><svg class="icn" aria-hidden="true"><use href="#ic-calendar"></use></svg> Member since <b id="profile-member-since">—</b></span>
+                <span class="pf2-meta-dot">·</span>
+                <span class="pf2-meta-item"><svg class="icn" aria-hidden="true"><use href="#ic-refresh"></use></svg> Last synced <b id="profile-last-synced">—</b></span>
               </div>
             </div>
           </div>
         </div>
 
         <!-- Tabs -->
-        <div class="profile-tabs">
-          <button class="profile-tab active" onclick="profileTab('account',this)">Account</button>
-          <button class="profile-tab" onclick="profileTab('billing',this)">Billing</button>
-          <button class="profile-tab" onclick="profileTab('settings',this)">Settings</button>
-          <button class="profile-tab" onclick="profileTab('security',this)">Security</button>
+        <div class="profile-tabs" id="profile-tabs" role="tablist" aria-label="Profile sections">
+          <span class="profile-tab-indicator" id="profile-tab-indicator" aria-hidden="true"></span>
+          <button class="profile-tab active" id="profile-tab-btn-account" role="tab" aria-selected="true" aria-controls="profile-tab-account" onclick="profileTab('account',this)">Account</button>
+          <button class="profile-tab" id="profile-tab-btn-billing" role="tab" aria-selected="false" aria-controls="profile-tab-billing" onclick="profileTab('billing',this)">Billing</button>
+          <button class="profile-tab" id="profile-tab-btn-settings" role="tab" aria-selected="false" aria-controls="profile-tab-settings" onclick="profileTab('settings',this)">Settings</button>
+          <button class="profile-tab" id="profile-tab-btn-security" role="tab" aria-selected="false" aria-controls="profile-tab-security" onclick="profileTab('security',this)">Security</button>
         </div>
 
         <!-- ── ACCOUNT ── -->
@@ -1270,10 +1282,12 @@
               <button class="btn btn-primary profile-save-btn" onclick="profileSaveAccount()">Save Changes</button>
             </div>
             <div class="profile-form-grid">
+              <div class="pf2-subgroup-label" style="grid-column:1/-1">Basic Info</div>
               <div class="profile-field"><label class="profile-label">First Name</label><input class="profile-input" type="text" id="pf-fname" placeholder="e.g. Jordan"></div>
               <div class="profile-field"><label class="profile-label">Last Name</label><input class="profile-input" type="text" id="pf-lname" placeholder="e.g. Williams"></div>
               <div class="profile-field"><label class="profile-label">Display Name</label><input class="profile-input" type="text" id="pf-display" placeholder="How you appear in the app"></div>
               <div class="profile-field"><label class="profile-label">Email</label><input class="profile-input" type="email" id="pf-email" placeholder="your@email.com" readonly style="opacity:.6;cursor:not-allowed"></div>
+              <div class="pf2-subgroup-label" style="grid-column:1/-1">Contact &amp; Location</div>
               <div class="profile-field"><label class="profile-label">Phone (optional)</label><input class="profile-input" type="tel" id="pf-phone" placeholder="+1 234 567 8900"></div>
               <div class="profile-field">
                 <label class="profile-label">Timezone</label>
@@ -1414,10 +1428,85 @@
               </div>
             </div>
           </div>
+
+          <div class="profile-card">
+            <div class="profile-card-head">
+              <span class="profile-card-icon"><svg class="icn" aria-hidden="true"><use href="#ic-link"></use></svg></span>
+              <div>
+                <div class="profile-card-title">Connected Accounts</div>
+                <div class="profile-card-sub">Link external services to sync data automatically</div>
+              </div>
+            </div>
+            <div class="pf2-conn-list">
+              <div class="pf2-conn-row">
+                <span class="pf2-conn-icon supabase"><svg class="icn" aria-hidden="true"><use href="#ic-shield"></use></svg></span>
+                <div><div class="pf2-conn-name">Supabase Auth</div><div class="pf2-conn-sub" id="pf2-conn-supabase-sub">Signed in with email &amp; password</div></div>
+                <div class="pf2-conn-right"><span class="pf2-conn-status connected"><svg class="icn icn-green" aria-hidden="true"><use href="#ic-check-c"></use></svg> Connected</span></div>
+              </div>
+              <div class="pf2-conn-row">
+                <span class="pf2-conn-icon google"><svg class="icn" aria-hidden="true"><use href="#ic-globe"></use></svg></span>
+                <div><div class="pf2-conn-name">Google</div><div class="pf2-conn-sub">One-tap sign-in and calendar sync</div></div>
+                <div class="pf2-conn-right"><span class="pf2-soon-pill">Soon</span><button class="pf2-conn-btn" onclick="pf2ComingSoon('Google sign-in')" title="Coming soon">Connect</button></div>
+              </div>
+              <div class="pf2-conn-row">
+                <span class="pf2-conn-icon discord"><svg class="icn" aria-hidden="true"><use href="#ic-speech"></use></svg></span>
+                <div><div class="pf2-conn-name">Discord</div><div class="pf2-conn-sub">Post trade recaps to your server</div></div>
+                <div class="pf2-conn-right"><span class="pf2-soon-pill">Soon</span><button class="pf2-conn-btn" onclick="pf2ComingSoon('Discord')" title="Coming soon">Connect</button></div>
+              </div>
+              <div class="pf2-conn-row">
+                <span class="pf2-conn-icon telegram"><svg class="icn" aria-hidden="true"><use href="#ic-bell"></use></svg></span>
+                <div><div class="pf2-conn-name">Telegram</div><div class="pf2-conn-sub">Get signal &amp; journal alerts</div></div>
+                <div class="pf2-conn-right"><span class="pf2-soon-pill">Soon</span><button class="pf2-conn-btn" onclick="pf2ComingSoon('Telegram')" title="Coming soon">Connect</button></div>
+              </div>
+              <div class="pf2-conn-row">
+                <span class="pf2-conn-icon tradingview"><svg class="icn" aria-hidden="true"><use href="#ic-chart-line"></use></svg></span>
+                <div><div class="pf2-conn-name">TradingView</div><div class="pf2-conn-sub">Import charts &amp; watchlists</div></div>
+                <div class="pf2-conn-right"><span class="pf2-soon-pill">Soon</span><button class="pf2-conn-btn" onclick="pf2ComingSoon('TradingView')" title="Coming soon">Connect</button></div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- ── BILLING ── -->
         <div class="profile-section" id="profile-tab-billing">
+          <div class="profile-card">
+            <div class="profile-card-head">
+              <span class="profile-card-icon"><svg class="icn" aria-hidden="true"><use href="#ic-activity"></use></svg></span>
+              <div><div class="profile-card-title">Usage</div><div class="profile-card-sub">What you've used on your current plan</div></div>
+            </div>
+            <div class="pf2-usage-grid">
+              <div class="pf2-usage-item">
+                <div class="pf2-usage-label"><svg class="icn" aria-hidden="true"><use href="#ic-notebook"></use></svg> Trades Logged</div>
+                <div class="pf2-usage-value" id="pf2-usage-trades">—</div>
+                <div class="pf2-usage-sub">Unlimited on your plan</div>
+              </div>
+              <div class="pf2-usage-item">
+                <div class="pf2-usage-label"><svg class="icn" aria-hidden="true"><use href="#ic-flask"></use></svg> Backtesting Reps</div>
+                <div class="pf2-usage-value" id="pf2-usage-backtest">—</div>
+                <div class="pf2-usage-sub">Simulated trades logged</div>
+              </div>
+              <div class="pf2-usage-item">
+                <div class="pf2-usage-label"><svg class="icn" aria-hidden="true"><use href="#ic-cloud"></use></svg> Cloud Sync</div>
+                <div class="pf2-usage-value good" id="pf2-usage-sync">—</div>
+                <div class="pf2-usage-sub">All devices up to date</div>
+              </div>
+              <div class="pf2-usage-item soon">
+                <div class="pf2-usage-label"><svg class="icn" aria-hidden="true"><use href="#ic-sparkle"></use></svg> AI Credits</div>
+                <div class="pf2-usage-value">—</div>
+                <div class="pf2-usage-sub">Usage metering coming soon</div>
+              </div>
+              <div class="pf2-usage-item soon">
+                <div class="pf2-usage-label"><svg class="icn" aria-hidden="true"><use href="#ic-zap"></use></svg> Signals</div>
+                <div class="pf2-usage-value">—</div>
+                <div class="pf2-usage-sub">Usage metering coming soon</div>
+              </div>
+              <div class="pf2-usage-item soon">
+                <div class="pf2-usage-label"><svg class="icn" aria-hidden="true"><use href="#ic-server"></use></svg> Storage</div>
+                <div class="pf2-usage-value">—</div>
+                <div class="pf2-usage-sub">Usage metering coming soon</div>
+              </div>
+            </div>
+          </div>
           <div class="profile-card">
             <div class="profile-card-head">
               <span class="profile-card-icon"><svg class="icn" aria-hidden="true"><use href="#ic-card"></use></svg></span>
@@ -1468,12 +1557,15 @@
 
         <!-- ── SETTINGS ── -->
         <div class="profile-section" id="profile-tab-settings">
+
+          <!-- General -->
           <div class="profile-card">
             <div class="profile-card-head">
               <span class="profile-card-icon"><svg class="icn" aria-hidden="true"><use href="#ic-settings"></use></svg></span>
-              <div><div class="profile-card-title">App Preferences</div><div class="profile-card-sub">Synced to your account — same on every device</div></div>
+              <div><div class="profile-card-title">General</div><div class="profile-card-sub">Synced to your account — same on every device</div></div>
               <button class="btn btn-primary profile-save-btn" onclick="profileSaveSettings()">Save</button>
             </div>
+            <div class="pf2-subgroup-label">Journal Defaults</div>
             <div class="profile-form-grid">
               <div class="profile-field"><label class="profile-label">Default Date Range</label>
                 <select class="profile-select" id="pf-daterange" onchange="_pfLiveUpdate('daterange', this.value)"><option>This Month</option><option>This Quarter</option><option>This Year</option><option>All Time</option></select></div>
@@ -1483,26 +1575,249 @@
                 <select class="profile-select" id="pf-weekstart" onchange="_pfLiveUpdate('weekstart', this.value)"><option>Monday</option><option>Sunday</option></select></div>
               <div class="profile-field"><label class="profile-label">Dashboard Default View</label>
                 <select class="profile-select" id="pf-defaultview" onchange="_pfLiveUpdate('defaultview', this.value)"><option>Quarterly</option><option>Monthly</option><option>Weekly</option></select></div>
+              <div class="profile-field"><label class="profile-label">Language</label>
+                <select class="profile-select" id="pf2-language"><option>English</option></select></div>
+              <div class="profile-field"><label class="profile-label">Timezone</label>
+                <div style="display:flex;align-items:center;padding:10px 13px;background:var(--glass-1);border:1px solid var(--glass-border);border-radius:var(--r-md);font-size:12px;color:var(--text3)">Set on the Account tab <button type="button" onclick="profileTab('account', document.getElementById('profile-tab-btn-account'))" style="margin-left:auto;background:none;border:none;color:var(--blue);cursor:pointer;font-weight:700;font-family:inherit;font-size:12px">Edit →</button></div></div>
             </div>
-            <div style="margin-top:20px">
+
+            <div class="pf2-subgroup-label">Appearance</div>
+            <div class="profile-toggle-row">
+              <div><div class="profile-toggle-label">Theme</div><div class="profile-toggle-sub">Switch between dark and light mode</div></div>
+              <div class="pf2-seg-mini" id="pf2-theme-seg">
+                <button type="button" onclick="pf2SetTheme('dark')" id="pf2-theme-dark">Dark</button>
+                <button type="button" onclick="pf2SetTheme('light')" id="pf2-theme-light">Light</button>
+              </div>
+            </div>
+            <div class="profile-toggle-row">
+              <div><div class="profile-toggle-label">Accent Color</div><div class="profile-toggle-sub">Highlight color used across the app</div></div>
+              <div class="pf2-accent-row" id="pf2-accent-row">
+                <span class="pf2-swatch" data-accent="blue"  style="background:#60a5fa" onclick="pf2SetAccent('blue')"  title="Blue"></span>
+                <span class="pf2-swatch" data-accent="purple" style="background:#a78bfa" onclick="pf2SetAccent('purple')" title="Purple"></span>
+                <span class="pf2-swatch" data-accent="teal"  style="background:#2dd4bf" onclick="pf2SetAccent('teal')"  title="Teal"></span>
+                <span class="pf2-swatch" data-accent="gold"  style="background:#fbbf24" onclick="pf2SetAccent('gold')"  title="Gold"></span>
+                <span class="pf2-swatch" data-accent="rose"  style="background:#fb7185" onclick="pf2SetAccent('rose')"  title="Rose"></span>
+              </div>
+            </div>
+            <div class="profile-toggle-row">
+              <div><div class="profile-toggle-label">Rounded Corners</div><div class="profile-toggle-sub">Adjust corner radius across the app</div></div>
+              <div class="pf2-seg-mini" id="pf2-radius-seg">
+                <button type="button" onclick="pf2SetRadius('sharp')" id="pf2-radius-sharp">Sharp</button>
+                <button type="button" onclick="pf2SetRadius('default')" id="pf2-radius-default">Default</button>
+                <button type="button" onclick="pf2SetRadius('soft')" id="pf2-radius-soft">Soft</button>
+              </div>
+            </div>
+
+            <div class="pf2-subgroup-label">Behavior</div>
+            <div class="profile-toggle-row">
+              <div><div class="profile-toggle-label">Show Affirmation on Load</div><div class="profile-toggle-sub">Display a daily trading affirmation when the app opens</div></div>
+              <label class="profile-toggle-switch"><input type="checkbox" id="pf-affirmation" checked onchange="_pfLiveUpdate('affirmation', this.checked)"><span class="profile-toggle-track"></span></label>
+            </div>
+            <div class="profile-toggle-row">
+              <div><div class="profile-toggle-label">Compact Mode</div><div class="profile-toggle-sub">Reduce row height in Trade Log for denser viewing</div></div>
+              <label class="profile-toggle-switch"><input type="checkbox" id="pf-compact" onchange="_pfLiveUpdate('compact', this.checked)"><span class="profile-toggle-track"></span></label>
+            </div>
+            <div class="profile-toggle-row">
+              <div><div class="profile-toggle-label">Auto-Save Drafts</div><div class="profile-toggle-sub">Automatically save unfinished trade forms</div></div>
+              <label class="profile-toggle-switch"><input type="checkbox" id="pf-autosave" checked onchange="_pfLiveUpdate('autosave', this.checked)"><span class="profile-toggle-track"></span></label>
+            </div>
+            <div class="profile-toggle-row">
+              <div><div class="profile-toggle-label">Reduce Motion</div><div class="profile-toggle-sub">Minimize animations and transitions app-wide</div></div>
+              <label class="profile-toggle-switch"><input type="checkbox" id="pf2-reduce-motion" onchange="pf2SetLocalToggle('reduceMotion', this.checked)"><span class="profile-toggle-track"></span></label>
+            </div>
+          </div>
+
+          <!-- Trading -->
+          <div class="profile-card">
+            <div class="profile-card-head">
+              <span class="profile-card-icon"><svg class="icn" aria-hidden="true"><use href="#ic-target"></use></svg></span>
+              <div><div class="profile-card-title">Trading</div><div class="profile-card-sub">Defaults used when logging and reviewing trades</div></div>
+            </div>
+            <div class="profile-toggle-row">
+              <div><div class="profile-toggle-label">Default Risk % &amp; R:R</div><div class="profile-toggle-sub">Set on the Account tab under Trading Profile</div></div>
+              <button type="button" class="pf2-quickedit-btn" style="margin-left:0" onclick="profileTab('account', document.getElementById('profile-tab-btn-account'))">Edit →</button>
+            </div>
+            <div class="profile-toggle-row soon">
+              <div><div class="profile-toggle-label">Auto Calculate Position Size <span class="pf2-soon-pill">Soon</span></div><div class="profile-toggle-sub">Suggest lot/position size from your risk % and stop distance</div></div>
+              <label class="profile-toggle-switch"><input type="checkbox" disabled><span class="profile-toggle-track"></span></label>
+            </div>
+            <div class="profile-toggle-row soon">
+              <div><div class="profile-toggle-label">Show Weekends on Calendar <span class="pf2-soon-pill">Soon</span></div><div class="profile-toggle-sub">Include Saturday &amp; Sunday columns in the calendar view</div></div>
+              <label class="profile-toggle-switch"><input type="checkbox" disabled><span class="profile-toggle-track"></span></label>
+            </div>
+            <div class="profile-toggle-row soon">
+              <div><div class="profile-toggle-label">Trading Session Overlay <span class="pf2-soon-pill">Soon</span></div><div class="profile-toggle-sub">Highlight London / New York / Asian sessions on charts</div></div>
+              <label class="profile-toggle-switch"><input type="checkbox" disabled><span class="profile-toggle-track"></span></label>
+            </div>
+            <div class="profile-toggle-row soon">
+              <div><div class="profile-toggle-label">Default Chart Timeframe <span class="pf2-soon-pill">Soon</span></div><div class="profile-toggle-sub">Timeframe used when opening a new chart</div></div>
+              <select class="profile-select" disabled style="width:110px;opacity:.6;cursor:not-allowed"><option>15m</option></select>
+            </div>
+          </div>
+
+          <!-- Notifications -->
+          <div class="profile-card">
+            <div class="profile-card-head">
+              <span class="profile-card-icon"><svg class="icn" aria-hidden="true"><use href="#ic-bell"></use></svg></span>
+              <div><div class="profile-card-title">Notifications</div><div class="profile-card-sub">Control what NxTGen Journal tells you, and how</div></div>
+            </div>
+            <div class="pf2-subgroup-label">In-App Sound</div>
+            <div class="profile-toggle-row">
+              <div><div class="profile-toggle-label">Sound Notifications</div><div class="profile-toggle-sub">Master switch for all chime sounds</div></div>
+              <label class="profile-toggle-switch"><input type="checkbox" id="pf-sounds" onchange="_pfLiveUpdate('sounds', this.checked)"><span class="profile-toggle-track"></span></label>
+            </div>
+            <div class="profile-toggle-row">
+              <div><div class="profile-toggle-label">Trade Saved</div><div class="profile-toggle-sub">Play a chime when a trade is saved</div></div>
+              <label class="profile-toggle-switch"><input type="checkbox" id="pf2-notif-save" checked onchange="pf2SetLocalToggle('notifSoundSave', this.checked)"><span class="profile-toggle-track"></span></label>
+            </div>
+            <div class="profile-toggle-row">
+              <div><div class="profile-toggle-label">Trade Deleted</div><div class="profile-toggle-sub">Play a chime when a trade is deleted</div></div>
+              <label class="profile-toggle-switch"><input type="checkbox" id="pf2-notif-delete" checked onchange="pf2SetLocalToggle('notifSoundDelete', this.checked)"><span class="profile-toggle-track"></span></label>
+            </div>
+            <div class="pf2-subgroup-label">Delivery <span class="pf2-soon-pill">Coming soon</span></div>
+            <div class="profile-toggle-row soon">
+              <div><div class="profile-toggle-label">AI Coach</div><div class="profile-toggle-sub">Notify when your AI Coach has new insights</div></div>
+              <label class="profile-toggle-switch"><input type="checkbox" disabled><span class="profile-toggle-track"></span></label>
+            </div>
+            <div class="profile-toggle-row soon">
+              <div><div class="profile-toggle-label">Signals</div><div class="profile-toggle-sub">Notify on new signal alerts</div></div>
+              <label class="profile-toggle-switch"><input type="checkbox" disabled><span class="profile-toggle-track"></span></label>
+            </div>
+            <div class="profile-toggle-row soon">
+              <div><div class="profile-toggle-label">Email</div><div class="profile-toggle-sub">Send a daily/weekly recap to your inbox</div></div>
+              <label class="profile-toggle-switch"><input type="checkbox" disabled><span class="profile-toggle-track"></span></label>
+            </div>
+            <div class="profile-toggle-row soon">
+              <div><div class="profile-toggle-label">Desktop</div><div class="profile-toggle-sub">Native OS push notifications</div></div>
+              <label class="profile-toggle-switch"><input type="checkbox" disabled><span class="profile-toggle-track"></span></label>
+            </div>
+          </div>
+
+          <!-- AI Features -->
+          <div class="profile-card">
+            <div class="profile-card-head">
+              <span class="profile-card-icon"><svg class="icn" aria-hidden="true"><use href="#ic-brain"></use></svg></span>
+              <div><div class="profile-card-title">AI Features</div><div class="profile-card-sub">Configure AI-assisted parts of your journal</div></div>
+            </div>
+            <div class="profile-toggle-row">
+              <div><div class="profile-toggle-label">Daily Affirmations</div><div class="profile-toggle-sub">Show your affirmations feed — configure fully under Floating Assistant below</div></div>
+              <label class="profile-toggle-switch"><input type="checkbox" id="pf2-ai-affirmations" checked onchange="pf2SetLocalToggle('fabShowAffirmation', this.checked); pf2RefreshFabUI();"><span class="profile-toggle-track"></span></label>
+            </div>
+            <div class="profile-toggle-row">
+              <div><div class="profile-toggle-label">Floating AI Assistant</div><div class="profile-toggle-sub">Show/hide and configure under Floating Assistant below</div></div>
+              <button type="button" class="pf2-quickedit-btn" style="margin-left:0" onclick="pf2ScrollToFab()">Configure →</button>
+            </div>
+            <div class="profile-toggle-row soon">
+              <div><div class="profile-toggle-label">Smart Suggestions <span class="pf2-soon-pill">Soon</span></div><div class="profile-toggle-sub">Contextual tips while you log a trade</div></div>
+              <label class="profile-toggle-switch"><input type="checkbox" disabled><span class="profile-toggle-track"></span></label>
+            </div>
+            <div class="profile-toggle-row soon">
+              <div><div class="profile-toggle-label">Trade Analysis <span class="pf2-soon-pill">Soon</span></div><div class="profile-toggle-sub">Automatic post-trade breakdowns</div></div>
+              <label class="profile-toggle-switch"><input type="checkbox" disabled><span class="profile-toggle-track"></span></label>
+            </div>
+            <div class="profile-toggle-row soon">
+              <div><div class="profile-toggle-label">Pattern Detection <span class="pf2-soon-pill">Soon</span></div><div class="profile-toggle-sub">Flag recurring behavioral patterns</div></div>
+              <label class="profile-toggle-switch"><input type="checkbox" disabled><span class="profile-toggle-track"></span></label>
+            </div>
+            <div class="profile-toggle-row soon">
+              <div><div class="profile-toggle-label">Auto Notes <span class="pf2-soon-pill">Soon</span></div><div class="profile-toggle-sub">Draft trade notes for you to edit</div></div>
+              <label class="profile-toggle-switch"><input type="checkbox" disabled><span class="profile-toggle-track"></span></label>
+            </div>
+          </div>
+
+          <!-- Interface -->
+          <div class="profile-card">
+            <div class="profile-card-head">
+              <span class="profile-card-icon"><svg class="icn" aria-hidden="true"><use href="#ic-box"></use></svg></span>
+              <div><div class="profile-card-title">Interface</div><div class="profile-card-sub">Visual density and performance preferences</div></div>
+            </div>
+            <div class="profile-toggle-row">
+              <div><div class="profile-toggle-label">Dense Tables</div><div class="profile-toggle-sub">Same as Compact Mode in General — reduces row height</div></div>
+              <label class="profile-toggle-switch"><input type="checkbox" id="pf2-dense-tables" onchange="document.getElementById('pf-compact').checked=this.checked;_pfLiveUpdate('compact', this.checked)"><span class="profile-toggle-track"></span></label>
+            </div>
+            <div class="profile-toggle-row">
+              <div><div class="profile-toggle-label">Card Shadows</div><div class="profile-toggle-sub">Elevation shadows on cards and panels</div></div>
+              <label class="profile-toggle-switch"><input type="checkbox" id="pf2-card-shadows" checked onchange="pf2SetLocalToggle('cardShadows', this.checked)"><span class="profile-toggle-track"></span></label>
+            </div>
+            <div class="profile-toggle-row">
+              <div><div class="profile-toggle-label">Blur Effects</div><div class="profile-toggle-sub">Glass blur on hero, modals and panels — disable for extra performance</div></div>
+              <label class="profile-toggle-switch"><input type="checkbox" id="pf2-blur-effects" checked onchange="pf2SetLocalToggle('blurEffects', this.checked)"><span class="profile-toggle-track"></span></label>
+            </div>
+            <div class="profile-toggle-row soon">
+              <div><div class="profile-toggle-label">Show Sidebar Labels <span class="pf2-soon-pill">Soon</span></div><div class="profile-toggle-sub">Show text labels next to sidebar icons</div></div>
+              <label class="profile-toggle-switch"><input type="checkbox" checked disabled><span class="profile-toggle-track"></span></label>
+            </div>
+            <div class="profile-toggle-row soon">
+              <div><div class="profile-toggle-label">Collapse Sidebar <span class="pf2-soon-pill">Soon</span></div><div class="profile-toggle-sub">Start with the sidebar collapsed to icons only</div></div>
+              <label class="profile-toggle-switch"><input type="checkbox" disabled><span class="profile-toggle-track"></span></label>
+            </div>
+            <div class="profile-toggle-row soon">
+              <div><div class="profile-toggle-label">Show Tooltips <span class="pf2-soon-pill">Soon</span></div><div class="profile-toggle-sub">Per-control on/off for hover tooltips</div></div>
+              <label class="profile-toggle-switch"><input type="checkbox" checked disabled><span class="profile-toggle-track"></span></label>
+            </div>
+          </div>
+
+          <!-- Floating Assistant -->
+          <div class="profile-card" id="pf2-fab-card">
+            <div class="profile-card-head">
+              <span class="profile-card-icon"><svg class="icn" aria-hidden="true"><use href="#ic-sparkle"></use></svg></span>
+              <div><div class="profile-card-title">Floating Assistant</div><div class="profile-card-sub">The circular button that combines Daily Affirmations and AI Chat</div></div>
+            </div>
+
+            <div class="pf2-fab-preview">
+              <div class="pf2-fab-preview-icon"><svg class="icn" aria-hidden="true"><use href="#ic-sparkle"></use></svg></div>
+              <div class="pf2-fab-preview-text">
+                <div class="pf2-fab-preview-title">Enable Floating Assistant</div>
+                <div class="pf2-fab-preview-sub" id="pf2-fab-master-sub">When off, the button disappears completely from every page.</div>
+              </div>
+              <label class="profile-toggle-switch pf2-fab-master"><input type="checkbox" id="pf2-fab-enabled" checked onchange="pf2ToggleFabMaster(this.checked)"><span class="profile-toggle-track"></span></label>
+            </div>
+
+            <div class="pf2-fab-grid" id="pf2-fab-grid">
               <div class="profile-toggle-row">
-                <div><div class="profile-toggle-label">Show Affirmation on Load</div><div class="profile-toggle-sub">Display a daily trading affirmation when the app opens</div></div>
-                <label class="profile-toggle-switch"><input type="checkbox" id="pf-affirmation" checked onchange="_pfLiveUpdate('affirmation', this.checked)"><span class="profile-toggle-track"></span></label>
+                <div><div class="profile-toggle-label">Show Daily Affirmation</div></div>
+                <label class="profile-toggle-switch"><input type="checkbox" id="pf2-fab-show-affirmation" checked onchange="pf2SetLocalToggle('fabShowAffirmation', this.checked); pf2SyncAiToggleMirror();"><span class="profile-toggle-track"></span></label>
               </div>
               <div class="profile-toggle-row">
-                <div><div class="profile-toggle-label">Sound Notifications</div><div class="profile-toggle-sub">Play a chime when a trade is saved or deleted</div></div>
-                <label class="profile-toggle-switch"><input type="checkbox" id="pf-sounds" onchange="_pfLiveUpdate('sounds', this.checked)"><span class="profile-toggle-track"></span></label>
+                <div><div class="profile-toggle-label">Show AI Chat</div></div>
+                <label class="profile-toggle-switch"><input type="checkbox" id="pf2-fab-show-chat" checked onchange="pf2SetLocalToggle('fabShowChat', this.checked)"><span class="profile-toggle-track"></span></label>
               </div>
               <div class="profile-toggle-row">
-                <div><div class="profile-toggle-label">Compact Table View</div><div class="profile-toggle-sub">Reduce row height in Trade Log for denser viewing</div></div>
-                <label class="profile-toggle-switch"><input type="checkbox" id="pf-compact" onchange="_pfLiveUpdate('compact', this.checked)"><span class="profile-toggle-track"></span></label>
+                <div><div class="profile-toggle-label">Auto-open on first login</div></div>
+                <label class="profile-toggle-switch"><input type="checkbox" id="pf2-fab-autoopen" checked onchange="pf2SetLocalToggle('fabAutoOpenFirst', this.checked)"><span class="profile-toggle-track"></span></label>
               </div>
               <div class="profile-toggle-row">
-                <div><div class="profile-toggle-label">Auto-Save Drafts</div><div class="profile-toggle-sub">Automatically save unfinished trade forms</div></div>
-                <label class="profile-toggle-switch"><input type="checkbox" id="pf-autosave" checked onchange="_pfLiveUpdate('autosave', this.checked)"><span class="profile-toggle-track"></span></label>
+                <div><div class="profile-toggle-label">Remember last widget position</div></div>
+                <label class="profile-toggle-switch"><input type="checkbox" id="pf2-fab-remember-pos" onchange="pf2SetLocalToggle('fabRememberPos', this.checked)"><span class="profile-toggle-track"></span></label>
+              </div>
+              <div class="profile-toggle-row">
+                <div><div class="profile-toggle-label">Snap to screen edges</div></div>
+                <label class="profile-toggle-switch"><input type="checkbox" id="pf2-fab-snap" checked onchange="pf2SetLocalToggle('fabSnapEdges', this.checked)"><span class="profile-toggle-track"></span></label>
+              </div>
+              <div class="profile-toggle-row">
+                <div><div class="profile-toggle-label">Reduce floating animations</div></div>
+                <label class="profile-toggle-switch"><input type="checkbox" id="pf2-fab-reduce-anim" onchange="pf2SetLocalToggle('fabReduceAnim', this.checked)"><span class="profile-toggle-track"></span></label>
+              </div>
+              <div class="profile-toggle-row">
+                <div><div class="profile-toggle-label">Enable notification pulse</div></div>
+                <label class="profile-toggle-switch"><input type="checkbox" id="pf2-fab-pulse" checked onchange="pf2SetLocalToggle('fabNotifPulse', this.checked)"><span class="profile-toggle-track"></span></label>
+              </div>
+              <div class="profile-toggle-row">
+                <div><div class="profile-toggle-label">Allow drag &amp; reposition</div></div>
+                <label class="profile-toggle-switch"><input type="checkbox" id="pf2-fab-draggable" checked onchange="pf2SetLocalToggle('fabDraggable', this.checked)"><span class="profile-toggle-track"></span></label>
+              </div>
+              <div class="profile-toggle-row">
+                <div><div class="profile-toggle-label">Minimize when inactive</div></div>
+                <label class="profile-toggle-switch"><input type="checkbox" id="pf2-fab-minimize" onchange="pf2SetLocalToggle('fabMinimizeInactive', this.checked)"><span class="profile-toggle-track"></span></label>
+              </div>
+              <div class="profile-toggle-row">
+                <div><div class="profile-toggle-label">Always stay above content</div></div>
+                <label class="profile-toggle-switch"><input type="checkbox" id="pf2-fab-always-top" checked onchange="pf2SetLocalToggle('fabAlwaysOnTop', this.checked)"><span class="profile-toggle-track"></span></label>
               </div>
             </div>
           </div>
+
+          <!-- Data Management -->
           <div class="profile-card">
             <div class="profile-card-head">
               <span class="profile-card-icon"><svg class="icn" aria-hidden="true"><use href="#ic-server"></use></svg></span>
@@ -1524,12 +1839,63 @@
               <div><div class="profile-card-title">Change Password</div><div class="profile-card-sub">Update your Supabase account password</div></div>
             </div>
             <div class="profile-form-grid" style="max-width:480px">
-              <div class="profile-field full"><label class="profile-label">Current Password</label><input class="profile-input" type="password" id="pf-pw-current" placeholder="Enter current password"></div>
-              <div class="profile-field full"><label class="profile-label">New Password</label><input class="profile-input" type="password" id="pf-pw-new" placeholder="Min. 8 characters"></div>
-              <div class="profile-field full"><label class="profile-label">Confirm New Password</label><input class="profile-input" type="password" id="pf-pw-confirm" placeholder="Repeat new password"></div>
+              <div class="profile-field full">
+                <label class="profile-label">Current Password</label>
+                <div class="pf2-pw-wrap">
+                  <input class="profile-input" type="password" id="pf-pw-current" placeholder="Enter current password">
+                  <button type="button" class="pf2-pw-toggle" onclick="pf2TogglePw('pf-pw-current', this)" aria-label="Show password"><svg class="icn" aria-hidden="true"><use href="#ic-eye"></use></svg></button>
+                </div>
+              </div>
+              <div class="profile-field full">
+                <label class="profile-label">New Password</label>
+                <div class="pf2-pw-wrap">
+                  <input class="profile-input" type="password" id="pf-pw-new" placeholder="Min. 8 characters" oninput="pf2UpdatePwStrength(this.value)">
+                  <button type="button" class="pf2-pw-toggle" onclick="pf2TogglePw('pf-pw-new', this)" aria-label="Show password"><svg class="icn" aria-hidden="true"><use href="#ic-eye"></use></svg></button>
+                </div>
+                <div class="pf2-strength-track"><div class="pf2-strength-bar" id="pf2-strength-bar"></div></div>
+                <div class="pf2-strength-label" id="pf2-strength-label">Enter a new password</div>
+                <div class="pf2-pw-reqs" id="pf2-pw-reqs">
+                  <span class="pf2-pw-req" data-req="len"><svg class="icn" aria-hidden="true"><use href="#ic-check"></use></svg> 8+ characters</span>
+                  <span class="pf2-pw-req" data-req="case"><svg class="icn" aria-hidden="true"><use href="#ic-check"></use></svg> Upper &amp; lowercase</span>
+                  <span class="pf2-pw-req" data-req="num"><svg class="icn" aria-hidden="true"><use href="#ic-check"></use></svg> A number</span>
+                  <span class="pf2-pw-req" data-req="sym"><svg class="icn" aria-hidden="true"><use href="#ic-check"></use></svg> A symbol</span>
+                </div>
+              </div>
+              <div class="profile-field full">
+                <label class="profile-label">Confirm New Password</label>
+                <div class="pf2-pw-wrap">
+                  <input class="profile-input" type="password" id="pf-pw-confirm" placeholder="Repeat new password">
+                  <button type="button" class="pf2-pw-toggle" onclick="pf2TogglePw('pf-pw-confirm', this)" aria-label="Show password"><svg class="icn" aria-hidden="true"><use href="#ic-eye"></use></svg></button>
+                </div>
+              </div>
               <div class="profile-field full"><button class="btn btn-primary" onclick="profileChangePassword()" style="width:100%">Update Password</button></div>
             </div>
           </div>
+
+          <div class="profile-card">
+            <div class="profile-card-head">
+              <span class="profile-card-icon"><svg class="icn" aria-hidden="true"><use href="#ic-shield"></use></svg></span>
+              <div><div class="profile-card-title">Two-Factor Authentication</div><div class="profile-card-sub">Add an extra layer of security to your account</div></div>
+              <span class="pf2-card-badge">Coming soon</span>
+            </div>
+            <div class="pf2-2fa-row">
+              <span class="pf2-2fa-icon"><svg class="icn" aria-hidden="true"><use href="#ic-lock"></use></svg></span>
+              <div>
+                <div class="pf2-2fa-title">Authenticator App</div>
+                <div class="pf2-2fa-sub">Use Google Authenticator, Authy or similar</div>
+              </div>
+              <button class="pf2-2fa-btn" onclick="pf2ComingSoon('Two-factor authentication')" title="Coming soon">Enable</button>
+            </div>
+            <div class="pf2-2fa-row" style="margin-top:10px">
+              <span class="pf2-2fa-icon"><svg class="icn" aria-hidden="true"><use href="#ic-key"></use></svg></span>
+              <div>
+                <div class="pf2-2fa-title">Recovery Codes</div>
+                <div class="pf2-2fa-sub">One-time codes to use if you lose access to your device</div>
+              </div>
+              <button class="pf2-2fa-btn" onclick="pf2ComingSoon('Recovery codes')" title="Coming soon">Generate</button>
+            </div>
+          </div>
+
           <div class="profile-card">
             <div class="profile-card-head">
               <span class="profile-card-icon"><svg class="icn" aria-hidden="true"><use href="#ic-monitor"></use></svg></span>
@@ -1538,18 +1904,37 @@
             <div class="profile-session-row">
               <div class="profile-session-icon"><svg class="icn" aria-hidden="true"><use href="#ic-monitor"></use></svg></div>
               <div>
-                <div class="profile-session-name">This device (Current session)</div>
+                <div class="profile-session-name">This device <span class="pf2-soon-pill" style="background:var(--green-dim);color:var(--green);border-color:rgba(52,211,153,.3)">Current device</span></div>
                 <div class="profile-session-meta" id="profile-session-meta">Web browser · Active now</div>
               </div>
               <span class="pill pill-green" style="margin-left:auto;font-size:10px">Active</span>
             </div>
+            <div class="pf2-session-empty">
+              <svg class="icn" aria-hidden="true"><use href="#ic-info"></use></svg>
+              Cross-device session listing &amp; remote sign-out are coming soon — for now, use Sign Out below to end this session.
+            </div>
           </div>
+
+          <div class="profile-card">
+            <div class="profile-card-head">
+              <span class="profile-card-icon"><svg class="icn" aria-hidden="true"><use href="#ic-history"></use></svg></span>
+              <div><div class="profile-card-title">Login History</div><div class="profile-card-sub">Recent sign-in attempts on your account</div></div>
+              <span class="pf2-card-badge">Coming soon</span>
+            </div>
+            <div class="pf2-history-empty">
+              <svg class="icn" aria-hidden="true"><use href="#ic-inbox"></use></svg>
+              <div class="pf2-history-empty-title">No login history yet</div>
+              <div class="pf2-history-empty-sub">Once enabled, this will show date, location, browser and success/failure for each sign-in.</div>
+            </div>
+          </div>
+
           <div class="profile-card danger-zone">
             <div class="profile-card-head">
               <span class="profile-card-icon"><svg class="icn icn-gold" aria-hidden="true"><use href="#ic-warning"></use></svg></span>
               <div><div class="profile-card-title" style="color:var(--red)">Danger Zone</div><div class="profile-card-sub">Irreversible actions — proceed with caution</div></div>
             </div>
             <div style="display:flex;gap:12px;flex-wrap:wrap">
+              <button class="btn" style="border-color:rgba(248,113,113,.3);color:var(--red)" onclick="profileExportJSON()"><svg class="icn" aria-hidden="true"><use href="#ic-download"></use></svg> Export Data</button>
               <button class="btn" style="border-color:rgba(248,113,113,.3);color:var(--red)" onclick="profileSignOut()"><svg class="icn" aria-hidden="true"><use href="#ic-door-exit"></use></svg> Sign Out</button>
               <button class="btn" style="border-color:rgba(248,113,113,.3);color:var(--red)" onclick="profileConfirmDeleteAccount()"><svg class="icn" aria-hidden="true"><use href="#ic-trash"></use></svg> Delete Account</button>
             </div>
@@ -1838,6 +2223,7 @@
 <script src="js/share-scores-logos.js?v=202607202045"></script>
 <script src="js/settings-fab-chat.js?v=202607202045"></script>
 <script src="js/profile.js?v=202607202045"></script>
+<script src="js/profile-premium.js?v=202607211200"></script>
 <script src="js/signals.js?v=202607202045"></script>
 
 <!-- ══ MOBILE SIDEBAR OVERLAY ══ already present above ══ -->
