@@ -117,7 +117,7 @@ function pf3TLEnhanceRows(list) {
     // ── Hover analytics card (desktop only — pointer devices with real hover) ──
     if (matchMedia('(hover: hover)').matches && !row.dataset.pf3Hover) {
       row.dataset.pf3Hover = '1';
-      row.addEventListener('mouseenter', (e) => pf3TLShowHoverCard(row, t));
+      row.addEventListener('mouseenter', (e) => pf3TLShowHoverCard(row, t, e));
       row.addEventListener('mousemove', (e) => pf3TLMoveHoverCard(e));
       row.addEventListener('mouseleave', () => pf3TLHideHoverCard());
     }
@@ -181,7 +181,7 @@ function _pf3Esc(s) {
 
 // ── Hover analytics card ────────────────────────────────────────────────
 let _pf3TLHoverEl = null;
-function pf3TLShowHoverCard(row, t) {
+function pf3TLShowHoverCard(row, t, e) {
   pf3TLHideHoverCard();
   const conf = pf3TLConfidence(t);
   const el = document.createElement('div');
@@ -195,6 +195,15 @@ function pf3TLShowHoverCard(row, t) {
   `;
   document.body.appendChild(el);
   _pf3TLHoverEl = el;
+  // Position immediately using the triggering event (falls back to the
+  // row's own bounding box if no event is available) so the card never
+  // flashes at its unstyled default spot before the first mousemove.
+  if (e) {
+    pf3TLMoveHoverCard(e);
+  } else {
+    const rect = row.getBoundingClientRect();
+    pf3TLMoveHoverCard({ clientX: rect.left + 16, clientY: rect.top + rect.height / 2 });
+  }
   requestAnimationFrame(() => el.classList.add('show'));
 }
 function pf3TLMoveHoverCard(e) {

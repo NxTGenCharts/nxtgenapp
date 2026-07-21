@@ -31,11 +31,11 @@
 .pf3-pnl-flash{ animation: pf3-tl-pnl-flash 320ms ease both; }
 
 /* ══ Stars cell layout (expand btn + stars + badges) ═══════════════ */
-td.stars{ display:flex; align-items:center; flex-wrap:wrap; gap:0; }
-td.stars .pf3-tl-badges{ flex-basis:100%; margin-top:4px; }
+td.stars{ display:flex; align-items:center; flex-wrap:nowrap; gap:6px; white-space:nowrap; }
+td.stars .pf3-tl-badges{ flex-basis:auto; margin-top:0; }
 
 /* ══ Quality + confidence badges ═══════════════════════════════════ */
-.pf3-tl-badges{ display:flex; align-items:center; gap:5px; margin-top:3px; flex-wrap:wrap; }
+.pf3-tl-badges{ display:flex; align-items:center; gap:5px; margin-top:0; flex-wrap:nowrap; flex-shrink:0; }
 .pf3-tl-quality{
   font-size:9px; font-weight:800; letter-spacing:.3px; padding:1.5px 6px; border-radius:var(--r-full);
   border:1px solid transparent;
@@ -109,6 +109,8 @@ td.stars .pf3-tl-badges{ flex-basis:100%; margin-top:4px; }
 @media (max-width:768px){
   .pf3-tl-rr-track{ max-width:44px; }
   .pf3-tl-tl-step{ flex:1 1 100%; }
+  td.stars{ flex-wrap:wrap; white-space:normal; }
+  td.stars .pf3-tl-badges{ flex-basis:100%; margin-top:4px; }
 }
 
 html.nx-reduce-motion .pf3-pnl-flash,
