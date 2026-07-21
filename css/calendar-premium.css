@@ -72,6 +72,16 @@ html.nx-reduce-motion .cal2-score-card.pf3-pulse-up,
 html.nx-reduce-motion .pf3-day-ring-today,
 html.nx-reduce-motion .cal2-insight-card{ animation:none !important; }
 
+/* ══ Tap-to-expand popover — stronger backdrop blur (calendar only) ═
+   Base rule lives in dashboard-premium.css (.pf3-popover-backdrop,
+   blur(3px)) and is shared by both pages. Loaded after it, so this
+   wins the cascade for #page-calendar without touching the dashboard. */
+#page-calendar .pf3-popover-backdrop{
+  backdrop-filter: blur(16px) saturate(130%);
+  -webkit-backdrop-filter: blur(16px) saturate(130%);
+  background: rgba(3,6,12,0.68);
+}
+
 /* ══ Mobile ═══════════════════════════════════════════════════════ */
 @media (max-width:640px){
   .pf3-day-spark{ display:none; } /* keep mobile cells simple/uncluttered per touch-friendly requirement */
