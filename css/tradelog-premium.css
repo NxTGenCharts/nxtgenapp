@@ -1,0 +1,115 @@
+/* ══════════════════════════════════════════════════════════════════
+   TRADE LOG PAGE — Premium Analytical Layer
+   Scope: #page-tradelog only.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ══ Row session color accent ═════════════════════════════════════ */
+.trade-log-row{ border-left: 3px solid transparent; transition: border-color 200ms ease, background 150ms ease; }
+
+/* ══ RR mini bar ═══════════════════════════════════════════════════ */
+.pf3-tl-rr{ display:flex; flex-direction:column; gap:3px; min-width:56px; }
+.pf3-tl-rr-label{ font-family:var(--font-mono); font-size:11px; color:var(--text2); }
+.pf3-tl-rr-track{ display:flex; height:4px; border-radius:var(--r-full); overflow:hidden; background:var(--glass-2); width:100%; max-width:64px; }
+.pf3-tl-rr-risk{ background:var(--red); opacity:.65; }
+.pf3-tl-rr-reward{ background:var(--green); }
+
+/* ══ Direction pill ═══════════════════════════════════════════════ */
+.pf3-tl-dir{
+  display:inline-flex; align-items:center; gap:3px;
+  padding:2px 8px; border-radius:var(--r-full); font-size:10.5px; font-weight:700;
+  font-family:var(--font-mono);
+}
+.pf3-tl-dir.buy{ background:var(--green-dim); color:var(--green); }
+.pf3-tl-dir.sell{ background:var(--red-dim); color:var(--red); }
+.pf3-tl-dir .icn{ width:9px; height:9px; }
+
+/* ══ PnL count-up flash ════════════════════════════════════════════ */
+@keyframes pf3-tl-pnl-flash{
+  0%{ opacity:0; transform:translateX(-3px); }
+  100%{ opacity:1; transform:translateX(0); }
+}
+.pf3-pnl-flash{ animation: pf3-tl-pnl-flash 320ms ease both; }
+
+/* ══ Stars cell layout (expand btn + stars + badges) ═══════════════ */
+td.stars{ display:flex; align-items:center; flex-wrap:wrap; gap:0; }
+td.stars .pf3-tl-badges{ flex-basis:100%; margin-top:4px; }
+
+/* ══ Quality + confidence badges ═══════════════════════════════════ */
+.pf3-tl-badges{ display:flex; align-items:center; gap:5px; margin-top:3px; flex-wrap:wrap; }
+.pf3-tl-quality{
+  font-size:9px; font-weight:800; letter-spacing:.3px; padding:1.5px 6px; border-radius:var(--r-full);
+  border:1px solid transparent;
+}
+.pf3-tl-quality.elite{ background:rgba(52,211,153,.15); color:var(--green); border-color:rgba(52,211,153,.3); }
+.pf3-tl-quality.strong{ background:rgba(96,165,250,.15); color:var(--blue); border-color:rgba(96,165,250,.3); }
+.pf3-tl-quality.average{ background:rgba(251,191,36,.15); color:var(--gold); border-color:rgba(251,191,36,.3); }
+.pf3-tl-quality.weak{ background:rgba(248,113,113,.15); color:var(--red); border-color:rgba(248,113,113,.3); }
+
+.pf3-tl-confidence{ display:inline-flex; align-items:center; gap:4px; font-size:9.5px; color:var(--text3); font-weight:600; }
+.pf3-tl-conf-ring{ width:14px; height:14px; flex-shrink:0; }
+.pf3-tl-conf-ring circle.pf3-conf-bg{ stroke:var(--glass-3); }
+.pf3-tl-conf-ring circle.pf3-conf-fg{ stroke-linecap:round; transition: stroke-dashoffset 500ms cubic-bezier(.16,1,.3,1); }
+
+/* ══ Expand toggle + expanded row ══════════════════════════════════ */
+.pf3-tl-expand-btn{
+  width:22px; height:22px; border-radius:var(--r-sm); border:1px solid var(--glass-border);
+  background:var(--glass-1); color:var(--text3); display:inline-flex; align-items:center; justify-content:center;
+  cursor:pointer; transition: transform 200ms ease, background 150ms ease, color 150ms ease; margin-right:4px;
+}
+.pf3-tl-expand-btn:hover{ background:var(--glass-2); color:var(--text2); }
+.pf3-tl-expand-btn.open{ transform:rotate(90deg); color:var(--blue); }
+.pf3-tl-expand-btn .icn{ width:11px; height:11px; }
+
+.pf3-tl-expand-row td{
+  background: var(--glass-0); padding:0 !important; border-top:none;
+}
+.pf3-tl-expand-inner{
+  padding:16px 20px 18px; animation: pf3-fade-in 220ms cubic-bezier(.16,1,.3,1);
+  border-left:2px solid var(--glass-border);
+}
+@keyframes pf3-fade-in{ from{ opacity:0; transform:translateY(-4px); } to{ opacity:1; transform:translateY(0); } }
+.pf3-tl-timeline{ display:flex; flex-wrap:wrap; gap:0; }
+.pf3-tl-tl-step{
+  flex:1 1 180px; min-width:180px; position:relative; padding:0 16px 0 20px;
+  border-left:2px solid var(--glass-border);
+}
+.pf3-tl-tl-step:first-child{ border-left:2px solid var(--blue); }
+.pf3-tl-tl-step::before{
+  content:''; position:absolute; left:-5px; top:2px; width:8px; height:8px; border-radius:50%;
+  background:var(--glass-3); border:2px solid var(--bg2,#0b0f17);
+}
+.pf3-tl-tl-step:first-child::before{ background:var(--blue); }
+.pf3-tl-tl-step.win::before{ background:var(--green); }
+.pf3-tl-tl-step.loss::before{ background:var(--red); }
+.pf3-tl-tl-label{ font-size:9.5px; font-weight:800; letter-spacing:.4px; text-transform:uppercase; color:var(--text3); margin-bottom:5px; }
+.pf3-tl-tl-content{ font-size:12px; color:var(--text2); line-height:1.55; }
+.pf3-tl-tl-content .empty{ color:var(--text3); font-style:italic; }
+.pf3-tl-tl-tags{ display:flex; gap:5px; flex-wrap:wrap; margin-top:6px; }
+.pf3-tl-tag{ font-size:9.5px; padding:2px 7px; border-radius:var(--r-full); background:var(--glass-2); border:1px solid var(--glass-border); color:var(--text3); }
+.pf3-tl-tag.warn{ background:rgba(248,113,113,.12); color:var(--red); border-color:rgba(248,113,113,.25); }
+.pf3-tl-tag.good{ background:rgba(52,211,153,.12); color:var(--green); border-color:rgba(52,211,153,.25); }
+
+/* ══ Hover analytics card (desktop only, progressive enhancement) ══ */
+.pf3-tl-hovercard{
+  position:fixed; z-index:9980; max-width:280px; padding:12px 14px;
+  background: linear-gradient(180deg, var(--glass-3), var(--glass-2));
+  border:1px solid var(--glass-border-h); border-radius:var(--r-lg);
+  box-shadow:0 16px 40px rgba(0,0,0,.45);
+  font-size:11.5px; color:var(--text2); line-height:1.5;
+  opacity:0; transform:translateY(4px); transition: opacity 140ms ease, transform 140ms ease;
+  pointer-events:none;
+}
+.pf3-tl-hovercard.show{ opacity:1; transform:translateY(0); }
+.pf3-tl-hovercard-row{ display:flex; justify-content:space-between; gap:10px; padding:3px 0; }
+.pf3-tl-hovercard-row + .pf3-tl-hovercard-row{ border-top:1px solid var(--border2); }
+.pf3-tl-hovercard-k{ color:var(--text3); font-weight:600; }
+.pf3-tl-hovercard-v{ color:var(--text); font-weight:600; text-align:right; }
+
+/* ══ Mobile ═══════════════════════════════════════════════════════ */
+@media (max-width:768px){
+  .pf3-tl-rr-track{ max-width:44px; }
+  .pf3-tl-tl-step{ flex:1 1 100%; }
+}
+
+html.nx-reduce-motion .pf3-pnl-flash,
+html.nx-reduce-motion .pf3-tl-expand-inner{ animation:none !important; }
