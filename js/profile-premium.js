@@ -100,15 +100,14 @@ function pf2ScrollToFab() {
 }
 
 // ── Segmented tab indicator + keyboard navigation ─────────────────────
-const _pf2OrigProfileTab = (typeof profileTab === 'function') ? profileTab : null;
-function profileTab(id, btn) {
+window.profileTab = function (id, btn) {
   document.querySelectorAll('.profile-section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.profile-tab').forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
   const s = document.getElementById('profile-tab-' + id);
   if (s) s.classList.add('active');
   if (btn) { btn.classList.add('active'); btn.setAttribute('aria-selected', 'true'); }
   pf2MoveTabIndicator();
-}
+};
 function pf2MoveTabIndicator() {
   const wrap = document.getElementById('profile-tabs');
   const ind = document.getElementById('profile-tab-indicator');
@@ -224,15 +223,15 @@ function pf2RefreshUsage() {
 
 // Wrap buildProfile() so hero extras + new local-pref UI stay in sync every
 // time the Profile page is (re)built, without touching profile.js itself.
-const _pf2OrigBuildProfile = (typeof buildProfile === 'function') ? buildProfile : null;
-function buildProfile() {
-  if (_pf2OrigBuildProfile) _pf2OrigBuildProfile();
+const _pf2OrigBuildProfile = window.buildProfile;
+window.buildProfile = function () {
+  if (typeof _pf2OrigBuildProfile === 'function') _pf2OrigBuildProfile();
   pf2RefreshHeroExtras();
   pf2SyncThemeSeg();
   pf2SyncSegControls();
   pf2SyncLocalToggleInputs();
   pf2MoveTabIndicator();
-}
+};
 
 function pf2SyncSegControls() {
   const p = _nxGetPrefs();
@@ -301,35 +300,31 @@ function _nxSyncFabVisibility() {
 // Override the boot-time affirmation trigger to respect the new Floating
 // Assistant preferences while preserving the original "Show Affirmation on
 // Load" (_profileData.affirmation) behavior.
-if (typeof _maybeShowAffirmationOnLoad === 'function') {
-  function _maybeShowAffirmationOnLoad() {
-    if (typeof _ensureAffirmationUI === 'function') _ensureAffirmationUI();
-    _nxSyncFabVisibility();
-    const p = _nxGetPrefs();
-    if (p.fabEnabled === false) return;
-    const FIRST_KEY = 'nx_fab_first_open_done';
-    let isFirstLogin = false;
-    try { isFirstLogin = !localStorage.getItem(FIRST_KEY); } catch (e) {}
-    const shouldShow = (typeof _profileData !== 'undefined' && _profileData.affirmation !== false) && p.fabShowAffirmation !== false;
-    if (isFirstLogin) {
-      try { localStorage.setItem(FIRST_KEY, '1'); } catch (e) {}
-      if (p.fabAutoOpenFirst !== false && shouldShow && typeof openAffirmationModal === 'function') openAffirmationModal();
-    } else if (shouldShow && typeof openAffirmationModal === 'function') {
-      openAffirmationModal();
-    }
+window._maybeShowAffirmationOnLoad = function () {
+  if (typeof _ensureAffirmationUI === 'function') _ensureAffirmationUI();
+  _nxSyncFabVisibility();
+  const p = _nxGetPrefs();
+  if (p.fabEnabled === false) return;
+  const FIRST_KEY = 'nx_fab_first_open_done';
+  let isFirstLogin = false;
+  try { isFirstLogin = !localStorage.getItem(FIRST_KEY); } catch (e) {}
+  const shouldShow = (typeof _profileData !== 'undefined' && _profileData.affirmation !== false) && p.fabShowAffirmation !== false;
+  if (isFirstLogin) {
+    try { localStorage.setItem(FIRST_KEY, '1'); } catch (e) {}
+    if (p.fabAutoOpenFirst !== false && shouldShow && typeof openAffirmationModal === 'function') openAffirmationModal();
+  } else if (shouldShow && typeof openAffirmationModal === 'function') {
+    openAffirmationModal();
   }
-}
+};
 
 // ── Per-kind sound notification gating (Trade Saved / Trade Deleted) ──────
-if (typeof _playChime === 'function') {
-  const _pf2OrigPlayChime = _playChime;
-  function _playChime(kind) {
-    const p = _nxGetPrefs();
-    if (kind === 'save' && p.notifSoundSave === false) return;
-    if (kind === 'delete' && p.notifSoundDelete === false) return;
-    return _pf2OrigPlayChime(kind);
-  }
-}
+const _pf2OrigPlayChime = window._playChime;
+window._playChime = function (kind) {
+  const p = _nxGetPrefs();
+  if (kind === 'save' && p.notifSoundSave === false) return;
+  if (kind === 'delete' && p.notifSoundDelete === false) return;
+  if (typeof _pf2OrigPlayChime === 'function') return _pf2OrigPlayChime(kind);
+};
 
 // ── Mark "last synced" whenever a profile save actually succeeds ──────────
 ['profileSaveAccount', 'profileSaveTrading', 'profileSaveSettings'].forEach(fnName => {
