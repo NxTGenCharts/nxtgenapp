@@ -1,0 +1,100 @@
+/* ════════════════════════════════════════════════════════════════
+   SMART BOTTOM DOCK — auto-hide/reveal behaviour
+   ════════════════════════════════════════════════════════════════
+   Pairs with js/mobile-nav-smart-dock.js. That script is the single
+   source of truth for WHEN to show/hide (scroll, touch, focus,
+   keyboard, reduced-motion) — this file only defines HOW the two
+   states look, plus the space reserved for the dock so content never
+   jumps whether it's shown or hidden.
+
+   Desktop is untouched: everything here lives inside the existing
+   `@media (max-width: 768px)` boundary the dock already uses elsewhere
+   (see css/ai-coach-and-late-misc.css, which still owns display:none
+   above 768px).
+   ════════════════════════════════════════════════════════════════ */
+
+:root{
+  /* Approx. footprint of the pill (icon+label rows + internal padding)
+     plus the floating gap off the screen edge. Content reserves this
+     regardless of hidden/visible state, so nothing shifts when the
+     dock animates. */
+  --mob-nav-dock-h: 76px;
+  --mob-nav-dock-gap: 18px;
+  --mob-nav-reserve: calc(var(--mob-nav-dock-h) + var(--mob-nav-dock-gap) + 14px + env(safe-area-inset-bottom, 0px));
+}
+
+@media (max-width: 768px){
+
+  /* Reserve space for the floating dock on every page, regardless of
+     its current shown/hidden state — this is what prevents the
+     Weekly P&L / other bottom content from ever sitting under the
+     dock, and avoids any CLS when the dock itself animates. */
+  .page{
+    padding-bottom: var(--mob-nav-reserve) !important;
+  }
+
+  /* Float a little further off the edge than the pre-existing 10px,
+     per the "floating dock" spec (16–20px). */
+  .mob-bottom-nav{
+    bottom: calc(var(--mob-nav-dock-gap) + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  /* ── Show/hide animation ──────────────────────────────────────
+     GPU-accelerated transform + opacity, slight blur reduction on
+     appear. translateZ(0) keeps it on its own compositor layer so
+     the animation doesn't trigger layout/paint on surrounding
+     content. */
+  .mob-bottom-nav{
+    transform: translateY(0) translateZ(0);
+    opacity: 1;
+    filter: blur(0px);
+    transition:
+      transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 250ms ease,
+      filter 300ms ease;
+    will-change: transform, opacity;
+  }
+
+  .mob-bottom-nav.mob-nav-dock-hidden{
+    transform: translateY(calc(100% + 32px)) translateZ(0);
+    opacity: 0;
+    filter: blur(3px);
+    pointer-events: none;
+    transition:
+      transform 280ms cubic-bezier(0.4, 0, 1, 1),
+      opacity 200ms ease,
+      filter 200ms ease;
+  }
+
+  /* Fade the ambient edge-glow along with the dock so it doesn't hang
+     in the air a beat after the pill itself has gone. */
+  .mob-bottom-nav.mob-nav-dock-hidden::after{
+    opacity: 0;
+    transition: opacity 200ms ease;
+  }
+
+  /* Keyboard is open under a focused input — snap away immediately,
+     no need for the softer hide transition above. */
+  .mob-bottom-nav.mob-nav-dock-kb-hidden{
+    transform: translateY(calc(100% + 32px)) translateZ(0);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 180ms ease, opacity 150ms ease;
+  }
+}
+
+/* Respect reduced-motion: keep the show/hide functional (content
+   still gets its space back) but drop the transform/blur flourish
+   down to a plain, fast fade. */
+@media (max-width: 768px) and (prefers-reduced-motion: reduce){
+  .mob-bottom-nav,
+  .mob-bottom-nav.mob-nav-dock-hidden,
+  .mob-bottom-nav.mob-nav-dock-kb-hidden{
+    transition: opacity 120ms linear !important;
+    filter: none !important;
+  }
+  .mob-bottom-nav.mob-nav-dock-hidden,
+  .mob-bottom-nav.mob-nav-dock-kb-hidden{
+    transform: translateY(12px) !important;
+  }
+}
