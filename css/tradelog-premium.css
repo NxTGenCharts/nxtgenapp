@@ -32,6 +32,7 @@
 
 /* ══ Stars cell layout (expand btn + stars + badges) ═══════════════ */
 td.stars{ display:flex; align-items:center; flex-wrap:nowrap; gap:6px; white-space:nowrap; }
+td.stars > *{ flex-shrink:0; } /* nothing in this row is allowed to get squeezed to invisible — the table wrapper scrolls horizontally instead */
 td.stars .pf3-tl-badges{ flex-basis:auto; margin-top:0; }
 
 /* ══ Quality + confidence badges ═══════════════════════════════════ */
@@ -89,27 +90,12 @@ td.stars .pf3-tl-badges{ flex-basis:auto; margin-top:0; }
 .pf3-tl-tag.warn{ background:rgba(248,113,113,.12); color:var(--red); border-color:rgba(248,113,113,.25); }
 .pf3-tl-tag.good{ background:rgba(52,211,153,.12); color:var(--green); border-color:rgba(52,211,153,.25); }
 
-/* ══ Hover analytics card (desktop only, progressive enhancement) ══ */
-.pf3-tl-hovercard{
-  position:fixed; z-index:9980; max-width:280px; padding:12px 14px;
-  background: linear-gradient(180deg, var(--glass-3), var(--glass-2));
-  border:1px solid var(--glass-border-h); border-radius:var(--r-lg);
-  box-shadow:0 16px 40px rgba(0,0,0,.45);
-  font-size:11.5px; color:var(--text2); line-height:1.5;
-  opacity:0; transform:translateY(4px); transition: opacity 140ms ease, transform 140ms ease;
-  pointer-events:none;
-}
-.pf3-tl-hovercard.show{ opacity:1; transform:translateY(0); }
-.pf3-tl-hovercard-row{ display:flex; justify-content:space-between; gap:10px; padding:3px 0; }
-.pf3-tl-hovercard-row + .pf3-tl-hovercard-row{ border-top:1px solid var(--border2); }
-.pf3-tl-hovercard-k{ color:var(--text3); font-weight:600; }
-.pf3-tl-hovercard-v{ color:var(--text); font-weight:600; text-align:right; }
-
 /* ══ Mobile ═══════════════════════════════════════════════════════ */
 @media (max-width:768px){
   .pf3-tl-rr-track{ max-width:44px; }
   .pf3-tl-tl-step{ flex:1 1 100%; }
   td.stars{ flex-wrap:wrap; white-space:normal; }
+  td.stars > *{ flex-shrink:0; }
   td.stars .pf3-tl-badges{ flex-basis:100%; margin-top:4px; }
 }
 

@@ -114,13 +114,6 @@ function pf3TLEnhanceRows(list) {
       starsTd.appendChild(badges);
     }
 
-    // ── Hover analytics card (desktop only — pointer devices with real hover) ──
-    if (matchMedia('(hover: hover)').matches && !row.dataset.pf3Hover) {
-      row.dataset.pf3Hover = '1';
-      row.addEventListener('mouseenter', (e) => pf3TLShowHoverCard(row, t, e));
-      row.addEventListener('mousemove', (e) => pf3TLMoveHoverCard(e));
-      row.addEventListener('mouseleave', () => pf3TLHideHoverCard());
-    }
   });
 }
 
@@ -177,45 +170,4 @@ function _pf3Esc(s) {
   const d = document.createElement('div');
   d.textContent = String(s);
   return d.innerHTML;
-}
-
-// ── Hover analytics card ────────────────────────────────────────────────
-let _pf3TLHoverEl = null;
-function pf3TLShowHoverCard(row, t, e) {
-  pf3TLHideHoverCard();
-  const conf = pf3TLConfidence(t);
-  const el = document.createElement('div');
-  el.className = 'pf3-tl-hovercard';
-  el.innerHTML = `
-    <div class="pf3-tl-hovercard-row"><span class="pf3-tl-hovercard-k">Confidence</span><span class="pf3-tl-hovercard-v">${conf}%</span></div>
-    <div class="pf3-tl-hovercard-row"><span class="pf3-tl-hovercard-k">Followed plan</span><span class="pf3-tl-hovercard-v">${t.followedPlan || '—'}</span></div>
-    <div class="pf3-tl-hovercard-row"><span class="pf3-tl-hovercard-k">Mental state</span><span class="pf3-tl-hovercard-v">${t.emotion || '—'}</span></div>
-    ${t.outcome === 'Loss' && t.lossReason ? `<div class="pf3-tl-hovercard-row"><span class="pf3-tl-hovercard-k">Loss reason</span><span class="pf3-tl-hovercard-v">${t.lossReason}</span></div>` : ''}
-    ${t.wouldRetake !== null && t.wouldRetake !== undefined ? `<div class="pf3-tl-hovercard-row"><span class="pf3-tl-hovercard-k">Would retake</span><span class="pf3-tl-hovercard-v">${t.wouldRetake ? 'Yes' : 'No'}</span></div>` : ''}
-  `;
-  document.body.appendChild(el);
-  _pf3TLHoverEl = el;
-  // Position immediately using the triggering event (falls back to the
-  // row's own bounding box if no event is available) so the card never
-  // flashes at its unstyled default spot before the first mousemove.
-  if (e) {
-    pf3TLMoveHoverCard(e);
-  } else {
-    const rect = row.getBoundingClientRect();
-    pf3TLMoveHoverCard({ clientX: rect.left + 16, clientY: rect.top + rect.height / 2 });
-  }
-  requestAnimationFrame(() => el.classList.add('show'));
-}
-function pf3TLMoveHoverCard(e) {
-  if (!_pf3TLHoverEl) return;
-  const pad = 16;
-  let x = e.clientX + pad, y = e.clientY + pad;
-  const w = _pf3TLHoverEl.offsetWidth || 240, h = _pf3TLHoverEl.offsetHeight || 100;
-  if (x + w > window.innerWidth - 8) x = e.clientX - w - pad;
-  if (y + h > window.innerHeight - 8) y = e.clientY - h - pad;
-  _pf3TLHoverEl.style.left = x + 'px';
-  _pf3TLHoverEl.style.top = y + 'px';
-}
-function pf3TLHideHoverCard() {
-  if (_pf3TLHoverEl) { _pf3TLHoverEl.remove(); _pf3TLHoverEl = null; }
 }
