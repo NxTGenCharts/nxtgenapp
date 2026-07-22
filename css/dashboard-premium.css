@@ -163,20 +163,28 @@
 #equity-curve-apex .apexcharts-canvas{ margin:0 auto; }
 #equity-curve-apex{ min-height:200px; }
 
-/* ══ Tap-to-expand detail popover (shared component) ═════════════ */
+/* ══ Tap-to-expand detail popover (shared component) ═════════════
+   NOTE: the card uses solid (non-token) background colors on purpose.
+   --glass-1/2/3 are near-transparent in dark mode (they're meant for
+   surfaces that sit *on top of* the page background, not a floating
+   card with nothing solid behind it) — using them here made the
+   popover see-through in dark mode. */
 .pf3-popover-backdrop{
-  position:fixed; inset:0; z-index:9990; background:rgba(3,6,12,0.55);
-  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  position:fixed; inset:0; z-index:9990; background:rgba(3,6,12,0.72);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
   opacity:0; transition: opacity 200ms ease; display:flex; align-items:center; justify-content:center; padding:20px;
 }
 .pf3-popover-backdrop.show{ opacity:1; }
 .pf3-popover{
   width:100%; max-width:440px; max-height:85vh; overflow-y:auto;
-  background: linear-gradient(180deg, var(--glass-3), var(--glass-1));
+  background: linear-gradient(180deg, #161d2f 0%, #0d121c 100%);
   border:1px solid var(--glass-border-h); border-radius: var(--r-2xl);
   box-shadow: 0 24px 60px rgba(0,0,0,0.5);
   padding:22px 22px 20px;
   transform: translateY(14px) scale(.97); transition: transform 240ms var(--pf3-ease);
+}
+[data-theme="light"] .pf3-popover{
+  background: linear-gradient(180deg, rgba(255,255,255,0.99), rgba(255,255,255,0.95));
 }
 .pf3-popover-backdrop.show .pf3-popover{ transform: translateY(0) scale(1); }
 .pf3-popover-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }

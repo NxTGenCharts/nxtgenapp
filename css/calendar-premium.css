@@ -72,20 +72,11 @@ html.nx-reduce-motion .cal2-score-card.pf3-pulse-up,
 html.nx-reduce-motion .pf3-day-ring-today,
 html.nx-reduce-motion .cal2-insight-card{ animation:none !important; }
 
-/* ══ Tap-to-expand popover — stronger backdrop blur (calendar only) ═
-   Base rule lives in dashboard-premium.css (.pf3-popover-backdrop,
-   blur(3px)) and is shared by both pages. Loaded after it, so this
-   wins the cascade for #page-calendar without touching the dashboard. */
-#page-calendar .pf3-popover-backdrop,
-html.dark #page-calendar .pf3-popover-backdrop,
-html[data-theme="dark"] #page-calendar .pf3-popover-backdrop,
-body.dark #page-calendar .pf3-popover-backdrop,
-.dark #page-calendar .pf3-popover-backdrop{
-  background: linear-gradient(180deg, #0a0f1c 0%, #060910 100%) !important;
-  background-color: #070b14 !important; /* solid fallback if gradient/backdrop-filter is unsupported */
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
+/* ══ Tap-to-expand popover ═════════════════════════════════════════
+   The shared .pf3-popover-backdrop / .pf3-popover component (used by
+   the calendar's Win Rate / P&L / Profit Factor / Day Win Rate cards)
+   is defined once in dashboard-premium.css with a solid, opaque
+   background so it can't show the page through it in dark mode. */
 
 /* ══ Mobile ═══════════════════════════════════════════════════════ */
 @media (max-width:640px){
