@@ -218,23 +218,105 @@
     `;
   }
 
-  const FILTER_CHIPS = [
-    { id: 'all', label: 'All' }, { id: 'active', label: 'Active' }, { id: 'closed', label: 'Closed' },
-    { id: 'winning', label: 'Winning' }, { id: 'losing', label: 'Losing' },
-    { id: 'forex', label: 'Forex' }, { id: 'crypto', label: 'Crypto' }, { id: 'indices', label: 'Indices' },
-    { id: 'week', label: 'This Week' }, { id: 'month', label: 'This Month' },
-    { id: 'highrr', label: 'High RR' }, { id: 'highconf', label: 'High Confidence' }
+  // ── Combinable multi-select filters ─────────────────────────────
+  // Each chip belongs to a group; chips within a group OR together,
+  // groups AND together — e.g. Forex+Crypto (market) AND Winning (result)
+  // AND This Month (timeframe) AND High Confidence (confidence) AND
+  // London (session) all apply at once, matching the brief's example.
+  const FILTER_GROUPS = {
+    status: [{ id: 'active', label: 'Active' }, { id: 'closed', label: 'Closed' }],
+    result: [{ id: 'winning', label: 'Winning' }, { id: 'losing', label: 'Losing' }, { id: 'pending', label: 'Pending' }],
+    market: [{ id: 'forex', label: 'Forex' }, { id: 'crypto', label: 'Crypto' }, { id: 'indices', label: 'Indices' }],
+    timeframe: [{ id: 'today', label: 'Today' }, { id: 'week', label: 'This Week' }, { id: 'month', label: 'This Month' }],
+    confidence: [{ id: 'highconf', label: 'High Confidence' }, { id: 'lowconf', label: 'Low Confidence' }],
+    rr: [{ id: 'highrr', label: 'High RR' }],
+    session: [{ id: 'london', label: 'London' }, { id: 'new_york', label: 'New York' }, { id: 'tokyo', label: 'Tokyo' }, { id: 'sydney', label: 'Sydney' }, { id: 'london_ny_overlap', label: 'Overlap' }]
+  };
+  // quick one-tap presets — apply a whole combo in one click
+  const QUICK_PRESETS = [
+    { label: 'Winning · This Month', combo: { result: ['winning'], timeframe: ['month'] } },
+    { label: 'Forex · High Confidence', combo: { market: ['forex'], confidence: ['highconf'] } },
+    { label: 'High RR · Active', combo: { rr: ['highrr'], status: ['active'] } },
+    { label: 'London Session', combo: { session: ['london'] } },
   ];
+
+  let _sigActiveFilters = {}; // { groupKey: Set(chipId) }
+  function _sigChipSet(group) { return _sigActiveFilters[group] || (_sigActiveFilters[group] = new Set()); }
+  function _sigActiveChipCount() { return Object.values(_sigActiveFilters).reduce((a, s) => a + (s ? s.size : 0), 0); }
+
+  window._sigToggleChip = function (group, id) {
+    const set = _sigChipSet(group);
+    set.has(id) ? set.delete(id) : set.add(id);
+    _sigRenderFilterChips();
+    _sigRenderActiveView();
+  };
+  window._sigApplyPreset = function (i) {
+    const combo = QUICK_PRESETS[i].combo;
+    _sigActiveFilters = {};
+    Object.entries(combo).forEach(([g, ids]) => { _sigChipSet(g); ids.forEach(id => _sigChipSet(g).add(id)); });
+    _sigRenderFilterChips();
+    _sigRenderActiveView();
+    showToast('Applied "' + QUICK_PRESETS[i].label + '"', 'success');
+  };
+  window._sigResetFilters = function () {
+    _sigActiveFilters = {};
+    _sigSearch = '';
+    const input = document.getElementById('sig-search-input'); if (input) input.value = '';
+    _sigRenderFilterChips();
+    _sigRenderActiveView();
+    showToast('Filters reset', 'info');
+  };
+
+  // ── Saved filters (persisted per-browser) ───────────────────────
+  const SAVED_FILTERS_KEY = 'sig_saved_filters_v1';
+  function _sigLoadSavedFilters() { try { return JSON.parse(localStorage.getItem(SAVED_FILTERS_KEY) || '[]'); } catch (e) { return []; } }
+  function _sigStoreSavedFilters(list) { try { localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(list)); } catch (e) {} }
+  window._sigSaveCurrentFilter = function () {
+    if (!_sigActiveChipCount()) { showToast('No active filters to save', 'error'); return; }
+    const name = prompt('Name this filter combination:');
+    if (!name) return;
+    const serial = {}; Object.entries(_sigActiveFilters).forEach(([g, s]) => { if (s.size) serial[g] = [...s]; });
+    const list = _sigLoadSavedFilters();
+    list.push({ id: _uid(), name, filters: serial });
+    _sigStoreSavedFilters(list);
+    _sigRenderFilterChips();
+    showToast('Filter saved', 'success');
+  };
+  window._sigApplySavedFilter = function (id) {
+    const f = _sigLoadSavedFilters().find(x => x.id === id);
+    if (!f) return;
+    _sigActiveFilters = {};
+    Object.entries(f.filters).forEach(([g, ids]) => { _sigChipSet(g); ids.forEach(x => _sigChipSet(g).add(x)); });
+    _sigRenderFilterChips();
+    _sigRenderActiveView();
+  };
+  window._sigDeleteSavedFilter = function (id, ev) {
+    if (ev) ev.stopPropagation();
+    _sigStoreSavedFilters(_sigLoadSavedFilters().filter(x => x.id !== id));
+    _sigRenderFilterChips();
+  };
 
   function _sigRenderFilterChips() {
     const el = document.getElementById('sig-filter-chips');
     if (!el) return;
-    el.innerHTML = FILTER_CHIPS.map(c =>
-      `<div class="sig-chip ${_sigFilter === c.id ? 'active' : ''}" onclick="_sigSetFilter('${c.id}')">${c.label}</div>`
+    const groupsHtml = Object.entries(FILTER_GROUPS).map(([g, chips]) => chips.map(c =>
+      `<div class="sig-chip ${_sigChipSet(g).has(c.id) ? 'active' : ''}" onclick="_sigToggleChip('${g}','${c.id}')">${c.label}</div>`
+    ).join('')).join('');
+    const savedHtml = _sigLoadSavedFilters().map(f =>
+      `<div class="sig-chip sig-chip-saved" onclick="_sigApplySavedFilter('${f.id}')">${icn('ic-star')}${f.name}<span class="sig-chip-x" onclick="_sigDeleteSavedFilter('${f.id}',event)">${icn('ic-close')}</span></div>`
     ).join('');
+    el.innerHTML = `
+      <div class="sig-chip ${!_sigActiveChipCount() ? 'active' : ''}" onclick="_sigResetFilters()">All</div>
+      ${groupsHtml}
+      <div class="sig-filter-divider"></div>
+      ${QUICK_PRESETS.map((p, i) => `<div class="sig-chip sig-chip-preset" onclick="_sigApplyPreset(${i})">${icn('ic-sparkle')}${p.label}</div>`).join('')}
+      ${savedHtml ? `<div class="sig-filter-divider"></div>${savedHtml}` : ''}
+      <div class="sig-filter-divider"></div>
+      <div class="sig-chip sig-chip-action" onclick="_sigSaveCurrentFilter()">${icn('ic-save')} Save filter</div>
+      ${_sigActiveChipCount() ? `<div class="sig-chip sig-chip-action" onclick="_sigResetFilters()">${icn('ic-refresh')} Reset</div>` : ''}
+    `;
   }
 
-  window._sigSetFilter = function (id) { _sigFilter = id; _sigRenderFilterChips(); _sigRenderActiveView(); };
   window._sigOnSearch = function (v) { _sigSearch = v.trim().toLowerCase(); _sigRenderActiveView(); };
   window._sigSetView = function (v) {
     _sigView = v;
@@ -244,34 +326,48 @@
 
   function _sigFilteredSignals() {
     const now = Date.now();
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
     const weekAgo = now - 7 * 86400000;
     const monthAgo = now - 30 * 86400000;
+    const has = (g, id) => _sigChipSet(g).has(id);
+    const anyOf = (g, pred) => !_sigChipSet(g).size || [..._sigChipSet(g)].some(pred);
+
     return _sigAll.filter(s => {
       if (_sigSearch) {
         const hay = (s.pair + ' ' + s.market).toLowerCase();
         if (!hay.includes(_sigSearch)) return false;
       }
-      switch (_sigFilter) {
-        case 'active': return ['waiting', 'active', 'partial'].includes(s.status);
-        case 'closed': return ['tp1_hit', 'tp2_hit', 'tp3_hit', 'stopped_out', 'cancelled', 'expired'].includes(s.status);
-        case 'winning': return s.result === 'win';
-        case 'losing': return s.result === 'loss';
-        case 'forex': return s.market === 'forex';
-        case 'crypto': return s.market === 'crypto';
-        case 'indices': return s.market === 'indices';
-        case 'week': return s.created_at >= weekAgo;
-        case 'month': return s.created_at >= monthAgo;
-        case 'highrr': return (s.risk_reward || 0) >= 3;
-        case 'highconf': return s.confidence === 'high' || s.confidence === 'very_high';
-        default: return true;
+      if (_sigChipSet('status').size) {
+        const isActive = ['waiting', 'active', 'partial'].includes(s.status);
+        if (has('status', 'active') && !isActive && !has('status', 'closed')) return false;
+        if (has('status', 'closed') && isActive && !has('status', 'active')) return false;
       }
+      if (_sigChipSet('result').size) {
+        const ok = anyOf('result', id => id === 'winning' ? s.result === 'win' : id === 'losing' ? s.result === 'loss' : s.status === 'waiting');
+        if (!ok) return false;
+      }
+      if (_sigChipSet('market').size && !has('market', s.market)) return false;
+      if (_sigChipSet('confidence').size) {
+        const ok = anyOf('confidence', id => id === 'highconf' ? (s.confidence === 'high' || s.confidence === 'very_high') : s.confidence === 'low');
+        if (!ok) return false;
+      }
+      if (has('rr', 'highrr') && (s.risk_reward || 0) < 3) return false;
+      if (_sigChipSet('session').size && !has('session', s.session)) return false;
+      if (_sigChipSet('timeframe').size) {
+        const ok = anyOf('timeframe', id => id === 'today' ? s.created_at >= todayStart.getTime() : id === 'week' ? s.created_at >= weekAgo : s.created_at >= monthAgo);
+        if (!ok) return false;
+      }
+      return true;
     });
   }
 
+  let _sigLastFilterSig = '';
   function _sigRenderActiveView() {
     _sigRenderFilterChips();
     const root = document.getElementById('sig-view-root');
     if (!root) return;
+    const sig = _sigView + '|' + _sigSearch + '|' + JSON.stringify(Object.fromEntries(Object.entries(_sigActiveFilters).map(([k, v]) => [k, [...v]])));
+    if (sig !== _sigLastFilterSig) { _sigTableLimit = SIG_TABLE_BATCH; _sigLastFilterSig = sig; }
     const rows = _sigFilteredSignals();
     if (_sigView === 'table') root.innerHTML = _sigRenderTable(rows);
     else if (_sigView === 'cards') root.innerHTML = _sigRenderCards(rows);
@@ -282,45 +378,11 @@
   }
 
   // ══════════════════════════════════════════════════════════════
-  // STAT CARDS
+  // ANALYTICS WIDGET ENGINE — metrics + animated hero widgets + a
+  // lazily-rendered "More Analytics" strip. Everything here is derived
+  // straight from _sigAll; nothing is fabricated.
   // ══════════════════════════════════════════════════════════════
-  function _sigComputeStats() {
-    const all = _sigAll;
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const weekAgo = Date.now() - 7 * 86400000;
-    const active = all.filter(s => ['waiting', 'active', 'partial'].includes(s.status));
-    const wins = all.filter(s => s.result === 'win');
-    const losses = all.filter(s => s.result === 'loss');
-    const closed = all.filter(s => s.result === 'win' || s.result === 'loss');
-    const todays = all.filter(s => s.created_at >= today.getTime());
-    const weekClosed = closed.filter(s => s.created_at >= weekAgo);
-    const weekAcc = weekClosed.length ? (weekClosed.filter(s => s.result === 'win').length / weekClosed.length * 100) : 0;
-    const avgRR = all.length ? (all.reduce((a, s) => a + (+s.risk_reward || 0), 0) / all.length) : 0;
-    const totalPips = closed.reduce((a, s) => a + (+s.pips || 0), 0);
-    const totalR = closed.reduce((a, s) => a + (+s.r_multiple || 0), 0);
-    const openPositions = all.filter(s => ['active', 'partial'].includes(s.status)).length;
-    const closedPositions = closed.length;
-    const monthAgo = Date.now() - 30 * 86400000;
-    const monthClosed = closed.filter(s => s.created_at >= monthAgo);
-    const monthProfit = monthClosed.reduce((a, s) => a + (+s.profit_percent || 0), 0);
-    const avgHold = closed.length ? (closed.reduce((a, s) => a + ((s.closed_at && s.entered_at) ? (s.closed_at - s.entered_at) : 3600000 * 4), 0) / closed.length) : 0;
-    const avgHoldHrs = (avgHold / 3600000).toFixed(1);
-
-    return [
-      { label: 'Active Signals', value: active.length, icon: 'ic-activity', tone: 'blue' },
-      { label: 'Winning Signals', value: wins.length, icon: 'ic-trend-up', tone: 'green' },
-      { label: 'Losing Signals', value: losses.length, icon: 'ic-trend-down', tone: 'red' },
-      { label: "Today's Signals", value: todays.length, icon: 'ic-calendar', tone: 'purple' },
-      { label: 'Weekly Accuracy', value: weekAcc.toFixed(0) + '%', icon: 'ic-target', tone: weekAcc >= 50 ? 'green' : 'red' },
-      { label: 'Average RR', value: '1:' + avgRR.toFixed(1), icon: 'ic-ruler', tone: 'gold' },
-      { label: 'Avg Hold Time', value: avgHoldHrs + 'h', icon: 'ic-clock', tone: 'teal' },
-      { label: 'Total Pips', value: (totalPips >= 0 ? '+' : '') + totalPips.toFixed(0), icon: 'ic-zap', tone: totalPips >= 0 ? 'green' : 'red' },
-      { label: 'Total R', value: (totalR >= 0 ? '+' : '') + totalR.toFixed(1) + 'R', icon: 'ic-scale', tone: totalR >= 0 ? 'green' : 'red' },
-      { label: 'Open Positions', value: openPositions, icon: 'ic-folder-open', tone: 'blue' },
-      { label: 'Closed Positions', value: closedPositions, icon: 'ic-folder', tone: 'purple' },
-      { label: 'Monthly Profit', value: (monthProfit >= 0 ? '+' : '') + monthProfit.toFixed(1) + '%', icon: 'ic-trophy', tone: monthProfit >= 0 ? 'green' : 'red' }
-    ];
-  }
+  let _sigMoreOpen = false;
 
   function _sparklinePath(seed, w, h) {
     const pts = 14;
@@ -340,25 +402,299 @@
     return d.trim();
   }
 
+  function _seriesPath(arr, w, h, pad) {
+    pad = pad || 2;
+    if (!arr.length) return '';
+    const max = Math.max(...arr, 1), min = Math.min(...arr, 0);
+    const range = (max - min) || 1;
+    let d = '';
+    arr.forEach((v, i) => {
+      const x = arr.length > 1 ? (i / (arr.length - 1)) * w : w / 2;
+      const y = (h - pad) - ((v - min) / range) * (h - pad * 2);
+      d += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1) + ' ';
+    });
+    return d.trim();
+  }
+
+  function _sigDaySeries(pred) {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const arr = [];
+    for (let i = 6; i >= 0; i--) {
+      const from = today.getTime() - i * 86400000, to = from + 86400000;
+      arr.push(_sigAll.filter(s => pred(s) && s.created_at >= from && s.created_at < to).length);
+    }
+    return arr;
+  }
+
+  function _sigComputeMetrics() {
+    const all = _sigAll;
+    const now = Date.now();
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const weekAgo = now - 7 * 86400000;
+    const prevWeekAgo = now - 14 * 86400000;
+    const monthAgo = now - 30 * 86400000;
+
+    const active = all.filter(s => ['waiting', 'active', 'partial'].includes(s.status));
+    const wins = all.filter(s => s.result === 'win');
+    const losses = all.filter(s => s.result === 'loss');
+    const closed = all.filter(s => s.result === 'win' || s.result === 'loss');
+    const todays = all.filter(s => s.created_at >= today.getTime());
+    const thisWeek = all.filter(s => s.created_at >= weekAgo);
+    const prevWeek = all.filter(s => s.created_at >= prevWeekAgo && s.created_at < weekAgo);
+
+    const weekClosed = closed.filter(s => s.created_at >= weekAgo);
+    const weekAcc = weekClosed.length ? (weekClosed.filter(s => s.result === 'win').length / weekClosed.length * 100) : 0;
+    const winPct = closed.length ? (wins.length / closed.length * 100) : 0;
+    const lossPct = closed.length ? (losses.length / closed.length * 100) : 0;
+
+    const avgRR = all.length ? (all.reduce((a, s) => a + (+s.risk_reward || 0), 0) / all.length) : 0;
+    const totalPips = closed.reduce((a, s) => a + (+s.pips || 0), 0);
+    const totalR = closed.reduce((a, s) => a + (+s.r_multiple || 0), 0);
+    const openPositions = all.filter(s => ['active', 'partial'].includes(s.status)).length;
+    const closedPositions = closed.length;
+    const monthClosed = closed.filter(s => s.created_at >= monthAgo);
+    const monthProfit = monthClosed.reduce((a, s) => a + (+s.profit_percent || 0), 0);
+    const avgHold = closed.length ? (closed.reduce((a, s) => a + ((s.closed_at && s.entered_at) ? (s.closed_at - s.entered_at) : 3600000 * 4), 0) / closed.length) : 0;
+    const avgHoldHrs = avgHold / 3600000;
+
+    const hourly = new Array(24).fill(0);
+    todays.forEach(s => { hourly[new Date(s.created_at).getHours()]++; });
+
+    const activeTrend = _sigDaySeries(s => ['waiting', 'active', 'partial'].includes(s.status));
+    const winTrend = _sigDaySeries(s => s.result === 'win');
+    const lossTrend = _sigDaySeries(s => s.result === 'loss');
+
+    const pipsTrend = []; let cumP = 0;
+    [...closed].sort((a, b) => a.created_at - b.created_at).slice(-20).forEach(s => { cumP += (+s.pips || 0); pipsTrend.push(cumP); });
+    if (!pipsTrend.length) pipsTrend.push(0);
+
+    const profitTrend = []; let cumM = 0;
+    [...monthClosed].sort((a, b) => a.created_at - b.created_at).forEach(s => { cumM += (+s.profit_percent || 0); profitTrend.push(cumM); });
+    if (!profitTrend.length) profitTrend.push(0);
+
+    const winsThisWeek = thisWeek.filter(s => s.result === 'win').length;
+    const winsPrevWeek = prevWeek.filter(s => s.result === 'win').length;
+    const lossesThisWeek = thisWeek.filter(s => s.result === 'loss').length;
+    const lossesPrevWeek = prevWeek.filter(s => s.result === 'loss').length;
+
+    const byMarket = { forex: 0, crypto: 0, indices: 0 };
+    all.forEach(s => { if (byMarket[s.market] !== undefined) byMarket[s.market]++; });
+
+    const sessionPerf = {};
+    all.forEach(s => { sessionPerf[s.session] = sessionPerf[s.session] || { win: 0, total: 0, n: 0 }; sessionPerf[s.session].n++; if (s.result === 'win' || s.result === 'loss') { sessionPerf[s.session].total++; if (s.result === 'win') sessionPerf[s.session].win++; } });
+    let bestSession = '—', bestSessionRate = -1;
+    Object.entries(sessionPerf).forEach(([k, v]) => { if (v.total >= 1 && v.win / v.total > bestSessionRate) { bestSessionRate = v.win / v.total; bestSession = k; } });
+
+    const byPairPerf = {};
+    all.forEach(s => { byPairPerf[s.pair] = byPairPerf[s.pair] || { win: 0, total: 0 }; if (s.result === 'win' || s.result === 'loss') { byPairPerf[s.pair].total++; if (s.result === 'win') byPairPerf[s.pair].win++; } });
+    let bestPair = '—', bestRate = -1;
+    Object.entries(byPairPerf).forEach(([k, v]) => { if (v.total >= 1 && v.win / v.total > bestRate) { bestRate = v.win / v.total; bestPair = k; } });
+
+    const highConf = all.filter(s => s.confidence === 'high' || s.confidence === 'very_high').length;
+    const lowConf = all.filter(s => s.confidence === 'low').length;
+    const avgConf = all.length ? (all.reduce((a, s) => a + (+s.confidence_score || 0), 0) / all.length) : 0;
+    const pending = all.filter(s => s.status === 'waiting').length;
+    const expiredCt = all.filter(s => s.status === 'expired').length;
+
+    const rrBuckets = { '<1': 0, '1-2': 0, '2-3': 0, '3+': 0 };
+    all.forEach(s => { const rr = +s.risk_reward || 0; if (rr < 1) rrBuckets['<1']++; else if (rr < 2) rrBuckets['1-2']++; else if (rr < 3) rrBuckets['2-3']++; else rrBuckets['3+']++; });
+
+    const riskPctList = all.map(s => +s.risk_percent || 0).filter(Boolean);
+    const avgRiskPct = riskPctList.length ? riskPctList.reduce((a, b) => a + b, 0) / riskPctList.length : 0;
+
+    const tpHitCt = closed.filter(s => s.result === 'win').length;
+    const slHitCt = closed.filter(s => s.status === 'stopped_out').length;
+    const tpHitPct = closed.length ? tpHitCt / closed.length * 100 : 0;
+    const slHitPct = closed.length ? slHitCt / closed.length * 100 : 0;
+
+    const triggeredCt = all.filter(s => s.status !== 'waiting' && s.status !== 'cancelled').length;
+    const entryAccuracy = all.length ? triggeredCt / all.length * 100 : 0;
+    const completionRate = all.length ? closed.length / all.length * 100 : 0;
+
+    return {
+      all, active, wins, losses, closed, todays, thisWeek,
+      weekAcc, winPct, lossPct, avgRR, totalPips, totalR,
+      openPositions, closedPositions, monthProfit, avgHoldHrs,
+      hourly, activeTrend, winTrend, lossTrend, pipsTrend, profitTrend,
+      winsDelta: winsThisWeek - winsPrevWeek, lossesDelta: lossesThisWeek - lossesPrevWeek,
+      byMarket, bestSession, bestSessionRate, bestPair, bestRate,
+      highConf, lowConf, avgConf, pending, expiredCt, rrBuckets, avgRiskPct,
+      tpHitPct, slHitPct, entryAccuracy, completionRate
+    };
+  }
+
+  // ── Hero widget card shells ─────────────────────────────────────
+  function _sigWidgetShell(id, cls, label, icon, tone, valueHtml, bodyHtml) {
+    return `
+    <div class="sig-widget ${cls || ''}">
+      <div class="sig-stat-top">
+        <span class="sig-stat-label">${label}</span>
+        <span class="sig-stat-icon ${tone}">${icn(icon)}</span>
+      </div>
+      <div class="sig-widget-value ${tone}">${valueHtml}</div>
+      ${bodyHtml || ''}
+    </div>`;
+  }
+
   function _sigRenderStats() {
     const grid = document.getElementById('sig-stats-grid');
     if (!grid) return;
-    const stats = _sigComputeStats();
-    grid.innerHTML = stats.map((s, i) => {
-      const path = _sparklinePath(i * 7 + 1, 100, 22);
-      const colorVar = s.tone === 'green' ? 'var(--green)' : s.tone === 'red' ? 'var(--red)' : s.tone === 'gold' ? 'var(--gold)' : s.tone === 'purple' ? 'var(--purple)' : s.tone === 'teal' ? 'var(--teal)' : 'var(--blue)';
-      return `
-      <div class="sig-stat-card">
-        <div class="sig-stat-top">
-          <span class="sig-stat-label">${s.label}</span>
-          <span class="sig-stat-icon ${s.tone}">${icn(s.icon)}</span>
-        </div>
-        <div class="sig-stat-value ${s.tone === 'green' || s.tone === 'red' || s.tone === 'gold' ? s.tone : ''} sig-counting" data-target="${s.value}">${s.value}</div>
-        <svg class="sig-stat-spark" viewBox="0 0 100 22" preserveAspectRatio="none">
-          <path d="${path}" fill="none" stroke="${colorVar}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity="0.75"/>
-        </svg>
-      </div>`;
-    }).join('');
+    const m = _sigComputeMetrics();
+    const hasApex = typeof pf3Mount === 'function' && typeof ApexCharts !== 'undefined';
+
+    grid.innerHTML = [
+      // 1 — Active Signals: pulse + trend spark
+      _sigWidgetShell('sig-w-active', '', 'Active Signals', 'ic-activity', 'blue',
+        `<span class="sig-live-dot"></span><span class="sig-counting" data-target="${m.active.length}">${m.active.length}</span>`,
+        `<div id="sig-w-active-spark" class="sig-widget-apex"></div><div class="sig-widget-foot">${m.thisWeek.length} this week</div>`),
+      // 2 — Winning Signals: ring + weekly delta
+      _sigWidgetShell('sig-w-win', 'sig-widget-ring-card', 'Winning Signals', 'ic-trend-up', 'green',
+        `<span class="sig-counting" data-target="${m.wins.length}">${m.wins.length}</span>`,
+        `<div class="sig-widget-ring-row"><div id="sig-w-win-ring" class="sig-widget-ring"></div><div class="sig-widget-ring-meta"><span class="big">${m.winPct.toFixed(0)}%</span><span class="delta ${m.winsDelta >= 0 ? 'up' : 'down'}">${m.winsDelta >= 0 ? '▲' : '▼'} ${Math.abs(m.winsDelta)} wk</span></div></div>`),
+      // 3 — Losing Signals: bar + weekly comparison
+      _sigWidgetShell('sig-w-loss', '', 'Losing Signals', 'ic-trend-down', 'red',
+        `<span class="sig-counting" data-target="${m.losses.length}">${m.losses.length}</span>`,
+        `<div id="sig-w-loss-spark" class="sig-widget-apex"></div><div class="sig-widget-foot">${m.lossPct.toFixed(0)}% of closed · <span class="${m.lossesDelta <= 0 ? 'sig-pips-pos' : 'sig-pips-neg'}">${m.lossesDelta >= 0 ? '+' : ''}${m.lossesDelta} wk</span></div>`),
+      // 4 — Today's Signals: hourly activity
+      _sigWidgetShell('sig-w-today', '', "Today's Signals", 'ic-calendar', 'purple',
+        `<span class="sig-counting" data-target="${m.todays.length}">${m.todays.length}</span>`,
+        `<div id="sig-w-today-spark" class="sig-widget-apex"></div><div class="sig-widget-foot">Hourly activity</div>`),
+      // 5 — Weekly Accuracy: circular progress
+      _sigWidgetShell('sig-w-acc', 'sig-widget-ring-card', 'Weekly Accuracy', 'ic-target', m.weekAcc >= 50 ? 'green' : 'red',
+        `<span class="sig-counting" data-target="${m.weekAcc.toFixed(0)}">${m.weekAcc.toFixed(0)}</span>%`,
+        `<div id="sig-w-acc-ring" class="sig-widget-ring sig-widget-ring-solo"></div>`),
+      // 6 — Average RR: radial gauge
+      _sigWidgetShell('sig-w-rr', 'sig-widget-ring-card', 'Average RR', 'ic-ruler', 'gold',
+        `1:<span class="sig-counting" data-target="${m.avgRR.toFixed(1)}">${m.avgRR.toFixed(1)}</span>`,
+        `<div id="sig-w-rr-ring" class="sig-widget-ring sig-widget-ring-solo"></div>`),
+      // 7 — Avg Hold Time: clock visualization
+      _sigWidgetShell('sig-w-hold', '', 'Avg Hold Time', 'ic-clock', 'teal',
+        `<span class="sig-counting" data-target="${m.avgHoldHrs.toFixed(1)}">${m.avgHoldHrs.toFixed(1)}</span>h`,
+        _sigClockSvg(m.avgHoldHrs)),
+      // 8 — Total Pips: trend graph
+      _sigWidgetShell('sig-w-pips', '', 'Total Pips', 'ic-zap', m.totalPips >= 0 ? 'green' : 'red',
+        `${m.totalPips >= 0 ? '+' : ''}<span class="sig-counting" data-target="${m.totalPips.toFixed(0)}">${m.totalPips.toFixed(0)}</span>`,
+        `<div id="sig-w-pips-spark" class="sig-widget-apex"></div>`),
+      // 9 — Total R: progress gauge
+      _sigWidgetShell('sig-w-totalr', 'sig-widget-ring-card', 'Total R', 'ic-scale', m.totalR >= 0 ? 'green' : 'red',
+        `${m.totalR >= 0 ? '+' : ''}<span class="sig-counting" data-target="${m.totalR.toFixed(1)}">${m.totalR.toFixed(1)}</span>R`,
+        `<div id="sig-w-totalr-ring" class="sig-widget-ring sig-widget-ring-solo"></div>`),
+      // 10 — Open Positions: live indicator
+      _sigWidgetShell('sig-w-open', '', 'Open Positions', 'ic-folder-open', 'blue',
+        `<span class="sig-counting" data-target="${m.openPositions}">${m.openPositions}</span>`,
+        `<div class="sig-widget-foot">${m.openPositions > 0 ? '<span class="sig-live-dot"></span> Live in market' : 'No open exposure'}</div>`),
+      // 11 — Closed Positions: completion ring
+      _sigWidgetShell('sig-w-closed', 'sig-widget-ring-card', 'Closed Positions', 'ic-folder', 'purple',
+        `<span class="sig-counting" data-target="${m.closedPositions}">${m.closedPositions}</span>`,
+        `<div class="sig-widget-ring-row"><div id="sig-w-closed-ring" class="sig-widget-ring"></div><div class="sig-widget-ring-meta"><span class="big">${m.completionRate.toFixed(0)}%</span><span class="lbl">complete</span></div></div>`),
+      // 12 — Monthly Profit: animated profit curve
+      _sigWidgetShell('sig-w-profit', '', 'Monthly Profit', 'ic-trophy', m.monthProfit >= 0 ? 'green' : 'red',
+        `${m.monthProfit >= 0 ? '+' : ''}<span class="sig-counting" data-target="${m.monthProfit.toFixed(1)}">${m.monthProfit.toFixed(1)}</span>%`,
+        `<div id="sig-w-profit-spark" class="sig-widget-apex"></div>`),
+    ].join('');
+
+    if (hasApex) _sigMountApexWidgets(m);
+    _sigRenderMoreToggle();
+    if (_sigMoreOpen) _sigRenderMoreAnalytics(m);
+  }
+
+  function _sigClockSvg(hrs) {
+    const angle = ((hrs % 12) / 12) * 360;
+    return `<svg class="sig-clock-svg" viewBox="0 0 44 44">
+      <circle cx="22" cy="22" r="19" fill="none" stroke="var(--glass-border-h)" stroke-width="2"/>
+      <line x1="22" y1="22" x2="22" y2="8" stroke="var(--teal)" stroke-width="2.4" stroke-linecap="round" transform="rotate(${angle} 22 22)"/>
+      <circle cx="22" cy="22" r="2" fill="var(--teal)"/>
+    </svg>`;
+  }
+
+  function _sigMountApexWidgets(m) {
+    const c = (typeof pf3Colors === 'function') ? pf3Colors() : { green: '#34d399', red: '#f87171', blue: '#60a5fa', gold: '#fbbf24', purple: '#a78bfa', teal: '#2dd4bf', text3: '#8a93a6' };
+    const noAnim = (typeof pf3ReducedMotion === 'function') && pf3ReducedMotion();
+    const sparkBase = { chart: { type: 'area', height: 40, sparkline: { enabled: true }, animations: { enabled: !noAnim, speed: 500 } }, tooltip: { enabled: false }, dataLabels: { enabled: false } };
+    const ring = (id, val, col, size) => pf3Mount(id, {
+      chart: { type: 'radialBar', height: size || 64, width: size || 64, animations: { enabled: !noAnim, speed: 650 } },
+      series: [Math.max(0, Math.min(100, val))], colors: [col],
+      plotOptions: { radialBar: { hollow: { size: '54%' }, track: { background: 'rgba(255,255,255,0.08)' }, dataLabels: { show: false } } },
+      stroke: { lineCap: 'round' }
+    });
+
+    pf3Mount('sig-w-active-spark', { ...sparkBase, series: [{ data: m.activeTrend }], colors: [c.blue], stroke: { curve: 'smooth', width: 1.75 }, fill: { type: 'gradient', gradient: { opacityFrom: 0.35, opacityTo: 0 } } });
+    pf3Mount('sig-w-loss-spark', { ...sparkBase, series: [{ data: m.lossTrend }], colors: [c.red], stroke: { curve: 'smooth', width: 1.75 }, fill: { type: 'gradient', gradient: { opacityFrom: 0.32, opacityTo: 0 } } });
+    pf3Mount('sig-w-today-spark', { chart: { type: 'bar', height: 40, sparkline: { enabled: true }, animations: { enabled: !noAnim, speed: 500 } }, series: [{ data: m.hourly }], colors: [c.purple], plotOptions: { bar: { columnWidth: '55%', borderRadius: 1 } }, tooltip: { enabled: false }, dataLabels: { enabled: false } });
+    pf3Mount('sig-w-pips-spark', { ...sparkBase, series: [{ data: m.pipsTrend }], colors: [m.totalPips >= 0 ? c.green : c.red], stroke: { curve: 'smooth', width: 1.75 }, fill: { type: 'gradient', gradient: { opacityFrom: 0.32, opacityTo: 0 } } });
+    pf3Mount('sig-w-profit-spark', { ...sparkBase, series: [{ data: m.profitTrend }], colors: [m.monthProfit >= 0 ? c.green : c.red], stroke: { curve: 'smooth', width: 1.75 }, fill: { type: 'gradient', gradient: { opacityFrom: 0.32, opacityTo: 0 } } });
+
+    ring('sig-w-win-ring', m.winPct, c.green, 54);
+    ring('sig-w-acc-ring', m.weekAcc, m.weekAcc >= 50 ? c.green : c.red, 62);
+    ring('sig-w-rr-ring', Math.min(100, (m.avgRR / 5) * 100), c.gold, 62);
+    ring('sig-w-totalr-ring', Math.min(100, Math.max(2, (Math.abs(m.totalR) / 20) * 100)), m.totalR >= 0 ? c.green : c.red, 62);
+    ring('sig-w-closed-ring', m.completionRate, c.purple, 54);
+  }
+
+  // ── More Analytics (lazy, collapsible) ──────────────────────────
+  function _sigRenderMoreToggle() {
+    const grid = document.getElementById('sig-stats-grid');
+    if (!grid) return;
+    let host = document.getElementById('sig-more-toggle-host');
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'sig-more-toggle-host';
+      grid.insertAdjacentElement('afterend', host);
+    }
+    host.innerHTML = `
+      <button class="sig-more-toggle" onclick="_sigToggleMore()">
+        ${icn(_sigMoreOpen ? 'ic-minus' : 'ic-plus')} ${_sigMoreOpen ? 'Hide' : 'Show'} more analytics
+      </button>
+      <div id="sig-more-grid" class="sig-more-grid ${_sigMoreOpen ? 'open' : ''}"></div>`;
+  }
+
+  window._sigToggleMore = function () {
+    _sigMoreOpen = !_sigMoreOpen;
+    _sigRenderMoreToggle();
+    if (_sigMoreOpen) _sigRenderMoreAnalytics(_sigComputeMetrics());
+  };
+
+  function _sigMiniBar(label, value, pct, tone) {
+    return `<div class="sig-mini-tile">
+      <div class="sig-mini-top"><span>${label}</span><span class="sig-mini-val ${tone || ''}">${value}</span></div>
+      <div class="sig-mini-track"><div class="sig-mini-fill ${tone || ''}" style="width:${Math.max(0, Math.min(100, pct))}%"></div></div>
+    </div>`;
+  }
+  function _sigMiniStat(label, value, tone) {
+    return `<div class="sig-mini-tile sig-mini-tile-flat">
+      <span class="sig-mini-label">${label}</span>
+      <span class="sig-mini-val ${tone || ''}">${value}</span>
+    </div>`;
+  }
+
+  function _sigRenderMoreAnalytics(m) {
+    const grid = document.getElementById('sig-more-grid');
+    if (!grid) return;
+    const marketTotal = m.byMarket.forex + m.byMarket.crypto + m.byMarket.indices || 1;
+    grid.innerHTML = [
+      _sigMiniBar('Signal Success Rate', m.tpHitPct.toFixed(0) + '%', m.tpHitPct, m.tpHitPct >= 50 ? 'green' : 'red'),
+      _sigMiniBar('Average Confidence', m.avgConf.toFixed(0) + '%', m.avgConf, 'gold'),
+      _sigMiniStat('Best Performing Pair', m.bestPair, 'green'),
+      _sigMiniStat('Best Session', (m.bestSession || '—').replace('_', '/'), 'blue'),
+      _sigMiniStat('Signals This Week', m.thisWeek.length),
+      _sigMiniStat('Signals This Month', _sigAll.filter(s => s.created_at >= Date.now() - 30 * 86400000).length),
+      _sigMiniStat('Pending Signals', m.pending, 'gold'),
+      _sigMiniStat('Expired Signals', m.expiredCt, 'red'),
+      _sigMiniStat('High Confidence Signals', m.highConf, 'green'),
+      _sigMiniStat('Low Confidence Signals', m.lowConf, 'red'),
+      _sigMiniBar('Forex Signals', m.byMarket.forex, (m.byMarket.forex / marketTotal) * 100, 'blue'),
+      _sigMiniBar('Crypto Signals', m.byMarket.crypto, (m.byMarket.crypto / marketTotal) * 100, 'gold'),
+      _sigMiniBar('Indices Signals', m.byMarket.indices, (m.byMarket.indices / marketTotal) * 100, 'purple'),
+      _sigMiniStat('Average Risk %', m.avgRiskPct.toFixed(2) + '%'),
+      _sigMiniBar('Average TP Hit %', m.tpHitPct.toFixed(0) + '%', m.tpHitPct, 'green'),
+      _sigMiniBar('SL Hit %', m.slHitPct.toFixed(0) + '%', m.slHitPct, 'red'),
+      _sigMiniBar('Entry Trigger Accuracy', m.entryAccuracy.toFixed(0) + '%', m.entryAccuracy, 'teal'),
+      _sigMiniBar('Signal Completion Rate', m.completionRate.toFixed(0) + '%', m.completionRate, 'blue'),
+      `<div class="sig-mini-tile sig-mini-tile-dist">
+        <span class="sig-mini-label">RR Distribution</span>
+        <div class="sig-dist-bars">${Object.entries(m.rrBuckets).map(([k, v]) => `<div class="sig-dist-bar-wrap"><div class="sig-dist-bar" style="height:${Math.min(100, v * 14)}px"></div><span>${k}</span></div>`).join('')}</div>
+      </div>`,
+    ].join('');
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -381,10 +717,53 @@
     </div>`;
   }
 
-  function _sigRenderTable(rows) {
-    if (!rows.length) return _sigEmptyState();
-    const body = rows.map(s => `
-      <tr class="sig-row" onclick="_sigOpenDrawer('${s.id}')">
+  function _sigRrViz(s) {
+    const rr = Math.max(0, +s.risk_reward || 0);
+    const rewardW = Math.max(8, Math.min(100, (rr / 4) * 100));
+    return `<div class="sig-rr-viz" title="Risk 1 : Reward ${rr}">
+      <span class="sig-rr-num">1:${rr}</span>
+      <div class="sig-rr-bar"><span class="risk"></span><span class="reward" style="width:${rewardW}%"></span></div>
+    </div>`;
+  }
+
+  let _sigExpandedRows = new Set();
+  window._sigToggleRowExpand = function (id, ev) {
+    if (ev) ev.stopPropagation();
+    _sigExpandedRows.has(id) ? _sigExpandedRows.delete(id) : _sigExpandedRows.add(id);
+    _sigRenderActiveView();
+  };
+
+  const SIG_TABLE_BATCH = 100;
+  let _sigTableLimit = SIG_TABLE_BATCH;
+  window._sigLoadMoreRows = function () { _sigTableLimit += SIG_TABLE_BATCH; _sigRenderActiveView(); };
+
+  function _sigRenderTable(allRows) {
+    if (!allRows.length) return _sigEmptyState();
+    const rows = allRows.slice(0, _sigTableLimit);
+    const body = rows.map(s => {
+      const expanded = _sigExpandedRows.has(s.id);
+      const statusTone = s.result === 'win' ? 'green' : s.result === 'loss' ? 'red' : ['active', 'partial'].includes(s.status) ? 'blue' : '';
+      const expandRow = expanded ? `
+      <tr class="sig-row-expand-tr">
+        <td colspan="18">
+          <div class="sig-row-expand">
+            <div class="sig-row-expand-col">
+              <div class="sig-section-title" style="margin-top:0">${icn('ic-bulb')} Trade Idea</div>
+              <div class="sig-body-text">${s.trade_idea || '—'}</div>
+            </div>
+            <div class="sig-row-expand-col">
+              <div class="sig-section-title" style="margin-top:0">${icn('ic-target')} Confluences</div>
+              <div class="sig-confluence-list">${(s.confluences || []).map(c => `<span class="sig-confluence-chip">${c}</span>`).join('') || '<span class="sig-body-text">—</span>'}</div>
+            </div>
+            <div class="sig-row-expand-col sig-row-expand-actions">
+              <button class="btn btn-primary" onclick="event.stopPropagation();_sigOpenDrawer('${s.id}')">${icn('ic-eye')} Full details</button>
+            </div>
+          </div>
+        </td>
+      </tr>` : '';
+      return `
+      <tr class="sig-row sig-row-tone-${statusTone}" onclick="_sigOpenDrawer('${s.id}')">
+        <td onclick="event.stopPropagation()"><button class="sig-expand-btn ${expanded ? 'open' : ''}" onclick="_sigToggleRowExpand('${s.id}', event)">${icn('ic-chevron-right')}</button></td>
         <td><span class="sig-badge sig-badge-${s.status}"><span class="dot"></span>${STATUS_LABEL[s.status]}</span></td>
         <td><div class="sig-pair-cell"><span class="sig-pair-flag">${s.pair.slice(0, 2)}</span>${s.pair}</div></td>
         <td><span class="sig-market-badge">${icn(MARKET_ICON[s.market])}${MARKET_LABEL[s.market]}</span></td>
@@ -394,7 +773,7 @@
         <td class="sig-mono" style="color:var(--green)">${_fmtNum(s.tp1)}</td>
         <td class="sig-mono" style="color:var(--green)">${_fmtNum(s.tp2)}</td>
         <td class="sig-mono" style="color:var(--green)">${_fmtNum(s.tp3)}</td>
-        <td class="sig-rr-cell">1:${s.risk_reward}</td>
+        <td>${_sigRrViz(s)}</td>
         <td>${_sigConfBadge(s)}</td>
         <td style="text-transform:capitalize">${(s.session || '').replace('_', '/')}</td>
         <td>${_timeAgo(s.created_at)}</td>
@@ -408,20 +787,22 @@
             <button title="Delete" onclick="_sigDelete('${s.id}')">${icn('ic-trash')}</button>
           </div>
         </td>
-      </tr>`).join('');
+      </tr>${expandRow}`;
+    }).join('');
 
     return `
     <div class="sig-table-card">
       <div class="sig-table-scroll">
         <table>
           <thead><tr>
-            <th>Status</th><th>Pair</th><th>Market</th><th>Direction</th><th>Entry</th><th>SL</th>
+            <th></th><th>Status</th><th>Pair</th><th>Market</th><th>Direction</th><th>Entry</th><th>SL</th>
             <th>TP1</th><th>TP2</th><th>TP3</th><th>RR</th><th>Confidence</th><th>Session</th>
             <th>Date</th><th>Result</th><th>Pips</th><th>Profit %</th><th>Actions</th>
           </tr></thead>
           <tbody>${body}</tbody>
         </table>
       </div>
+      ${allRows.length > _sigTableLimit ? `<div class="sig-load-more"><button class="btn" onclick="_sigLoadMoreRows()">${icn('ic-refresh')} Load ${Math.min(SIG_TABLE_BATCH, allRows.length - _sigTableLimit)} more (${allRows.length - _sigTableLimit} remaining)</button></div>` : ''}
     </div>`;
   }
 
@@ -521,7 +902,7 @@
   };
   window._sigCalDrill = function (ids) {
     if (!ids.length) return;
-    _sigSetFilter('all');
+    _sigResetFilters();
     _sigSetView('table');
     _sigSearch = '';
     document.getElementById('sig-search-input').value = '';
@@ -648,6 +1029,12 @@
         </div>
       </div>
       <button class="sig-drawer-close" onclick="_sigCloseDrawer()">${icn('ic-close')}</button>
+    </div>
+
+    <div class="sig-drawer-dates">
+      <span>${icn('ic-calendar')} Created ${_timeAgo(s.created_at)}</span>
+      <span>${icn('ic-upload')} Published ${s.published_at ? _timeAgo(s.published_at) : '—'}</span>
+      <span>${icn('ic-clock')} Expires ${s.expires_at ? _timeAgo(s.expires_at) : '—'}</span>
     </div>
 
     ${_sigRenderTimeline(s)}
