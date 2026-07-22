@@ -18,7 +18,7 @@
 (function () {
   'use strict';
 
-  var HIDE_DELAY = 2300;       // ms of inactivity before hiding
+  var HIDE_DELAY = 3300;       // ms of inactivity before hiding
   var SCROLL_THRESHOLD = 10;   // px — ignore tiny/accidental scrolls
   var KB_HEIGHT_DELTA = 140;   // px — viewport shrink treated as "keyboard open"
   var MQ = '(max-width: 768px)';
