@@ -4,18 +4,26 @@
    ══════════════════════════════════════════════════════════════════ */
 
 /* ══ Table layout fix ═══════════════════════════════════════════════
-   The base table clips cell overflow (nowrap + hidden + ellipsis),
-   which was fine for short plain text but truncates/overlaps once we
-   add wider content (direction pill, star row, badges, expand-row
-   story). table-layout:auto lets every column size to its real content
-   instead of a fixed % width, which is what was causing the "…" after
-   Buy/Sell, the invisible stars, the cut-off Reflection text, and the
-   column overlap on narrower windows. The wrapper scrolls horizontally
-   if the table ends up wider than the viewport, rather than clipping. */
-#page-tradelog .data-table-wrap{ overflow-x:auto; }
-#page-tradelog #trade-table{ table-layout:auto; width:auto; min-width:100%; }
+   The base table (dashboard-tradelog.css) clips cell overflow — nowrap
+   + hidden + ellipsis — which was fine for short plain text but
+   truncates/overlaps once we add wider content (direction pill, star
+   row, badges, expand-row story). Forcing this with !important since
+   the base rule is likely also !important or higher-specificity and
+   was winning over the previous non-!important version of this fix. */
+#page-tradelog .data-table-wrap{ overflow-x:auto !important; }
+#page-tradelog #trade-table{ table-layout:auto !important; width:auto !important; min-width:100% !important; }
 #page-tradelog #trade-table td,
-#page-tradelog #trade-table th{ overflow:visible; text-overflow:clip; }
+#page-tradelog #trade-table th{
+  overflow:visible !important; text-overflow:clip !important; white-space:normal !important;
+}
+/* Column-specific backups, in case the base CSS targets td by position
+   rather than by element — column order: 1 checkbox, 2 date, 3 pair,
+   4 pos, 5 R:R, 6 PnL, 7 outcome, 8 killzone, 9 model, 10 account,
+   11 trade rating (stars). */
+#page-tradelog #trade-table td:nth-child(4),
+#page-tradelog #trade-table td:nth-child(11){
+  overflow:visible !important; text-overflow:clip !important; white-space:nowrap !important;
+}
 
 /* ══ Row session color accent ═════════════════════════════════════ */
 .trade-log-row{ border-left: 3px solid transparent; transition: border-color 200ms ease, background 150ms ease; }
@@ -45,7 +53,7 @@
 .pf3-pnl-flash{ animation: pf3-tl-pnl-flash 320ms ease both; }
 
 /* ══ Stars cell layout (expand btn + stars + badges) ═══════════════ */
-td.stars{ display:flex; align-items:center; flex-wrap:nowrap; gap:6px; white-space:nowrap; }
+td.stars{ display:flex; align-items:center; flex-wrap:nowrap; gap:6px; white-space:nowrap !important; }
 td.stars > *{ flex-shrink:0; } /* nothing in this row is allowed to get squeezed to invisible — the table wrapper scrolls horizontally instead */
 td.stars .pf3-tl-badges{ flex-basis:auto; margin-top:0; }
 
@@ -109,7 +117,7 @@ td.stars .pf3-tl-badges{ flex-basis:auto; margin-top:0; }
 @media (max-width:768px){
   .pf3-tl-rr-track{ max-width:44px; }
   .pf3-tl-tl-step{ flex:1 1 100%; }
-  td.stars{ flex-wrap:wrap; white-space:normal; }
+  td.stars{ flex-wrap:wrap; white-space:normal !important; }
   td.stars > *{ flex-shrink:0; }
   td.stars .pf3-tl-badges{ flex-basis:100%; margin-top:4px; }
 }
