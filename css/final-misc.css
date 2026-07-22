@@ -216,26 +216,31 @@
    crowd out the Apply button below the fold — trim further. */
 @media (max-height: 500px){ .cal2-filter-sheet-panel{max-height:88vh} }
 
-/* Collapsible week cards (mobile) */
-.cal2-week-expand-hint{display:none;font-size:9px;color:var(--text3);text-align:center;margin-top:6px}
+/* Collapsible week cards — collapsed to essentials until tapped, on every
+   viewport. This used to be gated behind the 900px mobile media query, which
+   meant desktop always rendered .cal2-week-stats fully expanded inside a
+   .cal-week-card that's flex:1 (equal-height slice of the sidebar) with
+   overflow:hidden — the expanded stats block routinely didn't fit its slice
+   and got clipped. Collapsing by default everywhere keeps each card at the
+   compact label/pnl/days-pill height it was actually sized for, and the
+   existing click-to-toggle('expanded') JS (unconditional, all viewports)
+   still reveals the stats on demand. */
+.cal2-week-report{cursor:pointer}
+.cal2-week-report .cal2-week-stats{
+  max-height:0;overflow:hidden;opacity:0;margin-top:0;padding-top:0;border-top:none;
+  transition:max-height .25s var(--ease-out), opacity .2s var(--ease-out);
+}
+.cal2-week-report.expanded .cal2-week-stats{
+  max-height:200px;opacity:1;margin-top:6px;padding-top:6px;border-top:1px solid var(--glass-border);
+}
+.cal2-week-expand-hint{display:block;font-size:9px;color:var(--text3);text-align:center;margin-top:6px}
+.cal2-week-report.expanded .cal2-week-expand-hint{display:none}
 
 /* ── Mobile-specific layout (Phase 5) ── */
 @media (max-width: 900px){
   /* Filters: show FAB, hide inline desktop bar */
   .cal2-filter-fab{display:inline-flex}
   .cal2-filter-bar{display:none}
-
-  /* Weekly report cards collapse to essentials until tapped */
-  .cal2-week-report{cursor:pointer}
-  .cal2-week-report .cal2-week-stats{
-    max-height:0;overflow:hidden;opacity:0;margin-top:0;padding-top:0;border-top:none;
-    transition:max-height .25s var(--ease-out), opacity .2s var(--ease-out);
-  }
-  .cal2-week-report.expanded .cal2-week-stats{
-    max-height:200px;opacity:1;margin-top:6px;padding-top:6px;border-top:1px solid var(--glass-border);
-  }
-  .cal2-week-expand-hint{display:block}
-  .cal2-week-report.expanded .cal2-week-expand-hint{display:none}
 }
 
 /* Weekly report cards carry more content (grade badge, stat rows) than

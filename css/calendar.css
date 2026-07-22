@@ -192,8 +192,13 @@
   font-family:var(--font-mono);letter-spacing:0;
 }
 
-/* Dot indicator */
+/* Dot indicator — hidden per request (was a small green/red/blue dot at
+   the top of each day cell). Left in the DOM (display:none rather than
+   removed at the source) so js/calendar-premium.js's day-cell enhancer,
+   which locates cells via `cell.querySelector('.cal-day-dot')` to attach
+   the profit ring/sparkline, still has an anchor to find. */
 .cal-day-dot{
+  display:none;
   width:5px;height:5px;border-radius:50%;
   position:absolute;top:8px;right:8px;z-index:1;
 }
