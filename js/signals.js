@@ -325,6 +325,17 @@
       page.innerHTML = _sigPageShell();
     }
     _sigAll = await _loadSignals();
+    // One-time self-heal for signals stuck on "waiting" whose order type
+    // isn't actually a pending (resting) type — a leftover from before
+    // edits reconciled status with order type (e.g. a Buy Limit that got
+    // edited to Market Execution but never advanced off "waiting"). Fix
+    // it in place and push the correction back to Supabase so it doesn't
+    // reappear next load.
+    _sigAll.filter(s => s.status === 'waiting' && !s.is_draft && !PENDING_ORDER_TYPES.includes(s.order_type)).forEach(s => {
+      s.status = 'active';
+      if (!s.entered_at) s.entered_at = s.published_at || Date.now();
+      _sigPersistSignal(s, true);
+    });
     _sigRenderStats();
     _sigRenderActiveView();
     _sigRefreshNotifBadge();
@@ -2162,7 +2173,20 @@
     if (!s) return;
     const row = _sigCollectFormRow();
     if (!_sigValidateRow(row)) return;
+    const prevOrderType = s.order_type;
+    const wasPending = PENDING_ORDER_TYPES.includes(prevOrderType);
     Object.assign(s, row, { updated_at: Date.now(), edited_at: Date.now(), edited_by: 'You' });
+    const isPendingNow = PENDING_ORDER_TYPES.includes(s.order_type);
+    // Order type can change on edit (e.g. Buy Limit -> Market Execution).
+    // A signal still sitting at "waiting" needs to follow that — Market
+    // Execution fills the instant it's live, so leaving status untouched
+    // here was stranding edited signals on "waiting" forever (still
+    // showing only "Entry Triggered / Cancelled" as Add Update options)
+    // even though their order type — and the timeline UI — said otherwise.
+    if (wasPending && !isPendingNow && s.status === 'waiting') {
+      s.status = 'active';
+      if (!s.entered_at) s.entered_at = Date.now();
+    }
     s.version_history = s.version_history || [];
     s.version_history.push({ ts: Date.now(), note: 'Signal updated & republished' });
     const ok = await _sigPersistSignal(s);
