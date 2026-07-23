@@ -169,7 +169,7 @@
 .sig-row{cursor:pointer;transition:var(--t-fast);opacity:0;animation:sig-row-in .35s var(--ease-out) forwards}
 .sig-row:hover td{background:var(--glass-2);color:var(--text)}
 .sig-row:last-child td{border-bottom:none}
-@keyframes sig-row-in{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:translateX(0)}}
+@keyframes sig-row-in{from{opacity:0}to{opacity:1}}
 .sig-pair-cell{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--text)}
 .sig-pair-flag{
   width:22px;height:22px;border-radius:6px;background:var(--glass-2);border:1px solid var(--glass-border);
