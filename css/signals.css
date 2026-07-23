@@ -117,6 +117,7 @@
 .sig-badge-waiting{background:var(--glass-1);color:var(--text2);border-color:var(--glass-border)}
 .sig-badge-active{background:rgba(96,165,250,0.14);color:var(--blue);border-color:rgba(96,165,250,0.3);box-shadow:0 0 12px rgba(96,165,250,0.12)}
 .sig-badge-partial{background:rgba(251,191,36,0.14);color:var(--gold);border-color:rgba(251,191,36,0.3)}
+.sig-badge-breakeven{background:rgba(45,212,191,0.14);color:var(--teal);border-color:rgba(45,212,191,0.3)}
 .sig-badge-tp1_hit,.sig-badge-tp2_hit,.sig-badge-tp3_hit{background:var(--green-dim);color:var(--green);border-color:rgba(52,211,153,0.3)}
 .sig-badge-stopped_out{background:var(--red-dim);color:var(--red);border-color:rgba(248,113,113,0.3)}
 .sig-badge-cancelled,.sig-badge-expired{background:var(--glass-1);color:var(--text3);border-color:var(--glass-border)}
@@ -549,6 +550,36 @@
 .sig-actions-menu button:hover{background:var(--glass-2);color:var(--text)}
 .sig-actions-menu button.danger{color:var(--red)}
 .sig-actions-menu button.danger:hover{background:var(--red-dim)}
+
+/* ── Notification bell + panel ───────────────────────────────── */
+.sig-notif-bell{
+  position:relative;display:flex;align-items:center;justify-content:center;
+  width:38px;height:38px;border-radius:var(--r-md);border:1px solid var(--glass-border);
+  background:var(--glass-1);color:var(--text2);cursor:pointer;transition:var(--t-fast);
+}
+.sig-notif-bell:hover{background:var(--glass-2);color:var(--text)}
+.sig-notif-bell .icn{width:16px;height:16px}
+.sig-notif-badge{
+  position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;padding:0 4px;
+  background:var(--red);color:#fff;font-size:9px;font-weight:800;line-height:16px;text-align:center;
+  border-radius:999px;display:inline-flex;align-items:center;justify-content:center;
+}
+.sig-notif-panel{width:320px;max-width:calc(100vw - 24px);max-height:70vh;overflow:hidden;display:flex;flex-direction:column;padding:0}
+.sig-notif-panel-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;font-size:13px;font-weight:700;color:var(--text);border-bottom:1px solid var(--glass-border)}
+.sig-notif-markall{background:none;border:none;color:var(--blue);font-size:11px;cursor:pointer;padding:0}
+.sig-notif-list{overflow-y:auto;max-height:60vh}
+.sig-notif-item{
+  display:flex;flex-direction:column;gap:2px;align-items:flex-start;width:100%;text-align:left;
+  padding:10px 14px;border:none;background:transparent;border-bottom:1px solid var(--glass-border);cursor:pointer;
+}
+.sig-notif-item:hover{background:var(--glass-2)}
+.sig-notif-item.unread{background:rgba(96,165,250,0.06)}
+.sig-notif-item.unread .sig-notif-msg{color:var(--text);font-weight:600}
+.sig-notif-msg{font-size:12.5px;color:var(--text2)}
+.sig-notif-ts{font-size:10px;color:var(--text3)}
+
+/* ── Template quick actions (New Signal modal) ───────────────── */
+.sig-template-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;padding-bottom:14px;border-bottom:1px dashed var(--glass-border)}
 
 /* ── Publish review modal ────────────────────────────────────── */
 .sig-review-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}

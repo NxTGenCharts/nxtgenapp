@@ -33,7 +33,7 @@
   };
   const STATUS_LABEL = {
     draft: 'Draft', scheduled: 'Scheduled',
-    waiting: 'Pending', active: 'Active', partial: 'Partial',
+    waiting: 'Pending', active: 'Active', partial: 'Partial', breakeven: 'Breakeven',
     tp1_hit: 'Hit TP1', tp2_hit: 'Hit TP2', tp3_hit: 'Hit TP3',
     stopped_out: 'Stopped Out', cancelled: 'Cancelled', expired: 'Expired'
   };
@@ -53,6 +53,103 @@
   function _rand(min, max) { return Math.random() * (max - min) + min; }
   function _pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
   function _uid() { return 'sig_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); }
+  // Real DB ids: journal_signals.id is a Postgres `uuid` column, so anything
+  // written to Supabase MUST use a real UUID — never the local `_uid()` demo id.
+  function _sigUuid() {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+      const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+  const _SIG_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  function _sigIsDbId(id) { return typeof id === 'string' && _SIG_UUID_RE.test(id); }
+  function _sigIso(v) { if (v === undefined || v === null) return null; return typeof v === 'number' ? new Date(v).toISOString() : v; }
+  function _sigMs(v) { if (v === undefined || v === null) return null; return typeof v === 'number' ? v : new Date(v).getTime(); }
+
+  // ══════════════════════════════════════════════════════════════
+  // BACKEND PERSISTENCE — journal_signals is the single source of truth.
+  // Every write is awaited and errors surface to the user; nothing is
+  // ever assumed to have saved just because the local array changed.
+  // ══════════════════════════════════════════════════════════════
+  const SIGNAL_DB_COLUMNS = [
+    'pair', 'market', 'direction', 'entry', 'stop_loss', 'tp1', 'tp2', 'tp3',
+    'risk_reward', 'risk_percent', 'risk_amount', 'confidence', 'confidence_score',
+    'session', 'setup_type', 'status', 'visibility', 'trade_idea', 'market_outlook',
+    'htf_bias', 'entry_reason', 'invalidation', 'management_rules', 'notes', 'lessons',
+    'confluences', 'tags', 'chart_screenshot_url', 'tradingview_link', 'expires_at',
+    'published_at', 'entered_at', 'closed_at', 'result', 'pips', 'profit_percent',
+    'r_multiple', 'is_draft', 'draft_name', 'archived', 'scheduled_at', 'edited_at',
+    'checklist', 'version_history'
+  ];
+  const SIGNAL_TS_FIELDS = ['expires_at', 'published_at', 'entered_at', 'closed_at', 'scheduled_at', 'edited_at', 'created_at', 'updated_at'];
+
+  function _sigToDbRow(row) {
+    const out = { owner_id: (typeof _currentUser !== 'undefined' && _currentUser) ? _currentUser.id : undefined };
+    SIGNAL_DB_COLUMNS.forEach(k => {
+      let v = row[k];
+      if (SIGNAL_TS_FIELDS.includes(k)) v = _sigIso(v);
+      out[k] = v === undefined ? null : v;
+    });
+    return out;
+  }
+  function _sigFromDbRow(row) {
+    const out = { ...row };
+    SIGNAL_TS_FIELDS.forEach(k => { if (out[k] != null) out[k] = _sigMs(out[k]); });
+    out.checklist = out.checklist || [];
+    out.version_history = out.version_history || [];
+    out.tags = out.tags || [];
+    out.confluences = out.confluences || [];
+    out.comments = out.comments || [];
+    return out;
+  }
+
+  // Save one signal row to Supabase (update if it already has a real DB id,
+  // insert + capture the generated id otherwise). Returns true/false and
+  // shows a toast on failure instead of swallowing the error.
+  async function _sigCloudSave(row) {
+    if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb)) { _saveDemoSignals(); return true; }
+    const dbRow = _sigToDbRow(row);
+    let error, data;
+    if (row.id && _sigIsDbId(row.id)) {
+      const res = await sb.from('journal_signals').update(dbRow).eq('id', row.id).eq('owner_id', dbRow.owner_id);
+      error = res.error;
+    } else {
+      const res = await sb.from('journal_signals').insert(dbRow).select().single();
+      error = res.error; data = res.data;
+      if (!error && data) {
+        row.id = data.id;
+        row.created_at = _sigMs(data.created_at);
+        row.updated_at = _sigMs(data.updated_at);
+      }
+    }
+    if (error) {
+      console.error('signal save error:', error.message, error.details || '', error.hint || '');
+      showToast('Save failed: ' + error.message, 'error');
+      return false;
+    }
+    return true;
+  }
+
+  // Best-effort side-channel writes (updates timeline / activity log /
+  // notifications). These never block the main save and never throw.
+  async function _sigLogUpdate(signalId, status, note, price) {
+    if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb) || !_sigIsDbId(signalId)) return;
+    try { await sb.from('journal_signal_updates').insert({ signal_id: signalId, status: status || null, note: note || null, price: price ?? null }); }
+    catch (e) { console.error('signal update log failed:', e); }
+  }
+  async function _sigLogActivity(signalId, action, detail) {
+    if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb) || !_currentUser) return;
+    try { await sb.from('journal_signal_activity').insert({ signal_id: _sigIsDbId(signalId) ? signalId : null, owner_id: _currentUser.id, action, detail: detail || null }); }
+    catch (e) { console.error('signal activity log failed:', e); }
+  }
+  async function _sigNotify(signalId, type, message) {
+    if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb) || !_currentUser) return;
+    try {
+      await sb.from('journal_signal_notifications').insert({ signal_id: _sigIsDbId(signalId) ? signalId : null, owner_id: _currentUser.id, type, message });
+      _sigRefreshNotifBadge();
+    } catch (e) { console.error('signal notify failed:', e); }
+  }
 
   function _generateDemoSignals() {
     const pairs = [
@@ -146,12 +243,10 @@
     try { localStorage.setItem(SIG_STORE_KEY, JSON.stringify(_sigAll)); } catch (e) {}
   }
   // Persist a single (already-mutated) row back to whichever store is active.
-  function _sigPersistSignal(row) {
-    if (_sigUsingSupabase && typeof sb !== 'undefined' && sb) {
-      sb.from('journal_signals').update({ ...row }).eq('id', row.id).then(() => {}).catch(() => {});
-    } else {
-      _saveDemoSignals();
-    }
+  // Awaited — callers should `await` this so the UI never claims "saved"
+  // before the write actually lands.
+  async function _sigPersistSignal(row) {
+    return _sigCloudSave(row);
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -163,8 +258,9 @@
         const { data, error } = await sb.from('journal_signals').select('*').order('created_at', { ascending: false }).limit(500);
         if (!error && data) {
           _sigUsingSupabase = true;
-          return data;
+          return data.map(_sigFromDbRow);
         }
+        if (error) console.error('load signals error:', error.message);
       } catch (e) { /* table probably doesn't exist yet — fall through to demo */ }
     }
     _sigUsingSupabase = false;
@@ -184,6 +280,7 @@
     _sigAll = await _loadSignals();
     _sigRenderStats();
     _sigRenderActiveView();
+    _sigRefreshNotifBadge();
     if (!_sigUsingSupabase) {
       const badge = document.getElementById('sig-demo-badge');
       if (badge) badge.style.display = 'inline-flex';
@@ -210,6 +307,9 @@
           <button data-view="analytics" onclick="_sigSetView('analytics')">${icn('ic-chart-pie')} Analytics</button>
           <button data-view="drafts" onclick="_sigSetView('drafts')">${icn('ic-notebook')} Drafts <span id="sig-drafts-tab-count" class="sig-drafts-count"></span></button>
         </div>
+        <button id="sig-notif-bell" class="sig-notif-bell" title="Notifications" onclick="_sigToggleNotifPanel(event)">
+          ${icn('ic-bell')}<span id="sig-notif-badge" class="sig-notif-badge" style="display:none">0</span>
+        </button>
         <button class="btn btn-primary btn-ripple" onclick="_sigOpenModal()">${icn('ic-plus')} <span class="lbl-full">New Signal</span></button>
       </div>
     </div>
@@ -229,6 +329,69 @@
     <button id="sig-fab-new" onclick="_sigOpenModal()">${icn('ic-plus')}</button>
     `;
   }
+
+  // ══════════════════════════════════════════════════════════════
+  // NOTIFICATION CENTER
+  // ══════════════════════════════════════════════════════════════
+  async function _sigRefreshNotifBadge() {
+    const badge = document.getElementById('sig-notif-badge');
+    if (!badge || !(_sigUsingSupabase && typeof sb !== 'undefined' && sb) || !_currentUser) return;
+    const { count, error } = await sb.from('journal_signal_notifications')
+      .select('id', { count: 'exact', head: true }).eq('owner_id', _currentUser.id).eq('read', false);
+    if (error) { console.error('notif badge error:', error.message); return; }
+    if (count > 0) { badge.textContent = count > 99 ? '99+' : String(count); badge.style.display = 'inline-flex'; }
+    else { badge.style.display = 'none'; }
+  }
+
+  window._sigToggleNotifPanel = async function (ev) {
+    if (ev) ev.stopPropagation();
+    const existing = document.getElementById('sig-notif-panel');
+    if (existing) { existing.remove(); document.removeEventListener('click', _sigCloseNotifPanelOnce); return; }
+    const panel = document.createElement('div');
+    panel.id = 'sig-notif-panel';
+    panel.className = 'sig-actions-menu sig-notif-panel';
+    panel.innerHTML = `<div class="sig-notif-panel-head">Notifications <button class="sig-notif-markall" onclick="_sigMarkAllNotifsRead()">Mark all read</button></div><div id="sig-notif-list" class="sig-notif-list">Loading…</div>`;
+    document.body.appendChild(panel);
+    const rect = document.getElementById('sig-notif-bell').getBoundingClientRect();
+    panel.style.right = (window.innerWidth - rect.right) + 'px';
+    panel.style.top = (rect.bottom + 8 + window.scrollY) + 'px';
+    setTimeout(() => document.addEventListener('click', _sigCloseNotifPanelOnce), 0);
+
+    const list = document.getElementById('sig-notif-list');
+    if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb) || !_currentUser) { list.innerHTML = '<div class="sig-body-text" style="padding:12px">Connect Supabase to see live notifications.</div>'; return; }
+    const { data, error } = await sb.from('journal_signal_notifications').select('*').eq('owner_id', _currentUser.id).order('created_at', { ascending: false }).limit(30);
+    if (error) { list.innerHTML = '<div class="sig-body-text" style="padding:12px">Couldn\'t load notifications.</div>'; return; }
+    if (!data || !data.length) { list.innerHTML = '<div class="sig-body-text" style="padding:12px">No notifications yet.</div>'; return; }
+    list.innerHTML = data.map(n => `
+      <button class="sig-notif-item ${n.read ? '' : 'unread'}" onclick="_sigOpenNotification('${n.id}','${n.signal_id || ''}')">
+        <span class="sig-notif-msg">${n.message}</span>
+        <span class="sig-notif-ts">${_timeAgo(new Date(n.created_at).getTime())}</span>
+      </button>`).join('');
+  };
+  function _sigCloseNotifPanelOnce(e) {
+    const panel = document.getElementById('sig-notif-panel');
+    const bell = document.getElementById('sig-notif-bell');
+    if (panel && !panel.contains(e.target) && !(bell && bell.contains(e.target))) {
+      panel.remove();
+      document.removeEventListener('click', _sigCloseNotifPanelOnce);
+    }
+  }
+  window._sigOpenNotification = async function (notifId, signalId) {
+    if (_sigUsingSupabase && typeof sb !== 'undefined' && sb) {
+      await sb.from('journal_signal_notifications').update({ read: true }).eq('id', notifId);
+      _sigRefreshNotifBadge();
+    }
+    document.getElementById('sig-notif-panel')?.remove();
+    if (signalId && _sigAll.find(s => s.id === signalId)) window._sigOpenDrawer(signalId);
+  };
+  window._sigMarkAllNotifsRead = async function () {
+    if (_sigUsingSupabase && typeof sb !== 'undefined' && sb && _currentUser) {
+      await sb.from('journal_signal_notifications').update({ read: true }).eq('owner_id', _currentUser.id).eq('read', false);
+    }
+    _sigRefreshNotifBadge();
+    document.getElementById('sig-notif-panel')?.remove();
+    showToast('All notifications marked read', 'info');
+  };
 
   // ── Combinable multi-select filters ─────────────────────────────
   // Each chip belongs to a group; chips within a group OR together,
@@ -900,34 +1063,35 @@
       </div>`).join('')}</div>`;
   }
 
-  window._sigRenameDraft = function (id) {
+  window._sigRenameDraft = async function (id) {
     const s = _sigAll.find(x => x.id === id); if (!s) return;
     const name = prompt('Rename draft:', s.draft_name || s.pair || '');
     if (name === null) return;
     s.draft_name = name.trim();
     s.updated_at = Date.now();
-    _sigPersistSignal(s);
+    await _sigPersistSignal(s);
     _sigRenderActiveView();
   };
 
-  window._sigArchiveSignal = function (id) {
+  window._sigArchiveSignal = async function (id) {
     const s = _sigAll.find(x => x.id === id); if (!s) return;
     s.archived = !s.archived;
     s.updated_at = Date.now();
-    _sigPersistSignal(s);
+    const ok = await _sigPersistSignal(s);
+    if (ok) { _sigLogActivity(s.id, s.archived ? 'archived' : 'unarchived'); }
     _sigRenderStats();
     _sigRenderActiveView();
     showToast(s.archived ? 'Archived' : 'Unarchived', 'info');
   };
 
-  window._sigDuplicateSignal = function (id) {
+  window._sigDuplicateSignal = async function (id) {
     const s = _sigAll.find(x => x.id === id); if (!s) return;
-    const copy = { ...s, id: _uid(), pair: s.pair, is_draft: true, status: 'draft', archived: false,
+    const copy = { ...s, id: null, pair: s.pair, is_draft: true, status: 'draft', archived: false,
       draft_name: (s.draft_name || s.pair || 'Signal') + ' (copy)', created_at: Date.now(), updated_at: Date.now(),
       published_at: null, edited_at: null, edited_by: null, version_history: [], comments: [] };
     _sigAll.unshift(copy);
-    if (typeof sb !== 'undefined' && sb && _sigUsingSupabase) { sb.from('journal_signals').insert([{ ...copy }]).then(() => {}).catch(() => {}); }
-    else _saveDemoSignals();
+    const ok = await _sigCloudSave(copy);
+    if (ok) _sigLogActivity(copy.id, 'duplicated', 'Duplicated from ' + (s.pair || 'a previous signal'));
     _sigRenderStats();
     _sigRenderActiveView();
     showToast('Duplicated as new draft', 'success');
@@ -1127,7 +1291,31 @@
     }
     drawer.innerHTML = _sigDrawerContent(s);
     requestAnimationFrame(() => drawer.classList.add('open'));
+    if (_sigIsDbId(s.id)) { _sigLoadUpdatesLog(s.id); _sigLoadActivityLog(s.id); }
   };
+
+  async function _sigLoadUpdatesLog(id) {
+    const el = document.getElementById('sig-updates-log-' + id);
+    if (!el || !(_sigUsingSupabase && typeof sb !== 'undefined' && sb)) return;
+    const { data, error } = await sb.from('journal_signal_updates').select('*').eq('signal_id', id).order('created_at', { ascending: true });
+    if (error) { el.innerHTML = `<div class="sig-body-text">Couldn't load updates.</div>`; return; }
+    if (!data || !data.length) { el.innerHTML = `<div class="sig-body-text">No updates yet.</div>`; return; }
+    el.innerHTML = data.map(u => `
+      <div class="sig-version-item"><span class="dot"></span>${(u.note || STATUS_LABEL[u.status] || u.status || '')}
+        <span class="sig-version-ts">${new Date(u.created_at).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}</span>
+      </div>`).join('');
+  }
+  async function _sigLoadActivityLog(id) {
+    const el = document.getElementById('sig-activity-log-' + id);
+    if (!el || !(_sigUsingSupabase && typeof sb !== 'undefined' && sb)) return;
+    const { data, error } = await sb.from('journal_signal_activity').select('*').eq('signal_id', id).order('created_at', { ascending: false }).limit(50);
+    if (error) { el.innerHTML = `<div class="sig-body-text">Couldn't load activity.</div>`; return; }
+    if (!data || !data.length) { el.innerHTML = `<div class="sig-body-text">No activity recorded yet.</div>`; return; }
+    el.innerHTML = data.map(a => `
+      <div class="sig-version-item"><span class="dot"></span>${a.action}${a.detail ? ' — ' + a.detail : ''}
+        <span class="sig-version-ts">${_timeAgo(new Date(a.created_at).getTime())}</span>
+      </div>`).join('');
+  }
   window._sigCloseDrawer = function () {
     const d = document.getElementById('signal-drawer');
     if (d) d.classList.remove('open');
@@ -1165,6 +1353,9 @@
     </div>
 
     ${_sigRenderTimeline(s)}
+
+    <div class="sig-section-title">${icn('ic-history')} Updates</div>
+    <div class="sig-version-list" id="sig-updates-log-${s.id}"><div class="sig-body-text">${s.is_draft ? 'Publish this signal to start a timeline.' : 'Loading updates…'}</div></div>
 
     <div class="sig-chart-frame">
       ${s.chart_screenshot_url ? `<img src="${s.chart_screenshot_url}" alt="Chart">` : `${icn('ic-image')} <span style="margin-left:6px">No chart screenshot yet</span>`}
@@ -1220,12 +1411,18 @@
     <div class="sig-version-list">${s.version_history.slice().reverse().map(v => `<div class="sig-version-item"><span class="dot"></span>${v.note} <span class="sig-version-ts">${_timeAgo(v.ts)}</span></div>`).join('')}</div>
     ` : ''}
 
+    <div class="sig-section-title">${icn('ic-activity')} Activity Log</div>
+    <div class="sig-version-list" id="sig-activity-log-${s.id}"><div class="sig-body-text">${s.is_draft ? 'No activity yet.' : 'Loading…'}</div></div>
+
     <div style="display:flex;gap:8px;margin-top:20px;flex-wrap:wrap">
       <button class="btn" onclick="_sigToggleLike('${s.id}')">${icn('ic-thumbs-up')} Like</button>
       <button class="btn" onclick="_sigToggleBookmark('${s.id}')">${icn('ic-bookmark')} Bookmark</button>
       <button class="btn" onclick="_sigOpenModal('edit','${s.id}')">${icn('ic-edit')} Edit</button>
       <button class="btn" onclick="_sigDuplicateSignal('${s.id}')">${icn('ic-copy')} Duplicate</button>
-      ${s.is_draft ? `<button class="btn btn-primary" onclick="_sigOpenReviewModal('${s.id}')">${icn('ic-upload')} Publish</button>` : `<button class="btn" onclick="_sigUnpublishSignal('${s.id}')">${icn('ic-cloud-off')} Unpublish</button>`}
+      ${s.is_draft ? `<button class="btn btn-primary" onclick="_sigOpenReviewModal('${s.id}')">${icn('ic-upload')} Publish</button>` : `
+        <button class="btn" onclick="_sigAddSignalUpdate('${s.id}')">${icn('ic-notebook')} Add Update</button>
+        ${!['tp1_hit','tp2_hit','tp3_hit','stopped_out','cancelled','breakeven'].includes(s.status) ? `<button class="btn" onclick="_sigCloseSignal('${s.id}')">${icn('ic-check-c')} Close Signal</button>` : ''}
+        <button class="btn" onclick="_sigUnpublishSignal('${s.id}')">${icn('ic-cloud-off')} Unpublish</button>`}
       <button class="btn" onclick="_sigArchiveSignal('${s.id}')">${icn('ic-archive')} ${s.archived ? 'Unarchive' : 'Archive'}</button>
       <button class="btn" onclick="_sigCopyTvLink('${s.id}')">${icn('ic-link')} TradingView link</button>
       <button class="btn" onclick="_sigExportPdf('${s.id}')">${icn('ic-download')} Export summary</button>
@@ -1274,7 +1471,13 @@
       { icon: 'ic-clipboard', label: 'Copy Details', fn: `_sigCopyDetails('${id}')` },
     ];
     if (s.is_draft) items.push({ icon: 'ic-upload', label: 'Publish', fn: `_sigOpenReviewModal('${id}')` });
-    else items.push({ icon: 'ic-cloud-off', label: 'Unpublish (to Draft)', fn: `_sigUnpublishSignal('${id}')` });
+    else {
+      items.push({ icon: 'ic-notebook', label: 'Add Update', fn: `_sigAddSignalUpdate('${id}')` });
+      if (!['tp1_hit', 'tp2_hit', 'tp3_hit', 'stopped_out', 'cancelled', 'breakeven'].includes(s.status)) {
+        items.push({ icon: 'ic-check-c', label: 'Close Signal', fn: `_sigCloseSignal('${id}')` });
+      }
+      items.push({ icon: 'ic-cloud-off', label: 'Unpublish (to Draft)', fn: `_sigUnpublishSignal('${id}')` });
+    }
     items.push({ icon: 'ic-archive', label: s.archived ? 'Unarchive' : 'Archive', fn: `_sigArchiveSignal('${id}')` });
     items.push({ icon: 'ic-trash', label: 'Delete', fn: `_sigDelete('${id}')`, danger: true });
 
@@ -1295,13 +1498,63 @@
     const menu = document.getElementById('sig-actions-menu');
     if (menu && !menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', _sigCloseActionsMenuOnce); }
   }
-  window._sigUnpublishSignal = function (id) {
+  window._sigUnpublishSignal = async function (id) {
     const s = _sigAll.find(x => x.id === id); if (!s) return;
     s.is_draft = true; s.status = 'draft'; s.published_at = null; s.updated_at = Date.now();
-    _sigPersistSignal(s);
+    const ok = await _sigPersistSignal(s);
+    if (!ok) return;
+    _sigLogActivity(id, 'unpublished');
     _sigRenderStats();
     _sigRenderActiveView();
     showToast('Moved back to Drafts', 'info');
+  };
+
+  // ══════════════════════════════════════════════════════════════
+  // SIGNAL LIFECYCLE — Add Update / Close Signal
+  // ══════════════════════════════════════════════════════════════
+  const CLOSE_OUTCOMES = {
+    tp1: { status: 'tp1_hit', result: 'win', label: 'TP1 Hit' },
+    tp2: { status: 'tp2_hit', result: 'win', label: 'TP2 Hit' },
+    tp3: { status: 'tp3_hit', result: 'win', label: 'TP3 Hit' },
+    sl: { status: 'stopped_out', result: 'loss', label: 'Stop Loss Hit' },
+    breakeven: { status: 'breakeven', result: 'breakeven', label: 'Closed at Breakeven' },
+    cancelled: { status: 'cancelled', result: 'pending', label: 'Cancelled' }
+  };
+
+  window._sigAddSignalUpdate = async function (id) {
+    const s = _sigAll.find(x => x.id === id); if (!s) return;
+    const note = prompt('Update note (e.g. "SL moved to breakeven", "Entry triggered", "TP1 hit +1R"):');
+    if (!note || !note.trim()) return;
+    s.updated_at = Date.now();
+    const ok = await _sigPersistSignal(s);
+    if (!ok) return;
+    _sigLogUpdate(id, s.status, note.trim());
+    _sigLogActivity(id, 'update_added', note.trim());
+    _sigNotify(id, 'update', `${s.pair}: ${note.trim()}`);
+    showToast('Update added', 'success');
+    _sigRenderActiveView();
+    if (document.getElementById('signal-drawer')?.classList.contains('open')) window._sigOpenDrawer(id);
+  };
+
+  window._sigCloseSignal = async function (id) {
+    const s = _sigAll.find(x => x.id === id); if (!s) return;
+    const choice = prompt('Close signal as: tp1, tp2, tp3, sl, breakeven, or cancelled');
+    const key = (choice || '').trim().toLowerCase();
+    const outcome = CLOSE_OUTCOMES[key];
+    if (!outcome) { if (choice !== null) showToast('Enter one of: tp1, tp2, tp3, sl, breakeven, cancelled', 'error'); return; }
+    s.status = outcome.status;
+    s.result = outcome.result;
+    s.closed_at = Date.now();
+    s.updated_at = Date.now();
+    const ok = await _sigPersistSignal(s);
+    if (!ok) return;
+    _sigLogUpdate(id, outcome.status, outcome.label);
+    _sigLogActivity(id, 'status_changed', outcome.label);
+    _sigNotify(id, outcome.status, `${s.pair}: ${outcome.label}`);
+    _sigRenderStats();
+    _sigRenderActiveView();
+    showToast(outcome.label, outcome.result === 'loss' ? 'error' : 'success');
+    if (document.getElementById('signal-drawer')?.classList.contains('open')) window._sigOpenDrawer(id);
   };
 
   window._sigCopyDetails = function (id) {
@@ -1332,10 +1585,13 @@
 
   window._sigDelete = async function (id) {
     if (!confirm('Delete this signal? This cannot be undone.')) return;
-    if (_sigUsingSupabase && typeof sb !== 'undefined') {
-      try { await sb.from('journal_signals').delete().eq('id', id); } catch (e) {}
+    const s = _sigAll.find(x => x.id === id);
+    if (_sigUsingSupabase && typeof sb !== 'undefined' && sb && _sigIsDbId(id)) {
+      const { error } = await sb.from('journal_signals').delete().eq('id', id).eq('owner_id', _currentUser ? _currentUser.id : null);
+      if (error) { console.error('delete signal error:', error.message); showToast('Delete failed: ' + error.message, 'error'); return; }
+      _sigLogActivity(id, 'deleted', s ? `${s.pair} deleted` : null);
     }
-    _sigAll = _sigAll.filter(s => s.id !== id);
+    _sigAll = _sigAll.filter(x => x.id !== id);
     if (!_sigUsingSupabase) _saveDemoSignals();
     _sigRenderStats();
     _sigRenderActiveView();
@@ -1401,20 +1657,22 @@
     if (!pairVal) return; // nothing worth saving yet
     _sigSetAutosaveLabel('Saving…');
     const row = _sigCollectFormRow();
+    let ok;
     if (_sigModalState.draftId) {
       const existing = _sigAll.find(s => s.id === _sigModalState.draftId);
       Object.assign(existing, row, { id: _sigModalState.draftId, is_draft: true, status: 'draft', updated_at: Date.now() });
-      _sigPersistSignal(existing);
+      ok = await _sigPersistSignal(existing);
     } else {
-      const draft = { ...row, id: _uid(), is_draft: true, status: 'draft', created_at: Date.now(), updated_at: Date.now(),
+      const draft = { ...row, id: null, is_draft: true, status: 'draft', created_at: Date.now(), updated_at: Date.now(),
         published_at: null, result: 'pending', pips: null, profit_percent: null, r_multiple: null,
         edited_at: null, edited_by: null, version_history: [], checklist: [], comments: [] };
       _sigAll.unshift(draft);
+      ok = await _sigCloudSave(draft);
       _sigModalState.draftId = draft.id;
-      if (_sigUsingSupabase && typeof sb !== 'undefined' && sb) { sb.from('journal_signals').insert([{ ...draft }]).then(() => {}).catch(() => {}); }
-      else _saveDemoSignals();
+      if (ok) _sigLogActivity(draft.id, 'created', 'Draft autosaved');
     }
     _sigModalState.dirty = false;
+    if (!ok) { _sigSetAutosaveLabel('Save failed — will retry'); return; }
     _sigModalState.savedAt = Date.now();
     _sigSetAutosaveLabel('Saved ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
     const badge = document.getElementById('sig-drafts-tab-count');
@@ -1439,6 +1697,12 @@
         </div>
       </div>
       <div class="modal-body">
+        ${!isEdit ? `
+        <div class="sig-template-bar">
+          <button type="button" class="glass-btn glass-btn-cancel" onclick="_sigUseLastSignal()">${icn('ic-copy')} Use Last Signal</button>
+          <button type="button" class="glass-btn glass-btn-cancel" onclick="_sigOpenTemplatePicker(event)">${icn('ic-notebook')} Create from Template</button>
+          <button type="button" class="glass-btn glass-btn-cancel" onclick="_sigSaveAsTemplate()">${icn('ic-save')} Save as Template</button>
+        </div>` : ''}
         <div class="form-grid">
           <div class="form-field"><label class="form-label">Pair</label><input class="form-input" id="sf-pair" placeholder="EURUSD" value="${s.pair || ''}"></div>
           <div class="form-field"><label class="form-label">Market</label>
@@ -1528,39 +1792,114 @@
     return true;
   }
 
-  window._sigSaveDraftNow = function () {
+  // ══════════════════════════════════════════════════════════════
+  // TEMPLATES — "Use Last Signal" / "Create from Template"
+  // Carries over everything EXCEPT the trade-specific fields
+  // (pair, entry, stop loss, take profits, RR, notes).
+  // ══════════════════════════════════════════════════════════════
+  function _sigApplyKeepFields(f) {
+    const set = (id, v) => { const el = document.getElementById(id); if (el && v !== undefined && v !== null) el.value = v; };
+    set('sf-riskpct', f.risk_percent);
+    set('sf-confidence', f.confidence);
+    set('sf-confscore', f.confidence_score);
+    set('sf-session', f.session);
+    set('sf-setup', f.setup_type);
+    set('sf-visibility', f.visibility);
+    set('sf-mgmt', f.management_rules);
+    set('sf-tags', (f.tags || []).join(', '));
+    _sigModalState.dirty = true;
+    _sigSetAutosaveLabel('Unsaved changes');
+  }
+
+  window._sigUseLastSignal = function () {
+    const last = _sigAll.find(s => !s.is_draft);
+    if (!last) { showToast('No previous signal to copy from yet', 'info'); return; }
+    _sigApplyKeepFields(last);
+    showToast('Copied settings from your last signal — fill in the trade-specific details', 'success');
+  };
+
+  window._sigSaveAsTemplate = async function () {
+    if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb) || !_currentUser) { showToast('Connect Supabase to save templates', 'error'); return; }
+    const name = prompt('Name this template (e.g. "Standard 1% risk setup"):');
+    if (!name || !name.trim()) return;
+    const row = _sigCollectFormRow();
+    const payload = {
+      risk_percent: row.risk_percent, confidence: row.confidence, confidence_score: row.confidence_score,
+      session: row.session, setup_type: row.setup_type, visibility: row.visibility,
+      management_rules: row.management_rules, tags: row.tags
+    };
+    const { error } = await sb.from('journal_signal_templates').insert({ owner_id: _currentUser.id, name: name.trim(), payload });
+    if (error) { console.error('save template error:', error.message); showToast('Save failed: ' + error.message, 'error'); return; }
+    showToast('Template saved', 'success');
+  };
+
+  window._sigOpenTemplatePicker = async function (ev) {
+    if (ev) ev.stopPropagation();
+    document.getElementById('sig-template-menu')?.remove();
+    if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb) || !_currentUser) { showToast('Connect Supabase to use templates', 'error'); return; }
+    const { data, error } = await sb.from('journal_signal_templates').select('*').eq('owner_id', _currentUser.id).order('created_at', { ascending: false }).limit(20);
+    if (error) { showToast('Could not load templates', 'error'); return; }
+    if (!data || !data.length) { showToast('No saved templates yet — use "Save as Template" first', 'info'); return; }
+    const menu = document.createElement('div');
+    menu.id = 'sig-template-menu';
+    menu.className = 'sig-actions-menu';
+    menu.innerHTML = data.map(t => `<button onclick="_sigApplyTemplateById('${t.id}');document.getElementById('sig-template-menu')?.remove()">${icn('ic-notebook')}${t.name}</button>`).join('');
+    document.body.appendChild(menu);
+    window._sigTemplateCache = data;
+    const rect = ev.target.closest('button').getBoundingClientRect();
+    menu.style.position = 'fixed';
+    menu.style.left = rect.left + 'px';
+    menu.style.top = (rect.bottom + 6) + 'px';
+    setTimeout(() => document.addEventListener('click', function once(e) {
+      if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', once); }
+    }), 0);
+  };
+  window._sigApplyTemplateById = function (id) {
+    const t = (window._sigTemplateCache || []).find(x => x.id === id);
+    if (!t) return;
+    _sigApplyKeepFields(t.payload || {});
+    showToast(`Applied template "${t.name}"`, 'success');
+  };
+
+  window._sigSaveDraftNow = async function () {
     const row = _sigCollectFormRow();
     if (!row.pair) { showToast('Give it at least a pair before saving', 'error'); return; }
+    let ok, id;
     if (_sigModalState.draftId) {
       const existing = _sigAll.find(s => s.id === _sigModalState.draftId);
       Object.assign(existing, row, { is_draft: true, status: 'draft', updated_at: Date.now() });
-      _sigPersistSignal(existing);
+      ok = await _sigPersistSignal(existing);
+      id = existing.id;
     } else {
-      const draft = { ...row, id: _uid(), is_draft: true, status: 'draft', created_at: Date.now(), updated_at: Date.now(),
+      const draft = { ...row, id: null, is_draft: true, status: 'draft', created_at: Date.now(), updated_at: Date.now(),
         published_at: null, result: 'pending', pips: null, profit_percent: null, r_multiple: null,
         edited_at: null, edited_by: null, version_history: [], checklist: [], comments: [] };
       _sigAll.unshift(draft);
-      if (_sigUsingSupabase && typeof sb !== 'undefined' && sb) { sb.from('journal_signals').insert([{ ...draft }]).then(() => {}).catch(() => {}); }
-      else _saveDemoSignals();
+      ok = await _sigCloudSave(draft);
+      id = draft.id;
     }
+    if (!ok) return; // error toast already shown; keep the modal open so nothing is lost
+    if (id) _sigLogActivity(id, 'created', 'Draft saved');
     _sigCloseModal();
     _sigRenderStats();
     _sigRenderActiveView();
     showToast('Draft saved', 'success');
   };
 
-  window._sigSaveEditAsDraft = function () {
+  window._sigSaveEditAsDraft = async function () {
     const s = _sigAll.find(x => x.id === _sigModalState.editId);
     if (!s) return;
     Object.assign(s, _sigCollectFormRow(), { is_draft: true, status: 'draft', updated_at: Date.now() });
-    _sigPersistSignal(s);
+    const ok = await _sigPersistSignal(s);
+    if (!ok) return;
+    _sigLogActivity(s.id, 'unpublished', 'Moved back to drafts');
     _sigCloseModal();
     _sigRenderStats();
     _sigRenderActiveView();
     showToast('Moved back to Drafts', 'info');
   };
 
-  window._sigUpdateSignal = function () {
+  window._sigUpdateSignal = async function () {
     const s = _sigAll.find(x => x.id === _sigModalState.editId);
     if (!s) return;
     const row = _sigCollectFormRow();
@@ -1568,7 +1907,11 @@
     Object.assign(s, row, { updated_at: Date.now(), edited_at: Date.now(), edited_by: 'You' });
     s.version_history = s.version_history || [];
     s.version_history.push({ ts: Date.now(), note: 'Signal updated & republished' });
-    _sigPersistSignal(s);
+    const ok = await _sigPersistSignal(s);
+    if (!ok) return;
+    _sigLogUpdate(s.id, s.status, 'Signal edited');
+    _sigLogActivity(s.id, 'edited', 'Signal updated & republished');
+    _sigNotify(s.id, 'edited', `${s.pair} signal was edited`);
     _sigCloseModal();
     _sigRenderStats();
     _sigRenderActiveView();
@@ -1659,19 +2002,28 @@
       ...extra };
   }
 
-  window._sigConfirmPublish = function () {
+  window._sigConfirmPublish = async function () {
     const pending = window._sigPendingPublish; if (!pending) return;
     const final = _sigFinalizePublishedRow(pending.row);
+    let ok, id;
     if (pending.draftId) {
       const existing = _sigAll.find(s => s.id === pending.draftId);
       Object.assign(existing, final, { id: pending.draftId, created_at: existing.created_at });
-      _sigPersistSignal(existing);
+      ok = await _sigPersistSignal(existing);
+      id = existing.id;
     } else {
-      const created = { ...final, id: _uid(), created_at: Date.now(), updated_at: Date.now(), edited_at: null, edited_by: null };
+      const created = { ...final, id: null, created_at: Date.now(), updated_at: Date.now(), edited_at: null, edited_by: null };
       _sigAll.unshift(created);
-      if (_sigUsingSupabase && typeof sb !== 'undefined' && sb) { sb.from('journal_signals').insert([{ ...created }]).then(() => {}).catch(() => {}); }
-      else _saveDemoSignals();
+      ok = await _sigCloudSave(created);
+      id = created.id;
     }
+    if (!ok) return; // error toast already shown by _sigCloudSave — keep the review modal open, nothing is lost
+    _sigLogUpdate(id, 'waiting', 'Signal published');
+    _sigLogActivity(id, pending.draftId ? 'published' : 'created', 'Published live');
+    _sigNotify(id, 'published', `${final.pair} ${final.direction === 'buy' ? 'BUY' : 'SELL'} signal published`);
+    // Requirement: never trust local state alone — reload the live list
+    // straight from the database so what's on screen matches what's saved.
+    _sigAll = await _loadSignals();
     _sigCloseReviewModal();
     _sigCloseModal();
     _sigRenderStats();
@@ -1679,7 +2031,7 @@
     showToast('Signal published', 'success');
   };
 
-  window._sigConfirmSchedule = function () {
+  window._sigConfirmSchedule = async function () {
     const pending = window._sigPendingPublish; if (!pending) return;
     const dtVal = document.getElementById('sig-schedule-input')?.value;
     if (!dtVal) { showToast('Pick a date & time first', 'error'); return; }
@@ -1687,16 +2039,21 @@
     if (isNaN(ts) || ts <= Date.now()) { showToast('Schedule time must be in the future', 'error'); return; }
     const final = { ...pending.row, status: 'scheduled', is_draft: false, scheduled_at: ts, published_at: null,
       result: 'pending', pips: null, profit_percent: null, r_multiple: null, checklist: pending.row.checklist || [], comments: pending.row.comments || [] };
+    let ok, id;
     if (pending.draftId) {
       const existing = _sigAll.find(s => s.id === pending.draftId);
       Object.assign(existing, final, { id: pending.draftId, created_at: existing.created_at });
-      _sigPersistSignal(existing);
+      ok = await _sigPersistSignal(existing);
+      id = existing.id;
     } else {
-      const created = { ...final, id: _uid(), created_at: Date.now(), updated_at: Date.now(), version_history: [] };
+      const created = { ...final, id: null, created_at: Date.now(), updated_at: Date.now(), version_history: [] };
       _sigAll.unshift(created);
-      if (_sigUsingSupabase && typeof sb !== 'undefined' && sb) { sb.from('journal_signals').insert([{ ...created }]).then(() => {}).catch(() => {}); }
-      else _saveDemoSignals();
+      ok = await _sigCloudSave(created);
+      id = created.id;
     }
+    if (!ok) return;
+    _sigLogActivity(id, 'scheduled', 'Scheduled for ' + new Date(ts).toLocaleString());
+    _sigAll = await _loadSignals();
     _sigCloseReviewModal();
     _sigCloseModal();
     _sigRenderStats();
@@ -1704,19 +2061,23 @@
     showToast('Signal scheduled for ' + new Date(ts).toLocaleString(), 'success');
   };
 
-  window._sigReviewSaveDraft = function () {
+  window._sigReviewSaveDraft = async function () {
     const pending = window._sigPendingPublish; if (!pending) return;
     const row = { ...pending.row, is_draft: true, status: 'draft', updated_at: Date.now() };
+    let ok, id;
     if (pending.draftId) {
       const existing = _sigAll.find(s => s.id === pending.draftId);
       Object.assign(existing, row, { id: pending.draftId, created_at: existing.created_at });
-      _sigPersistSignal(existing);
+      ok = await _sigPersistSignal(existing);
+      id = existing.id;
     } else {
-      const created = { ...row, id: _uid(), created_at: Date.now(), version_history: [], checklist: [], comments: [] };
+      const created = { ...row, id: null, created_at: Date.now(), version_history: [], checklist: [], comments: [] };
       _sigAll.unshift(created);
-      if (_sigUsingSupabase && typeof sb !== 'undefined' && sb) { sb.from('journal_signals').insert([{ ...created }]).then(() => {}).catch(() => {}); }
-      else _saveDemoSignals();
+      ok = await _sigCloudSave(created);
+      id = created.id;
     }
+    if (!ok) return;
+    _sigLogActivity(id, 'created', 'Saved as draft');
     _sigCloseReviewModal();
     _sigCloseModal();
     _sigRenderStats();

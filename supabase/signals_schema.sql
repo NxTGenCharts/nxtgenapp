@@ -231,3 +231,77 @@ create policy "signal_results: owner writes" on journal_signal_results
 -- ── Realtime ────────────────────────────────────────────────────
 -- Enable in Supabase Dashboard → Database → Replication, or run:
 -- alter publication supabase_realtime add table journal_signals, journal_signal_updates, journal_signal_comments, journal_signal_likes;
+
+-- ════════════════════════════════════════════════════════════════
+-- Signals v2 — drafts/lifecycle/notifications/activity/templates
+-- Adds the columns + tables needed for: real drafts persistence,
+-- a full lifecycle (incl. breakeven), signal updates timeline,
+-- a notification center, an activity/audit log, and reusable
+-- signal templates. Safe to re-run.
+-- ════════════════════════════════════════════════════════════════
+
+-- Extra columns on the core table used by the app's drafts/edit/lifecycle UI
+alter table journal_signals add column if not exists draft_name      text;
+alter table journal_signals add column if not exists archived       boolean not null default false;
+alter table journal_signals add column if not exists scheduled_at   timestamptz;
+alter table journal_signals add column if not exists edited_at      timestamptz;
+alter table journal_signals add column if not exists checklist      jsonb not null default '[]';
+alter table journal_signals add column if not exists version_history jsonb not null default '[]';
+
+-- Add 'breakeven' and 'scheduled' to the status lifecycle
+alter table journal_signals drop constraint if exists journal_signals_status_check;
+alter table journal_signals add constraint journal_signals_status_check
+  check (status in ('draft','scheduled','waiting','active','partial','breakeven',
+                     'tp1_hit','tp2_hit','tp3_hit','stopped_out','cancelled','expired','archived'));
+
+create index if not exists idx_signals_archived on journal_signals(archived);
+create index if not exists idx_signals_is_draft on journal_signals(is_draft);
+
+-- Automatic per-signal activity/audit log (created, edited, status changes, deleted, ...)
+create table if not exists journal_signal_activity (
+  id          uuid primary key default gen_random_uuid(),
+  signal_id   uuid references journal_signals(id) on delete cascade,
+  owner_id    uuid not null references auth.users(id) on delete cascade,
+  action      text not null,        -- created | edited | published | unpublished | status_changed | update_added | archived | deleted | duplicated
+  detail      text,
+  created_at  timestamptz not null default now()
+);
+create index if not exists idx_signal_activity_signal on journal_signal_activity(signal_id, created_at desc);
+create index if not exists idx_signal_activity_owner  on journal_signal_activity(owner_id, created_at desc);
+
+-- User-facing notification center (new signal, edited, TP/SL hit, etc.)
+create table if not exists journal_signal_notifications (
+  id          uuid primary key default gen_random_uuid(),
+  signal_id   uuid references journal_signals(id) on delete cascade,
+  owner_id    uuid not null references auth.users(id) on delete cascade,
+  type        text not null,        -- published | edited | entry_triggered | sl_moved | tp1_hit | tp2_hit | tp3_hit | breakeven | cancelled | closed | update
+  message     text not null,
+  read        boolean not null default false,
+  created_at  timestamptz not null default now()
+);
+create index if not exists idx_signal_notif_owner_unread on journal_signal_notifications(owner_id, read, created_at desc);
+
+-- Reusable signal templates ("Create from Template" / "Use Last Signal")
+create table if not exists journal_signal_templates (
+  id            uuid primary key default gen_random_uuid(),
+  owner_id      uuid not null references auth.users(id) on delete cascade,
+  name          text not null,
+  -- Everything EXCEPT the trade-specific fields (pair/entry/sl/tp/rr/notes) —
+  -- risk %, position sizing, disclaimer, structure, tags, session, confidence.
+  payload       jsonb not null default '{}',
+  created_at    timestamptz not null default now()
+);
+create index if not exists idx_signal_templates_owner on journal_signal_templates(owner_id, created_at desc);
+
+alter table journal_signal_activity      enable row level security;
+alter table journal_signal_notifications enable row level security;
+alter table journal_signal_templates     enable row level security;
+
+create policy "signal_activity: owner manage" on journal_signal_activity
+  for all using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+create policy "signal_notifications: owner manage" on journal_signal_notifications
+  for all using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+create policy "signal_templates: owner manage" on journal_signal_templates
+  for all using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+
+-- alter publication supabase_realtime add table journal_signal_notifications, journal_signal_activity;
