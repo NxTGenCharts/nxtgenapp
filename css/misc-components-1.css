@@ -1900,3 +1900,85 @@
 @media (max-width: 520px){
   .chart-sort-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   PHASE 3 — Watchlist animated overview widgets, weekly analytics,
+   pair filter bar
+   ══════════════════════════════════════════════════════════════ */
+
+/* DXY trend indicator (mini line chart) */
+.wl-trend-wrap{width:100%}
+.wl-trend-svg{width:100%;height:34px}
+.wl-trend-track{fill:none;stroke:var(--glass-2);stroke-width:2}
+.wl-trend-fill{fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.wl-trend-fill.bull{stroke:var(--green)} .wl-trend-fill.bear{stroke:var(--red)} .wl-trend-fill.neu{stroke:var(--text3)}
+.wl-trend-dot{transition:cx .5s var(--ease-out)}
+.wl-trend-dot.bull{fill:var(--green)} .wl-trend-dot.bear{fill:var(--red)} .wl-trend-dot.neu{fill:var(--text3)}
+
+/* Market Sentiment needle gauge */
+.wl-needle-wrap{width:100%;display:flex;justify-content:center}
+.wl-needle-svg{width:100px;height:56px}
+.wl-needle-track-red{fill:none;stroke:rgba(248,113,113,0.35);stroke-width:6;stroke-linecap:round}
+.wl-needle-track-green{fill:none;stroke:rgba(52,211,153,0.35);stroke-width:6;stroke-linecap:round}
+.wl-needle-pin{stroke:var(--text);stroke-width:2.4;stroke-linecap:round;transition:transform .7s var(--ease-out);transform-origin:50px 52px}
+.wl-needle-base{fill:var(--text)}
+
+/* Volatility thermometer */
+.wl-thermo-wrap{display:flex;align-items:center;gap:10px;width:100%}
+.wl-thermo-track{width:8px;height:34px;border-radius:var(--r-full);background:var(--glass-2);position:relative;overflow:hidden;flex-shrink:0}
+.wl-thermo-fill{position:absolute;bottom:0;left:0;right:0;border-radius:var(--r-full);transition:height .7s var(--ease-out)}
+.wl-thermo-fill.bull{background:linear-gradient(0deg,var(--green),#5eead4)}
+.wl-thermo-fill.bear{background:linear-gradient(0deg,var(--red),#fca5a5)}
+.wl-thermo-fill.neu{background:linear-gradient(0deg,var(--gold),#fde68a)}
+
+/* Week Status progress tracker */
+.wl-progtrack-wrap{display:flex;flex-direction:column;gap:8px;width:100%}
+.wl-progtrack{display:flex;align-items:center;width:100%}
+.wl-progtrack-dot{width:9px;height:9px;border-radius:50%;background:var(--glass-3);flex-shrink:0;transition:background .3s}
+.wl-progtrack-dot.active,.wl-progtrack-dot.bull{background:var(--green)}
+.wl-progtrack-line{flex:1;height:2px;background:var(--glass-3);margin:0 3px}
+
+/* ── Weekly Analytics strip ─────────────────────────────────── */
+.wl-more-toggle{
+  display:flex;align-items:center;gap:6px;margin:0 0 14px;padding:7px 14px;
+  background:var(--glass-1);border:1px solid var(--glass-border);border-radius:var(--r-full);
+  color:var(--text2);font-size:11.5px;font-weight:600;cursor:pointer;transition:var(--t-fast);
+}
+.wl-more-toggle:hover{background:var(--glass-2);color:var(--text);border-color:var(--glass-border-h)}
+.wl-more-grid{
+  display:grid;grid-template-columns:repeat(5,1fr);gap:9px;
+  max-height:0;overflow:hidden;opacity:0;transition:max-height .4s var(--ease-out),opacity .3s ease;
+}
+.wl-more-grid.open{max-height:900px;opacity:1;margin-bottom:18px}
+@media (max-width:1400px){.wl-more-grid{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:640px){.wl-more-grid{grid-template-columns:repeat(2,1fr)}}
+.wl-mini-tile{background:var(--glass-1);border:1px solid var(--glass-border);border-radius:var(--r-md);padding:9px 11px;font-size:10.5px;transition:var(--t-fast)}
+.wl-mini-tile:hover{background:var(--glass-2);border-color:var(--glass-border-h)}
+.wl-mini-top{display:flex;justify-content:space-between;gap:6px;color:var(--text3);margin-bottom:6px;font-weight:600}
+.wl-mini-track{height:4px;border-radius:var(--r-full);background:var(--glass-2);overflow:hidden}
+.wl-mini-fill{height:100%;border-radius:var(--r-full);transition:width 1s var(--ease-out);background:var(--blue)}
+.wl-mini-fill.bull{background:var(--green)} .wl-mini-fill.bear{background:var(--red)} .wl-mini-fill.gold{background:var(--gold)}
+.wl-mini-val{color:var(--text);font-weight:700;font-family:var(--font-mono)}
+.wl-mini-val.bull{color:var(--green)} .wl-mini-val.bear{color:var(--red)} .wl-mini-val.blue{color:var(--blue)}
+.wl-mini-tile-flat{display:flex;flex-direction:column;gap:5px;justify-content:center;min-height:44px}
+.wl-mini-label{color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;font-size:9.5px}
+.wl-mini-tile-dist{grid-column:span 2}
+.wl-exposure-bars{display:flex;flex-direction:column;gap:5px;margin-top:4px}
+.wl-exposure-row{display:flex;align-items:center;gap:8px}
+.wl-exposure-cur{width:34px;font-family:var(--font-mono);font-size:10px;color:var(--text2);font-weight:700}
+.wl-exposure-track{position:relative;flex:1;height:8px;border-radius:var(--r-full);background:var(--glass-2);overflow:hidden}
+.wl-exposure-mid{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--glass-border-h)}
+.wl-exposure-fill{position:absolute;top:0;bottom:0;border-radius:var(--r-full);transition:width .6s var(--ease-out)}
+.wl-exposure-fill.bull{background:var(--green)} .wl-exposure-fill.bear{background:var(--red)}
+
+/* ── Pair search & filter bar ─────────────────────────────────── */
+.wl-pair-filter-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.wl-pf-search{display:flex;align-items:center;gap:8px;background:var(--glass-1);border:1px solid var(--glass-border);
+  border-radius:var(--r-full);padding:7px 14px;min-width:220px;flex:1;max-width:320px}
+.wl-pf-search svg,.wl-pf-search .icn{width:13px;height:13px;color:var(--text3);flex-shrink:0}
+.wl-pf-search input{background:transparent;border:none;outline:none;color:var(--text);font-size:12px;width:100%}
+.wl-pf-chips{display:flex;gap:7px;flex-wrap:wrap}
+.wl-pf-chip{padding:6px 13px;border-radius:var(--r-full);border:1px solid var(--glass-border);background:var(--glass-1);
+  color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;transition:var(--t-fast);white-space:nowrap}
+.wl-pf-chip:hover{background:var(--glass-2);color:var(--text);border-color:var(--glass-border-h)}
+.wl-pf-chip.active{background:rgba(96,165,250,0.14);color:var(--blue);border-color:rgba(96,165,250,0.35)}

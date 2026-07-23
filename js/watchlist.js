@@ -591,16 +591,20 @@ function _wlBuildMarketOverview(week) {
 
   const dxyClass  = week.dxy === 'bull' ? 'bull' : week.dxy === 'bear' ? 'bear' : 'neu';
   const dxyLabel  = week.dxy === 'bull' ? `${icon('arrow-up')} Bullish` : week.dxy === 'bear' ? `${icon('arrow-down')} Bearish` : '→ Neutral';
+  const dxyAngle  = week.dxy === 'bull' ? -32 : week.dxy === 'bear' ? 32 : 0;
 
   const mktClass  = week.market === 'risk-on' ? 'risk-on' : week.market === 'risk-off' ? 'risk-off' : 'neu';
   const mktLabel  = week.market === 'risk-on' ? `${icon('sparkle')} Risk-On` : week.market === 'risk-off' ? `${icon('sparkle')} Risk-Off` : '→ Neutral';
+  const mktNeedle = week.market === 'risk-on' ? 60 : week.market === 'risk-off' ? -60 : 0;
 
   const volClass  = m.volatility === 'high' ? 'bear' : m.volatility === 'low' ? 'bull' : 'neu';
   const volLabel  = m.volatility.charAt(0).toUpperCase() + m.volatility.slice(1);
+  const volPct    = m.volatility === 'high' ? 88 : m.volatility === 'low' ? 22 : 55;
 
   const statusVal = m.weekStatusManual ? m.weekStatus : _wlAutoWeekStatus(score);
   const statusClass = statusVal === 'completed' ? 'bull' : statusVal === 'in-progress' ? '' : 'neu';
   const statusLabel = statusVal === 'completed' ? 'Completed' : statusVal === 'in-progress' ? 'In Progress' : 'Waiting';
+  const statusStep = statusVal === 'completed' ? 3 : statusVal === 'in-progress' ? 2 : 1;
 
   const dsPct = m.dollarStrength;
   const dsLabel = dsPct >= 75 ? 'Strong' : dsPct >= 55 ? 'Firm' : dsPct >= 45 ? 'Neutral' : dsPct >= 25 ? 'Soft' : 'Weak';
@@ -609,6 +613,13 @@ function _wlBuildMarketOverview(week) {
   <div class="wl-overview-row">
     <div class="wl-overview-widget" onclick="_wlCycleWeekField('${week.id}','dxy',['bull','bear','neu'])" title="Click to cycle">
       <div class="wl-overview-label">DXY Bias</div>
+      <div class="wl-trend-wrap">
+        <svg class="wl-trend-svg" viewBox="0 0 90 36">
+          <path class="wl-trend-track" d="M4,30 Q30,30 45,18 T86,6"></path>
+          <path class="wl-trend-fill ${dxyClass}" d="M4,30 Q30,30 45,18 T86,6"></path>
+          <circle class="wl-trend-dot ${dxyClass}" cx="86" cy="6" r="3.4"></circle>
+        </svg>
+      </div>
       <span class="wl-badge ${dxyClass}">${dxyLabel}</span>
     </div>
 
@@ -625,22 +636,130 @@ function _wlBuildMarketOverview(week) {
       </div>
     </div>
 
-    <div class="wl-overview-widget" onclick="_wlCycleWeekField('${week.id}','market',['risk-on','risk-off','neu'])" title="Click to cycle">
+    <div class="wl-overview-widget wl-overview-gauge" onclick="_wlCycleWeekField('${week.id}','market',['risk-on','risk-off','neu'])" title="Click to cycle">
       <div class="wl-overview-label">Market Sentiment</div>
+      <div class="wl-needle-wrap">
+        <svg class="wl-needle-svg" viewBox="0 0 100 58">
+          <path class="wl-needle-track-red" d="M6,52 A44,44 0 0,1 50,8"></path>
+          <path class="wl-needle-track-green" d="M50,8 A44,44 0 0,1 94,52"></path>
+          <line class="wl-needle-pin" x1="50" y1="52" x2="50" y2="16" transform="rotate(${mktNeedle} 50 52)"></line>
+          <circle class="wl-needle-base" cx="50" cy="52" r="4"></circle>
+        </svg>
+      </div>
       <span class="wl-badge ${mktClass}">${mktLabel}</span>
     </div>
 
     <div class="wl-overview-widget" onclick="_wlCycleWeekField('${week.id}','volatility',['low','med','high'])" title="Click to cycle">
       <div class="wl-overview-label">Volatility</div>
-      <span class="wl-badge ${volClass}">${volLabel}</span>
+      <div class="wl-thermo-wrap">
+        <div class="wl-thermo-track"><div class="wl-thermo-fill ${volClass}" style="height:${volPct}%"></div></div>
+        <span class="wl-badge ${volClass}">${volLabel}</span>
+      </div>
     </div>
 
     <div class="wl-overview-widget" onclick="_wlCycleWeekField('${week.id}','weekStatus',['waiting','in-progress','completed'])" title="Click to cycle · auto-suggested until set">
       <div class="wl-overview-label">Week Status</div>
-      <span class="wl-badge ${statusClass}">${statusLabel}</span>
+      <div class="wl-progtrack-wrap">
+        <div class="wl-progtrack">
+          ${[1,2,3].map(i => `<span class="wl-progtrack-dot ${i <= statusStep ? statusClass || 'active' : ''}"></span>`).join('<span class="wl-progtrack-line"></span>')}
+        </div>
+        <span class="wl-badge ${statusClass}">${statusLabel}</span>
+      </div>
     </div>
   </div>`;
 }
+
+/* ── Weekly Analytics (lazy, collapsible) ── */
+let _wlAnalyticsOpen = {};
+window._wlToggleAnalytics = function (weekId) {
+  _wlAnalyticsOpen[weekId] = !_wlAnalyticsOpen[weekId];
+  const week = _wlData.find(w => w.id === weekId);
+  const host = document.getElementById('wl-analytics-host-' + weekId);
+  if (host && week) host.outerHTML = _wlBuildWeeklyAnalytics(week);
+};
+
+function _wlCurrencyExposure(pairs) {
+  const map = {};
+  pairs.filter(p => !p.archived).forEach(p => {
+    const code = (p.name || '').replace('/', '').toUpperCase();
+    if (code.length !== 6) return;
+    const base = code.slice(0, 3), quote = code.slice(3, 6);
+    const dir = p.bias === 'bull' ? 1 : p.bias === 'bear' ? -1 : 0;
+    map[base] = (map[base] || 0) + dir;
+    map[quote] = (map[quote] || 0) - dir;
+  });
+  return Object.entries(map).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 8);
+}
+
+function _wlBuildWeeklyAnalytics(week) {
+  const open = !!_wlAnalyticsOpen[week.id];
+  const pairs = week.pairs.filter(p => !p.archived);
+  const total = pairs.length || 1;
+  const bull = pairs.filter(p => p.bias === 'bull').length;
+  const bear = pairs.filter(p => p.bias === 'bear').length;
+  const neu = pairs.length - bull - bear;
+  const ready = pairs.filter(p => p.confidence >= 70).length;
+  const avgConf = pairs.length ? Math.round(pairs.reduce((a, p) => a + (p.confidence || 0), 0) / pairs.length) : 0;
+  const avgRisk = pairs.length ? (pairs.reduce((a, p) => a + (p.risk || 0), 0) / pairs.length).toFixed(1) : '0.0';
+  const withCharts = pairs.filter(p => p.charts && p.charts.length).length;
+  const shotPct = Math.round((withCharts / total) * 100);
+  const HTF = ['Weekly', 'Daily', '4H'], LTF = ['1H', '30M', '15M'];
+  const htfDone = pairs.filter(p => (p.tfs || []).some(tf => HTF.includes(tf.tf) && tf.bias !== 'neu')).length;
+  const ltfDone = pairs.filter(p => (p.tfs || []).some(tf => LTF.includes(tf.tf) && tf.bias !== 'neu')).length;
+  const liqAvg = pairs.length ? Math.round(pairs.reduce((a, p) => { const { checked, total: t } = _wlLiqCount(p.liq); return a + (t ? checked / t : 0); }, 0) / pairs.length * 100) : 0;
+  const longCt = pairs.filter(p => p.direction === 'long').length;
+  const shortCt = pairs.filter(p => p.direction === 'short').length;
+  const waitCt = pairs.length - longCt - shortCt;
+  const biasAgree = week.dxy && week.dxy !== 'neu' ? pairs.filter(p => (week.dxy === 'bull' && p.bias === 'bear') || (week.dxy === 'bear' && p.bias === 'bull')).length : null;
+  const consistency = biasAgree === null ? null : Math.round(((pairs.length - biasAgree) / total) * 100);
+  const sorted = [...pairs].sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+  const bestPair = sorted[0] ? sorted[0].name : '—';
+  const attentionPair = sorted.length ? sorted[sorted.length - 1].name : '—';
+  const exposure = _wlCurrencyExposure(pairs);
+  const maxExp = Math.max(1, ...exposure.map(([, v]) => Math.abs(v)));
+
+  const miniBar = (label, val, pct, tone) => `<div class="wl-mini-tile">
+    <div class="wl-mini-top"><span>${label}</span><span class="wl-mini-val ${tone || ''}">${val}</span></div>
+    <div class="wl-mini-track"><div class="wl-mini-fill ${tone || ''}" style="width:${Math.max(0, Math.min(100, pct))}%"></div></div>
+  </div>`;
+  const miniStat = (label, val, tone) => `<div class="wl-mini-tile wl-mini-tile-flat"><span class="wl-mini-label">${label}</span><span class="wl-mini-val ${tone || ''}">${val}</span></div>`;
+
+  return `
+  <div id="wl-analytics-host-${week.id}">
+    <button class="wl-more-toggle" onclick="_wlToggleAnalytics('${week.id}')">${icon(open ? 'minus' : 'plus')} ${open ? 'Hide' : 'Show'} weekly analytics</button>
+    <div class="wl-more-grid ${open ? 'open' : ''}">
+      ${open ? [
+        miniBar('Bullish Bias', bull + '/' + total, (bull / total) * 100, 'bull'),
+        miniBar('Bearish Bias', bear + '/' + total, (bear / total) * 100, 'bear'),
+        miniStat('Neutral Pairs', neu),
+        miniBar('Pairs Ready', ready + '/' + total, (ready / total) * 100, 'bull'),
+        miniBar('Average Confidence', avgConf + '%', avgConf, 'blue'),
+        miniStat('Average Risk (★)', avgRisk),
+        miniBar('Screenshot Completion', shotPct + '%', shotPct, 'gold'),
+        miniBar('HTF Analysis', Math.round((htfDone / total) * 100) + '%', (htfDone / total) * 100, 'blue'),
+        miniBar('LTF Confirmation', Math.round((ltfDone / total) * 100) + '%', (ltfDone / total) * 100, 'blue'),
+        miniBar('Confluence Completion', liqAvg + '%', liqAvg, 'bull'),
+        miniStat('Long Setups', longCt, 'bull'),
+        miniStat('Short Setups', shortCt, 'bear'),
+        miniStat('Waiting Setups', waitCt),
+        consistency !== null ? miniBar('DXY Bias Consistency', consistency + '%', consistency, 'blue') : '',
+        miniStat('Best Pair This Week', bestPair, 'bull'),
+        miniStat('Needs Attention', attentionPair, 'bear'),
+        miniStat('Trade Readiness', _wlComputeReadiness(week).score + '%', 'blue'),
+        exposure.length ? `<div class="wl-mini-tile wl-mini-tile-dist">
+          <span class="wl-mini-label">Currency Exposure</span>
+          <div class="wl-exposure-bars">${exposure.map(([cur, v]) => `
+            <div class="wl-exposure-row">
+              <span class="wl-exposure-cur">${cur}</span>
+              <div class="wl-exposure-track"><div class="wl-exposure-fill ${v >= 0 ? 'bull' : 'bear'}" style="width:${Math.abs(v) / maxExp * 100}%;${v >= 0 ? 'left:50%' : `right:50%`}"></div><div class="wl-exposure-mid"></div></div>
+            </div>`).join('')}</div>
+        </div>` : ''
+      ].join('') : ''}
+    </div>
+  </div>`;
+}
+
+
 
 /* ── Weekly Checklist ── */
 function _wlBuildWeeklyChecklist(week) {
@@ -1058,6 +1177,50 @@ function _wlLiqCount(liq) {
   return { checked, total };
 }
 
+let _wlPairFilters = {}; // { weekId: { search, bias, priority, direction, ready } }
+function _wlPairFilterState(weekId) { return _wlPairFilters[weekId] || (_wlPairFilters[weekId] = { search: '', bias: '', priority: '', direction: '', ready: '' }); }
+
+function _wlBuildPairFilterBar(week) {
+  const f = _wlPairFilterState(week.id);
+  const chip = (group, val, label) => `<div class="wl-pf-chip ${f[group] === val ? 'active' : ''}" onclick="_wlSetPairFilter('${week.id}','${group}','${val}')">${label}</div>`;
+  return `
+  <div class="wl-pair-filter-bar">
+    <div class="wl-pf-search"><span>${icon('search')}</span><input type="text" placeholder="Search pairs, models, notes…" value="${f.search}" oninput="_wlSetPairSearch('${week.id}', this.value)"></div>
+    <div class="wl-pf-chips">
+      ${chip('bias', '', 'All')}
+      ${chip('bias', 'bull', 'Bullish')}
+      ${chip('bias', 'bear', 'Bearish')}
+      ${chip('priority', 'high', 'High Priority')}
+      ${chip('direction', 'long', 'Long')}
+      ${chip('direction', 'short', 'Short')}
+      ${chip('ready', '1', 'Ready')}
+    </div>
+  </div>`;
+}
+window._wlSetPairSearch = function (weekId, val) { _wlPairFilterState(weekId).search = val.toLowerCase(); _wlApplyPairFilters(weekId); };
+window._wlSetPairFilter = function (weekId, group, val) {
+  const f = _wlPairFilterState(weekId);
+  f[group] = f[group] === val ? '' : val;
+  const week = _wlData.find(w => w.id === weekId);
+  const bar = document.querySelector(`#wl-pairs-grid-${weekId}`)?.previousElementSibling;
+  if (bar && bar.classList.contains('wl-pair-filter-bar') && week) bar.outerHTML = _wlBuildPairFilterBar(week);
+  _wlApplyPairFilters(weekId);
+};
+window._wlApplyPairFilters = function (weekId) {
+  const f = _wlPairFilterState(weekId);
+  const grid = document.getElementById('wl-pairs-grid-' + weekId);
+  if (!grid) return;
+  grid.querySelectorAll('[data-wl-pair]').forEach(card => {
+    let ok = true;
+    if (f.search && !card.dataset.wlName.includes(f.search) && !card.dataset.wlNote.includes(f.search)) ok = false;
+    if (f.bias && card.dataset.wlBias !== f.bias) ok = false;
+    if (f.priority && card.dataset.wlPriority !== f.priority) ok = false;
+    if (f.direction && card.dataset.wlDirection !== f.direction) ok = false;
+    if (f.ready && card.dataset.wlReady !== f.ready) ok = false;
+    card.style.display = ok ? '' : 'none';
+  });
+};
+
 function _wlPairCardHtml(week, p, pi) {
   const priClass = p.priority === 'high' ? 'high' : p.priority === 'med' ? 'med' : 'low';
   const biasClass = p.bias === 'bull' ? 'bull' : 'bear';
@@ -1078,7 +1241,10 @@ function _wlPairCardHtml(week, p, pi) {
   const stars = Array.from({length: 5}, (_, i) => icon(i < p.risk ? 'star' : 'star-o', {cls: i < p.risk ? 'icn-gold' : ''})).join('');
 
   return `
-    <div class="wl-pair-card-v2 ${priClass}${p.archived ? ' wl-pair-archived' : ''}" onclick="_wlOpenPairDetail('${week.id}',${pi})">
+    <div class="wl-pair-card-v2 ${priClass}${p.archived ? ' wl-pair-archived' : ''}" onclick="_wlOpenPairDetail('${week.id}',${pi})"
+      data-wl-pair="1" data-wl-name="${(p.name || '').toLowerCase()}" data-wl-bias="${p.bias || ''}"
+      data-wl-priority="${p.priority || 'low'}" data-wl-direction="${p.direction || 'wait'}"
+      data-wl-ready="${p.confidence >= 70 ? '1' : '0'}" data-wl-note="${(p.note || '').toLowerCase().replace(/"/g, '&quot;')}">
       <div class="wl-card-chart">
         ${firstChart
           ? `<img class="wl-card-chart-img" src="${firstChart}" alt="${p.name} chart" loading="lazy">
@@ -1143,6 +1309,7 @@ function _wlRenderWeekContent(week, container) {
   container.innerHTML = `
     ${_wlBuildReadinessCard(week)}
     ${_wlBuildMarketOverview(week)}
+    ${_wlBuildWeeklyAnalytics(week)}
 
     <div class="wl-week-header">
       <div class="wl-week-meta">
@@ -1157,7 +1324,9 @@ function _wlRenderWeekContent(week, container) {
       </div>
     </div>
 
-    <div class="wl-pairs-grid">
+    ${_wlBuildPairFilterBar(week)}
+
+    <div class="wl-pairs-grid" id="wl-pairs-grid-${week.id}">
       ${pairCards}
       <div class="wl-add-pair-card" onclick="_wlAddPair('${week.id}')">
         <span>＋</span>
@@ -1215,6 +1384,7 @@ function _wlRenderWeekContent(week, container) {
   setTimeout(() => _wlCalAutoLoad(), 0);
 
   _wlMountDayDropzone(week.id, _wlActiveDayTab[week.id]);
+  _wlApplyPairFilters(week.id);
   _wlAnimateRings(container);
 }
 
