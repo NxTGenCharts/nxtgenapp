@@ -32,12 +32,15 @@
     commodities: 'Commodities', stocks: 'Stocks', synthetic: 'Synthetic Indices'
   };
   const STATUS_LABEL = {
-    waiting: 'Waiting', active: 'Active', partial: 'Partial',
+    draft: 'Draft', scheduled: 'Scheduled',
+    waiting: 'Pending', active: 'Active', partial: 'Partial',
     tp1_hit: 'Hit TP1', tp2_hit: 'Hit TP2', tp3_hit: 'Hit TP3',
     stopped_out: 'Stopped Out', cancelled: 'Cancelled', expired: 'Expired'
   };
   const CONF_LABEL = { low: 'Low', medium: 'Medium', high: 'High', very_high: 'Very High' };
   const TIMELINE_STEPS = ['waiting', 'active', 'tp1_hit', 'tp2_hit', 'tp3_hit', 'closed'];
+  let _sigDraftSearch = '';
+  let _sigDraftSort = 'modified';
 
   // ── Icon helper ────────────────────────────────────────────────
   function icn(id, cls) {
@@ -142,6 +145,14 @@
   function _saveDemoSignals() {
     try { localStorage.setItem(SIG_STORE_KEY, JSON.stringify(_sigAll)); } catch (e) {}
   }
+  // Persist a single (already-mutated) row back to whichever store is active.
+  function _sigPersistSignal(row) {
+    if (_sigUsingSupabase && typeof sb !== 'undefined' && sb) {
+      sb.from('journal_signals').update({ ...row }).eq('id', row.id).then(() => {}).catch(() => {});
+    } else {
+      _saveDemoSignals();
+    }
+  }
 
   // ══════════════════════════════════════════════════════════════
   // DATA LOADING (Supabase-first, demo fallback)
@@ -197,6 +208,7 @@
           <button data-view="cards" onclick="_sigSetView('cards')">${icn('ic-folder')} Cards</button>
           <button data-view="calendar" onclick="_sigSetView('calendar')">${icn('ic-calendar')} Calendar</button>
           <button data-view="analytics" onclick="_sigSetView('analytics')">${icn('ic-chart-pie')} Analytics</button>
+          <button data-view="drafts" onclick="_sigSetView('drafts')">${icn('ic-notebook')} Drafts <span id="sig-drafts-tab-count" class="sig-drafts-count"></span></button>
         </div>
         <button class="btn btn-primary btn-ripple" onclick="_sigOpenModal()">${icn('ic-plus')} <span class="lbl-full">New Signal</span></button>
       </div>
@@ -224,7 +236,7 @@
   // AND This Month (timeframe) AND High Confidence (confidence) AND
   // London (session) all apply at once, matching the brief's example.
   const FILTER_GROUPS = {
-    status: [{ id: 'active', label: 'Active' }, { id: 'closed', label: 'Closed' }],
+    status: [{ id: 'active', label: 'Active' }, { id: 'closed', label: 'Closed' }, { id: 'draft', label: 'Drafts' }, { id: 'archived', label: 'Archived' }],
     result: [{ id: 'winning', label: 'Winning' }, { id: 'losing', label: 'Losing' }, { id: 'pending', label: 'Pending' }],
     market: [{ id: 'forex', label: 'Forex' }, { id: 'crypto', label: 'Crypto' }, { id: 'indices', label: 'Indices' }],
     timeframe: [{ id: 'today', label: 'Today' }, { id: 'week', label: 'This Week' }, { id: 'month', label: 'This Month' }],
@@ -333,11 +345,15 @@
     const anyOf = (g, pred) => !_sigChipSet(g).size || [..._sigChipSet(g)].some(pred);
 
     return _sigAll.filter(s => {
+      // Drafts & archived signals live in their own workspace by default —
+      // they only show up here if the person explicitly asks for them.
+      if (s.is_draft && !has('status', 'draft')) return false;
+      if (s.archived && !has('status', 'archived')) return false;
       if (_sigSearch) {
         const hay = (s.pair + ' ' + s.market).toLowerCase();
         if (!hay.includes(_sigSearch)) return false;
       }
-      if (_sigChipSet('status').size) {
+      if (has('status', 'active') || has('status', 'closed')) {
         const isActive = ['waiting', 'active', 'partial'].includes(s.status);
         if (has('status', 'active') && !isActive && !has('status', 'closed')) return false;
         if (has('status', 'closed') && isActive && !has('status', 'active')) return false;
@@ -373,8 +389,12 @@
     else if (_sigView === 'cards') root.innerHTML = _sigRenderCards(rows);
     else if (_sigView === 'calendar') root.innerHTML = _sigRenderCalendar(rows);
     else if (_sigView === 'analytics') root.innerHTML = _sigRenderAnalytics(rows);
+    else if (_sigView === 'drafts') root.innerHTML = _sigRenderDrafts();
     // stagger row/card animation delays
-    root.querySelectorAll('.sig-row, .sig-card').forEach((el, i) => { el.style.animationDelay = (i * 0.025) + 's'; });
+    root.querySelectorAll('.sig-row, .sig-card, .sig-draft-card').forEach((el, i) => { el.style.animationDelay = (i * 0.025) + 's'; });
+    const badge = document.getElementById('sig-drafts-tab-count');
+    const draftCt = _sigAll.filter(s => s.is_draft && !s.archived).length;
+    if (badge) badge.textContent = draftCt ? draftCt : '';
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -783,8 +803,8 @@
         <td onclick="event.stopPropagation()">
           <div class="sig-row-actions">
             <button title="Bookmark" onclick="_sigToggleBookmark('${s.id}')">${icn('ic-bookmark')}</button>
-            <button title="Copy details" onclick="_sigCopyDetails('${s.id}')">${icn('ic-copy')}</button>
-            <button title="Delete" onclick="_sigDelete('${s.id}')">${icn('ic-trash')}</button>
+            <button title="Edit" onclick="_sigOpenModal('edit','${s.id}')">${icn('ic-edit')}</button>
+            <button class="sig-dots-btn" title="More actions" onclick="_sigOpenActionsMenu('${s.id}', event)">${icn('ic-dot')}${icn('ic-dot')}${icn('ic-dot')}</button>
           </div>
         </td>
       </tr>${expandRow}`;
@@ -807,8 +827,111 @@
   }
 
   function _sigEmptyState() {
-    return `<div class="sig-table-card"><div class="sig-table-empty">${icn('ic-search')}<div style="margin-top:8px">No signals match these filters.</div></div></div>`;
+    if (!_sigAll.length) {
+      return `<div class="sig-table-card"><div class="sig-empty-onboard">
+        <div class="sig-empty-illustration">${icn('ic-zap')}</div>
+        <div class="sig-empty-title">No signals yet</div>
+        <div class="sig-empty-sub">Publish your first signal to start tracking win rate, RR and pips like a pro desk.</div>
+        <button class="btn btn-primary btn-ripple" onclick="_sigOpenModal()">${icn('ic-plus')} Create New Signal</button>
+      </div></div>`;
+    }
+    return `<div class="sig-table-card"><div class="sig-table-empty">${icn('ic-search')}<div style="margin-top:8px">No signals match these filters.</div><button class="btn" style="margin-top:10px" onclick="_sigResetFilters()">${icn('ic-refresh')} Reset filters</button></div></div>`;
   }
+
+  // ══════════════════════════════════════════════════════════════
+  // DRAFTS WORKSPACE
+  // ══════════════════════════════════════════════════════════════
+  window._sigOnDraftSearch = function (v) { _sigDraftSearch = v.trim().toLowerCase(); _sigRenderActiveView(); };
+  window._sigSetDraftSort = function (v) { _sigDraftSort = v; _sigRenderActiveView(); };
+
+  function _sigRenderDrafts() {
+    let drafts = _sigAll.filter(s => s.is_draft && !s.archived);
+    if (_sigDraftSearch) drafts = drafts.filter(s => (s.pair + ' ' + (s.draft_name || '')).toLowerCase().includes(_sigDraftSearch));
+    const sorters = {
+      modified: (a, b) => (b.updated_at || 0) - (a.updated_at || 0),
+      created: (a, b) => (b.created_at || 0) - (a.created_at || 0),
+      pair: (a, b) => (a.pair || '').localeCompare(b.pair || '')
+    };
+    drafts = [...drafts].sort(sorters[_sigDraftSort] || sorters.modified);
+
+    const header = `
+    <div class="sig-drafts-toolbar">
+      <div class="sig-drafts-summary">${icn('ic-notebook')} <strong>${drafts.length}</strong> draft${drafts.length === 1 ? '' : 's'} in progress</div>
+      <div class="sig-drafts-tools">
+        <div class="sig-search-wrap sig-search-wrap-sm">${icn('ic-search')}<input type="text" placeholder="Search drafts…" oninput="_sigOnDraftSearch(this.value)"></div>
+        <select class="form-select sig-drafts-sort" onchange="_sigSetDraftSort(this.value)">
+          <option value="modified">Sort: Last modified</option>
+          <option value="created">Sort: Created</option>
+          <option value="pair">Sort: Pair A–Z</option>
+        </select>
+      </div>
+    </div>`;
+
+    if (!drafts.length) {
+      return header + `<div class="sig-table-card"><div class="sig-empty-onboard">
+        <div class="sig-empty-illustration">${icn('ic-notebook')}</div>
+        <div class="sig-empty-title">No drafts</div>
+        <div class="sig-empty-sub">Start a new signal and it'll autosave here as you work — nothing gets lost.</div>
+        <button class="btn btn-primary btn-ripple" onclick="_sigOpenModal()">${icn('ic-plus')} Start a Draft</button>
+      </div></div>`;
+    }
+
+    return header + `<div class="sig-drafts-grid">${drafts.map(s => `
+      <div class="sig-draft-card">
+        <div class="sig-draft-top">
+          <div class="sig-draft-title">${s.pair || s.draft_name || 'Untitled draft'}${s.direction ? ` <span class="sig-dir-badge ${s.direction}" style="font-size:9px;padding:2px 6px">${s.direction === 'buy' ? 'BUY' : 'SELL'}</span>` : ''}</div>
+          <span class="sig-badge sig-badge-draft"><span class="dot"></span>Draft</span>
+        </div>
+        ${s.draft_name ? `<div class="sig-draft-name">${s.draft_name}</div>` : ''}
+        <div class="sig-draft-meta">
+          <span>${icn('ic-clock')} Modified ${_timeAgo(s.updated_at || s.created_at)}</span>
+          <span>${icn('ic-calendar')} Created ${_timeAgo(s.created_at)}</span>
+        </div>
+        ${s.confidence_score ? _sigConfBadge(s) : ''}
+        <div class="sig-draft-actions">
+          <button class="btn btn-primary" onclick="_sigOpenModal('edit','${s.id}')">${icn('ic-edit')} Continue Editing</button>
+          <button title="Preview" onclick="_sigOpenDrawer('${s.id}')">${icn('ic-eye')}</button>
+          <button title="Publish" onclick="_sigOpenReviewModal('${s.id}')">${icn('ic-upload')}</button>
+          <button title="Duplicate" onclick="_sigDuplicateSignal('${s.id}')">${icn('ic-copy')}</button>
+          <button title="Rename" onclick="_sigRenameDraft('${s.id}')">${icn('ic-tag')}</button>
+          <button title="Archive" onclick="_sigArchiveSignal('${s.id}')">${icn('ic-archive')}</button>
+          <button title="Delete" onclick="_sigDelete('${s.id}')">${icn('ic-trash')}</button>
+        </div>
+      </div>`).join('')}</div>`;
+  }
+
+  window._sigRenameDraft = function (id) {
+    const s = _sigAll.find(x => x.id === id); if (!s) return;
+    const name = prompt('Rename draft:', s.draft_name || s.pair || '');
+    if (name === null) return;
+    s.draft_name = name.trim();
+    s.updated_at = Date.now();
+    _sigPersistSignal(s);
+    _sigRenderActiveView();
+  };
+
+  window._sigArchiveSignal = function (id) {
+    const s = _sigAll.find(x => x.id === id); if (!s) return;
+    s.archived = !s.archived;
+    s.updated_at = Date.now();
+    _sigPersistSignal(s);
+    _sigRenderStats();
+    _sigRenderActiveView();
+    showToast(s.archived ? 'Archived' : 'Unarchived', 'info');
+  };
+
+  window._sigDuplicateSignal = function (id) {
+    const s = _sigAll.find(x => x.id === id); if (!s) return;
+    const copy = { ...s, id: _uid(), pair: s.pair, is_draft: true, status: 'draft', archived: false,
+      draft_name: (s.draft_name || s.pair || 'Signal') + ' (copy)', created_at: Date.now(), updated_at: Date.now(),
+      published_at: null, edited_at: null, edited_by: null, version_history: [], comments: [] };
+    _sigAll.unshift(copy);
+    if (typeof sb !== 'undefined' && sb && _sigUsingSupabase) { sb.from('journal_signals').insert([{ ...copy }]).then(() => {}).catch(() => {}); }
+    else _saveDemoSignals();
+    _sigRenderStats();
+    _sigRenderActiveView();
+    showToast('Duplicated as new draft', 'success');
+  };
 
   // ══════════════════════════════════════════════════════════════
   // CARD VIEW
@@ -845,7 +968,8 @@
           <div class="sig-card-social">
             <button class="sig-social-btn ${liked ? 'active' : ''}" onclick="event.stopPropagation();_sigToggleLike('${s.id}')">${icn('ic-thumbs-up')} <span id="sig-like-count-${s.id}">${(s._likeCount || 0) + (liked ? 1 : 0)}</span></button>
             <button class="sig-social-btn ${marked ? 'active' : ''}" onclick="event.stopPropagation();_sigToggleBookmark('${s.id}')">${icn('ic-bookmark')}</button>
-            <button class="sig-social-btn" onclick="event.stopPropagation();_sigCopyDetails('${s.id}')">${icn('ic-copy')}</button>
+            <button class="sig-social-btn" onclick="event.stopPropagation();_sigOpenModal('edit','${s.id}')">${icn('ic-edit')}</button>
+            <button class="sig-social-btn sig-dots-btn" onclick="event.stopPropagation();_sigOpenActionsMenu('${s.id}', event)">${icn('ic-dot')}${icn('ic-dot')}${icn('ic-dot')}</button>
           </div>
           <span class="sig-market-badge" style="text-transform:capitalize">${s.visibility}</span>
         </div>
@@ -1022,9 +1146,11 @@
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <span class="sig-card-pair">${s.pair}</span>
           <span class="sig-dir-badge ${s.direction}">${s.direction === 'buy' ? '🟢 BUY' : '🔴 SELL'}</span>
+          ${s.edited_at ? '<span class="sig-edited-badge">Edited</span>' : ''}
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <span class="sig-badge sig-badge-${s.status}"><span class="dot"></span>${STATUS_LABEL[s.status]}</span>
+          <span class="sig-badge sig-badge-${s.status}"><span class="dot"></span>${STATUS_LABEL[s.status] || s.status}</span>
+          ${s.archived ? '<span class="sig-badge sig-badge-archived"><span class="dot"></span>Archived</span>' : ''}
           <span class="sig-market-badge">${icn(MARKET_ICON[s.market])}${MARKET_LABEL[s.market]}</span>
         </div>
       </div>
@@ -1035,6 +1161,7 @@
       <span>${icn('ic-calendar')} Created ${_timeAgo(s.created_at)}</span>
       <span>${icn('ic-upload')} Published ${s.published_at ? _timeAgo(s.published_at) : '—'}</span>
       <span>${icn('ic-clock')} Expires ${s.expires_at ? _timeAgo(s.expires_at) : '—'}</span>
+      ${s.edited_at ? `<span>${icn('ic-history')} Edited ${_timeAgo(s.edited_at)} by ${s.edited_by || 'You'}</span>` : ''}
     </div>
 
     ${_sigRenderTimeline(s)}
@@ -1088,10 +1215,18 @@
       <button class="btn btn-primary" onclick="_sigAddComment('${s.id}')">${icn('ic-arrow-right')}</button>
     </div>
 
+    ${(s.version_history && s.version_history.length) ? `
+    <div class="sig-section-title">${icn('ic-history')} Version History</div>
+    <div class="sig-version-list">${s.version_history.slice().reverse().map(v => `<div class="sig-version-item"><span class="dot"></span>${v.note} <span class="sig-version-ts">${_timeAgo(v.ts)}</span></div>`).join('')}</div>
+    ` : ''}
+
     <div style="display:flex;gap:8px;margin-top:20px;flex-wrap:wrap">
       <button class="btn" onclick="_sigToggleLike('${s.id}')">${icn('ic-thumbs-up')} Like</button>
       <button class="btn" onclick="_sigToggleBookmark('${s.id}')">${icn('ic-bookmark')} Bookmark</button>
-      <button class="btn" onclick="_sigCopyDetails('${s.id}')">${icn('ic-copy')} Copy details</button>
+      <button class="btn" onclick="_sigOpenModal('edit','${s.id}')">${icn('ic-edit')} Edit</button>
+      <button class="btn" onclick="_sigDuplicateSignal('${s.id}')">${icn('ic-copy')} Duplicate</button>
+      ${s.is_draft ? `<button class="btn btn-primary" onclick="_sigOpenReviewModal('${s.id}')">${icn('ic-upload')} Publish</button>` : `<button class="btn" onclick="_sigUnpublishSignal('${s.id}')">${icn('ic-cloud-off')} Unpublish</button>`}
+      <button class="btn" onclick="_sigArchiveSignal('${s.id}')">${icn('ic-archive')} ${s.archived ? 'Unarchive' : 'Archive'}</button>
       <button class="btn" onclick="_sigCopyTvLink('${s.id}')">${icn('ic-link')} TradingView link</button>
       <button class="btn" onclick="_sigExportPdf('${s.id}')">${icn('ic-download')} Export summary</button>
       <button class="btn glass-btn-danger" onclick="_sigDelete('${s.id}');_sigCloseDrawer()">${icn('ic-trash')} Delete</button>
@@ -1125,6 +1260,50 @@
     localStorage.setItem('sig_bookmarks', JSON.stringify(_sigBookmarks));
     showToast(_sigBookmarks[id] ? 'Bookmarked' : 'Bookmark removed', 'success');
   };
+
+  // ── Contextual "⋮" actions menu (table rows, cards, drawer) ────
+  window._sigOpenActionsMenu = function (id, ev) {
+    if (ev) { ev.stopPropagation(); ev.preventDefault(); }
+    document.getElementById('sig-actions-menu')?.remove();
+    const s = _sigAll.find(x => x.id === id);
+    if (!s) return;
+    const items = [
+      { icon: 'ic-eye', label: 'View', fn: `_sigOpenDrawer('${id}')` },
+      { icon: 'ic-edit', label: 'Edit', fn: `_sigOpenModal('edit','${id}')` },
+      { icon: 'ic-copy', label: 'Duplicate', fn: `_sigDuplicateSignal('${id}')` },
+      { icon: 'ic-clipboard', label: 'Copy Details', fn: `_sigCopyDetails('${id}')` },
+    ];
+    if (s.is_draft) items.push({ icon: 'ic-upload', label: 'Publish', fn: `_sigOpenReviewModal('${id}')` });
+    else items.push({ icon: 'ic-cloud-off', label: 'Unpublish (to Draft)', fn: `_sigUnpublishSignal('${id}')` });
+    items.push({ icon: 'ic-archive', label: s.archived ? 'Unarchive' : 'Archive', fn: `_sigArchiveSignal('${id}')` });
+    items.push({ icon: 'ic-trash', label: 'Delete', fn: `_sigDelete('${id}')`, danger: true });
+
+    const menu = document.createElement('div');
+    menu.id = 'sig-actions-menu';
+    menu.className = 'sig-actions-menu';
+    menu.innerHTML = items.map(it => `<button class="${it.danger ? 'danger' : ''}" onclick="document.getElementById('sig-actions-menu')?.remove();${it.fn}">${icn(it.icon)}${it.label}</button>`).join('');
+    document.body.appendChild(menu);
+    const rect = (ev?.currentTarget || ev?.target).getBoundingClientRect();
+    const menuW = 200;
+    let left = rect.right - menuW + window.scrollX;
+    left = Math.max(8, Math.min(left, window.innerWidth - menuW - 8));
+    menu.style.left = left + 'px';
+    menu.style.top = (rect.bottom + 6 + window.scrollY) + 'px';
+    setTimeout(() => document.addEventListener('click', _sigCloseActionsMenuOnce), 0);
+  };
+  function _sigCloseActionsMenuOnce(e) {
+    const menu = document.getElementById('sig-actions-menu');
+    if (menu && !menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', _sigCloseActionsMenuOnce); }
+  }
+  window._sigUnpublishSignal = function (id) {
+    const s = _sigAll.find(x => x.id === id); if (!s) return;
+    s.is_draft = true; s.status = 'draft'; s.published_at = null; s.updated_at = Date.now();
+    _sigPersistSignal(s);
+    _sigRenderStats();
+    _sigRenderActiveView();
+    showToast('Moved back to Drafts', 'info');
+  };
+
   window._sigCopyDetails = function (id) {
     const s = _sigAll.find(x => x.id === id);
     if (!s) return;
@@ -1166,7 +1345,10 @@
   // ══════════════════════════════════════════════════════════════
   // NEW SIGNAL MODAL
   // ══════════════════════════════════════════════════════════════
-  window._sigOpenModal = function () {
+  let _sigModalState = { mode: 'new', editId: null, draftId: null, dirty: false, timer: null, savedAt: null };
+
+  window._sigOpenModal = function (mode, id) {
+    mode = mode || 'new';
     let overlay = document.getElementById('sig-modal-overlay');
     if (!overlay) {
       overlay = document.createElement('div');
@@ -1175,116 +1357,385 @@
       overlay.onclick = (e) => { if (e.target === overlay) window._sigCloseModal(); };
       document.body.appendChild(overlay);
     }
-    overlay.innerHTML = _sigModalContent();
+    const existing = mode === 'edit' ? _sigAll.find(s => s.id === id) : null;
+    _sigModalState = { mode: mode === 'edit' ? 'edit' : 'new', editId: existing ? existing.id : null, draftId: existing && existing.is_draft ? existing.id : null, dirty: false, timer: null, savedAt: null };
+    _sigPendingScreenshotDataUrl = null;
+    overlay.innerHTML = _sigModalContent(existing);
     overlay.classList.add('open');
+    _sigBindAutosave();
+    if (_sigModalState.timer) clearInterval(_sigModalState.timer);
+    _sigModalState.timer = setInterval(_sigAutosaveTick, 4000);
   };
   window._sigCloseModal = function () {
     const o = document.getElementById('sig-modal-overlay');
     if (o) o.classList.remove('open');
+    if (_sigModalState.timer) { clearInterval(_sigModalState.timer); _sigModalState.timer = null; }
   };
 
-  function _sigModalContent() {
+  let _sigPendingScreenshotDataUrl = null;
+
+  function _sigBindAutosave() {
+    const body = document.querySelector('#sig-modal-overlay .modal-body');
+    if (!body) return;
+    body.addEventListener('input', () => { _sigModalState.dirty = true; _sigSetAutosaveLabel('Unsaved changes'); }, { passive: true });
+    const fileInput = document.getElementById('sf-chart');
+    if (fileInput) fileInput.addEventListener('change', () => {
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) return;
+      if (file.size > 2 * 1024 * 1024) { showToast('Screenshot must be under 2MB', 'error'); return; }
+      const reader = new FileReader();
+      reader.onload = () => { _sigPendingScreenshotDataUrl = reader.result; _sigModalState.dirty = true; _sigSetAutosaveLabel('Unsaved changes'); showToast('Screenshot attached', 'success'); };
+      reader.readAsDataURL(file);
+    });
+  }
+  function _sigSetAutosaveLabel(text) {
+    const el = document.getElementById('sig-autosave-status');
+    if (el) el.textContent = text;
+  }
+  async function _sigAutosaveTick() {
+    // Only silently autosave brand-new signals or drafts already in progress —
+    // never auto-drafts a signal that's currently live/published.
+    if (!_sigModalState.dirty) return;
+    if (_sigModalState.mode === 'edit' && _sigModalState.editId && !_sigModalState.draftId) return;
+    const pairVal = document.getElementById('sf-pair')?.value;
+    if (!pairVal) return; // nothing worth saving yet
+    _sigSetAutosaveLabel('Saving…');
+    const row = _sigCollectFormRow();
+    if (_sigModalState.draftId) {
+      const existing = _sigAll.find(s => s.id === _sigModalState.draftId);
+      Object.assign(existing, row, { id: _sigModalState.draftId, is_draft: true, status: 'draft', updated_at: Date.now() });
+      _sigPersistSignal(existing);
+    } else {
+      const draft = { ...row, id: _uid(), is_draft: true, status: 'draft', created_at: Date.now(), updated_at: Date.now(),
+        published_at: null, result: 'pending', pips: null, profit_percent: null, r_multiple: null,
+        edited_at: null, edited_by: null, version_history: [], checklist: [], comments: [] };
+      _sigAll.unshift(draft);
+      _sigModalState.draftId = draft.id;
+      if (_sigUsingSupabase && typeof sb !== 'undefined' && sb) { sb.from('journal_signals').insert([{ ...draft }]).then(() => {}).catch(() => {}); }
+      else _saveDemoSignals();
+    }
+    _sigModalState.dirty = false;
+    _sigModalState.savedAt = Date.now();
+    _sigSetAutosaveLabel('Saved ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    const badge = document.getElementById('sig-drafts-tab-count');
+    if (badge) badge.textContent = _sigAll.filter(s => s.is_draft && !s.archived).length || '';
+  }
+
+  function _sigModalContent(existing) {
+    const s = existing || {};
+    const isEdit = _sigModalState.mode === 'edit';
+    const opt = (val, cur) => val === cur ? 'selected' : '';
     return `
-    <div class="modal modal-box" style="width:720px">
+    <div class="modal modal-box" style="width:760px">
       <div class="modal-head">
         <div class="modal-title" style="display:flex;align-items:center;gap:10px">
-          <span style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,rgba(96,165,250,0.25),rgba(96,165,250,0.12));border:1px solid rgba(96,165,250,0.3);display:flex;align-items:center;justify-content:center;font-size:14px">+</span>
-          New Signal
+          <span style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,rgba(96,165,250,0.25),rgba(96,165,250,0.12));border:1px solid rgba(96,165,250,0.3);display:flex;align-items:center;justify-content:center;font-size:14px">${isEdit ? icn('ic-edit') : '+'}</span>
+          ${isEdit ? 'Edit Signal' : 'New Signal'}
+          ${isEdit && s.edited_at ? '<span class="sig-edited-badge">Edited</span>' : ''}
         </div>
-        <button class="modal-close" onclick="_sigCloseModal()">${icn('ic-close')}</button>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span id="sig-autosave-status" class="sig-autosave-status">${isEdit && !_sigModalState.draftId ? '' : 'Draft autosaves as you type'}</span>
+          <button class="modal-close" onclick="_sigCloseModal()">${icn('ic-close')}</button>
+        </div>
       </div>
       <div class="modal-body">
         <div class="form-grid">
-          <div class="form-field"><label class="form-label">Pair</label><input class="form-input" id="sf-pair" placeholder="EURUSD"></div>
+          <div class="form-field"><label class="form-label">Pair</label><input class="form-input" id="sf-pair" placeholder="EURUSD" value="${s.pair || ''}"></div>
           <div class="form-field"><label class="form-label">Market</label>
             <select class="form-select" id="sf-market">
-              ${Object.entries(MARKET_LABEL).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}
+              ${Object.entries(MARKET_LABEL).map(([k, v]) => `<option value="${k}" ${opt(k, s.market)}>${v}</option>`).join('')}
             </select>
           </div>
           <div class="form-field"><label class="form-label">Direction</label>
-            <select class="form-select" id="sf-direction"><option value="buy">🟢 BUY</option><option value="sell">🔴 SELL</option></select>
+            <select class="form-select" id="sf-direction"><option value="buy" ${opt('buy', s.direction)}>🟢 BUY</option><option value="sell" ${opt('sell', s.direction)}>🔴 SELL</option></select>
           </div>
-          <div class="form-field"><label class="form-label">Setup Type</label><input class="form-input" id="sf-setup" placeholder="ERL > IRL"></div>
+          <div class="form-field"><label class="form-label">Setup Type</label><input class="form-input" id="sf-setup" placeholder="ERL > IRL" value="${s.setup_type || ''}"></div>
 
-          <div class="form-field"><label class="form-label">Entry</label><input class="form-input" id="sf-entry" type="number" step="any"></div>
-          <div class="form-field"><label class="form-label">Stop Loss</label><input class="form-input" id="sf-sl" type="number" step="any"></div>
-          <div class="form-field"><label class="form-label">Take Profit 1</label><input class="form-input" id="sf-tp1" type="number" step="any"></div>
-          <div class="form-field"><label class="form-label">Take Profit 2</label><input class="form-input" id="sf-tp2" type="number" step="any"></div>
-          <div class="form-field"><label class="form-label">Take Profit 3</label><input class="form-input" id="sf-tp3" type="number" step="any"></div>
-          <div class="form-field"><label class="form-label">Risk %</label><input class="form-input" id="sf-riskpct" type="number" step="any" value="1"></div>
+          <div class="form-field"><label class="form-label">Entry</label><input class="form-input" id="sf-entry" type="number" step="any" value="${s.entry ?? ''}"></div>
+          <div class="form-field"><label class="form-label">Stop Loss</label><input class="form-input" id="sf-sl" type="number" step="any" value="${s.stop_loss ?? ''}"></div>
+          <div class="form-field"><label class="form-label">Take Profit 1</label><input class="form-input" id="sf-tp1" type="number" step="any" value="${s.tp1 ?? ''}"></div>
+          <div class="form-field"><label class="form-label">Take Profit 2</label><input class="form-input" id="sf-tp2" type="number" step="any" value="${s.tp2 ?? ''}"></div>
+          <div class="form-field"><label class="form-label">Take Profit 3</label><input class="form-input" id="sf-tp3" type="number" step="any" value="${s.tp3 ?? ''}"></div>
+          <div class="form-field"><label class="form-label">Risk %</label><input class="form-input" id="sf-riskpct" type="number" step="any" value="${s.risk_percent ?? 1}"></div>
 
           <div class="form-field"><label class="form-label">Confidence</label>
             <select class="form-select" id="sf-confidence">
-              <option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option><option value="very_high">Very High</option>
+              <option value="low" ${opt('low', s.confidence)}>Low</option><option value="medium" ${(s.confidence ? opt('medium', s.confidence) : 'selected')}>Medium</option><option value="high" ${opt('high', s.confidence)}>High</option><option value="very_high" ${opt('very_high', s.confidence)}>Very High</option>
             </select>
           </div>
-          <div class="form-field"><label class="form-label">Confidence Score %</label><input class="form-input" id="sf-confscore" type="number" min="0" max="100" value="75"></div>
+          <div class="form-field"><label class="form-label">Confidence Score %</label><input class="form-input" id="sf-confscore" type="number" min="0" max="100" value="${s.confidence_score ?? 75}"></div>
           <div class="form-field"><label class="form-label">Session</label>
             <select class="form-select" id="sf-session">
-              <option value="sydney">Sydney</option><option value="tokyo">Tokyo</option><option value="london">London</option>
-              <option value="new_york">New York</option><option value="london_ny_overlap">London/NY Overlap</option>
+              <option value="sydney" ${opt('sydney', s.session)}>Sydney</option><option value="tokyo" ${opt('tokyo', s.session)}>Tokyo</option><option value="london" ${opt('london', s.session)}>London</option>
+              <option value="new_york" ${opt('new_york', s.session)}>New York</option><option value="london_ny_overlap" ${opt('london_ny_overlap', s.session)}>London/NY Overlap</option>
             </select>
           </div>
           <div class="form-field"><label class="form-label">Visibility</label>
-            <select class="form-select" id="sf-visibility"><option value="public">Public</option><option value="premium">Premium</option><option value="private">Private</option></select>
+            <select class="form-select" id="sf-visibility"><option value="public" ${opt('public', s.visibility)}>Public</option><option value="premium" ${opt('premium', s.visibility)}>Premium</option><option value="private" ${opt('private', s.visibility)}>Private</option></select>
           </div>
 
-          <div class="form-field full"><label class="form-label">Trade Idea</label><textarea class="form-textarea" id="sf-idea" placeholder="Why this trade, in one or two sentences…"></textarea></div>
-          <div class="form-field full"><label class="form-label">Entry Reason</label><textarea class="form-textarea" id="sf-reason"></textarea></div>
-          <div class="form-field full"><label class="form-label">Management Rules</label><textarea class="form-textarea" id="sf-mgmt"></textarea></div>
-          <div class="form-field"><label class="form-label">TradingView Link</label><input class="form-input" id="sf-tvlink" placeholder="https://tradingview.com/…"></div>
-          <div class="form-field"><label class="form-label">Chart Screenshot</label><input class="form-input" id="sf-chart" type="file" accept="image/*"></div>
+          <div class="form-field full"><label class="form-label">Trade Idea</label><textarea class="form-textarea" id="sf-idea" placeholder="Why this trade, in one or two sentences…">${s.trade_idea || ''}</textarea></div>
+          <div class="form-field full"><label class="form-label">Entry Reason</label><textarea class="form-textarea" id="sf-reason">${s.entry_reason || ''}</textarea></div>
+          <div class="form-field full"><label class="form-label">Management Rules</label><textarea class="form-textarea" id="sf-mgmt">${s.management_rules || ''}</textarea></div>
+          <div class="form-field full"><label class="form-label">Notes</label><textarea class="form-textarea" id="sf-notes" placeholder="Private notes — not shown publicly">${s.notes || ''}</textarea></div>
+          <div class="form-field"><label class="form-label">Tags</label><input class="form-input" id="sf-tags" placeholder="breakout, htf-bias, news" value="${(s.tags || []).join(', ')}"></div>
+          <div class="form-field"><label class="form-label">TradingView Link</label><input class="form-input" id="sf-tvlink" placeholder="https://tradingview.com/…" value="${s.tradingview_link || ''}"></div>
+          <div class="form-field"><label class="form-label">Chart Screenshot</label><input class="form-input" id="sf-chart" type="file" accept="image/*">${s.chart_screenshot_url ? '<div class="sig-existing-shot">✓ Screenshot attached</div>' : ''}</div>
         </div>
       </div>
       <div class="form-actions">
         <button class="glass-btn glass-btn-cancel" onclick="_sigCloseModal()">Cancel</button>
-        <button class="glass-btn glass-btn-cancel" onclick="_sigSaveSignal(true)">Save Draft</button>
-        <button class="btn btn-primary" onclick="_sigSaveSignal(false)">${icn('ic-check')} Publish Signal</button>
+        ${isEdit && !s.is_draft ? `
+          <button class="glass-btn glass-btn-cancel" onclick="_sigDuplicateSignal('${s.id}');_sigCloseModal()">${icn('ic-copy')} Duplicate</button>
+          <button class="glass-btn glass-btn-cancel" onclick="_sigSaveEditAsDraft()">${icn('ic-save')} Save as Draft</button>
+          <button class="btn btn-primary" onclick="_sigUpdateSignal()">${icn('ic-check')} Update &amp; Republish</button>
+        ` : `
+          <button class="glass-btn glass-btn-cancel" onclick="_sigSaveDraftNow()">${icn('ic-save')} Save Draft</button>
+          <button class="btn btn-primary" onclick="_sigOpenReviewModal()">${icn('ic-eye')} Review &amp; Publish</button>
+        `}
       </div>
     </div>`;
   }
 
-  window._sigSaveSignal = async function (asDraft) {
+  function _sigCollectFormRow() {
     const val = id => document.getElementById(id)?.value;
     const pair = (val('sf-pair') || '').trim().toUpperCase();
     const entry = parseFloat(val('sf-entry'));
     const sl = parseFloat(val('sf-sl'));
-    if (!pair || isNaN(entry) || isNaN(sl)) { showToast('Pair, Entry and Stop Loss are required', 'error'); return; }
-    const tp3 = parseFloat(val('sf-tp3')) || parseFloat(val('sf-tp1')) || entry;
-    const rr = Math.abs(entry - sl) ? +(Math.abs(tp3 - entry) / Math.abs(entry - sl)).toFixed(1) : 0;
-
-    const row = {
-      id: _uid(), pair, market: val('sf-market'), direction: val('sf-direction'),
-      entry, stop_loss: sl,
-      tp1: parseFloat(val('sf-tp1')) || null, tp2: parseFloat(val('sf-tp2')) || null, tp3: parseFloat(val('sf-tp3')) || null,
-      risk_reward: rr, risk_percent: parseFloat(val('sf-riskpct')) || null, risk_amount: null,
-      confidence: val('sf-confidence'), confidence_score: parseInt(val('sf-confscore')) || 0,
-      session: val('sf-session'), setup_type: val('sf-setup') || '', status: 'waiting',
-      visibility: val('sf-visibility'),
-      trade_idea: val('sf-idea') || '', market_outlook: '', htf_bias: '',
-      entry_reason: val('sf-reason') || '', invalidation: '', management_rules: val('sf-mgmt') || '',
-      notes: '', lessons: '', confluences: [], tags: [],
-      chart_screenshot_url: null, tradingview_link: val('sf-tvlink') || '',
-      expires_at: null, published_at: asDraft ? null : Date.now(), entered_at: null, closed_at: null,
-      result: 'pending', pips: null, profit_percent: null, r_multiple: null,
-      is_draft: !!asDraft, created_at: Date.now(), updated_at: Date.now(),
-      checklist: [], comments: []
-    };
-
-    if (typeof sb !== 'undefined' && sb) {
-      try {
-        const { error } = await sb.from('journal_signals').insert([{ ...row }]);
-        if (!error) { _sigUsingSupabase = true; }
-      } catch (e) { /* fall back to local */ }
+    const tp3 = parseFloat(val('sf-tp3')) || parseFloat(val('sf-tp1')) || entry || 0;
+    const rr = (entry && sl && Math.abs(entry - sl)) ? +(Math.abs(tp3 - entry) / Math.abs(entry - sl)).toFixed(1) : 0;
+    let screenshot = _sigPendingScreenshotDataUrl;
+    if (!screenshot) {
+      const cur = _sigAll.find(s => s.id === (_sigModalState.draftId || _sigModalState.editId));
+      screenshot = cur ? (cur.chart_screenshot_url || null) : null;
     }
-    _sigAll.unshift(row);
-    if (!_sigUsingSupabase) _saveDemoSignals();
+    return {
+      pair, market: val('sf-market'), direction: val('sf-direction'),
+      entry: isNaN(entry) ? null : entry, stop_loss: isNaN(sl) ? null : sl,
+      tp1: parseFloat(val('sf-tp1')) || null, tp2: parseFloat(val('sf-tp2')) || null, tp3: parseFloat(val('sf-tp3')) || null,
+      risk_reward: rr, risk_percent: parseFloat(val('sf-riskpct')) || null,
+      confidence: val('sf-confidence'), confidence_score: parseInt(val('sf-confscore')) || 0,
+      session: val('sf-session'), setup_type: val('sf-setup') || '',
+      visibility: val('sf-visibility'),
+      trade_idea: val('sf-idea') || '', entry_reason: val('sf-reason') || '', management_rules: val('sf-mgmt') || '',
+      notes: val('sf-notes') || '', tags: (val('sf-tags') || '').split(',').map(t => t.trim()).filter(Boolean),
+      tradingview_link: val('sf-tvlink') || '', chart_screenshot_url: screenshot
+    };
+  }
 
+  function _sigValidateRow(row) {
+    if (!row.pair || row.entry == null || row.stop_loss == null) { showToast('Pair, Entry and Stop Loss are required', 'error'); return false; }
+    return true;
+  }
+
+  window._sigSaveDraftNow = function () {
+    const row = _sigCollectFormRow();
+    if (!row.pair) { showToast('Give it at least a pair before saving', 'error'); return; }
+    if (_sigModalState.draftId) {
+      const existing = _sigAll.find(s => s.id === _sigModalState.draftId);
+      Object.assign(existing, row, { is_draft: true, status: 'draft', updated_at: Date.now() });
+      _sigPersistSignal(existing);
+    } else {
+      const draft = { ...row, id: _uid(), is_draft: true, status: 'draft', created_at: Date.now(), updated_at: Date.now(),
+        published_at: null, result: 'pending', pips: null, profit_percent: null, r_multiple: null,
+        edited_at: null, edited_by: null, version_history: [], checklist: [], comments: [] };
+      _sigAll.unshift(draft);
+      if (_sigUsingSupabase && typeof sb !== 'undefined' && sb) { sb.from('journal_signals').insert([{ ...draft }]).then(() => {}).catch(() => {}); }
+      else _saveDemoSignals();
+    }
     _sigCloseModal();
     _sigRenderStats();
     _sigRenderActiveView();
-    showToast(asDraft ? 'Draft saved' : 'Signal published', 'success');
+    showToast('Draft saved', 'success');
   };
+
+  window._sigSaveEditAsDraft = function () {
+    const s = _sigAll.find(x => x.id === _sigModalState.editId);
+    if (!s) return;
+    Object.assign(s, _sigCollectFormRow(), { is_draft: true, status: 'draft', updated_at: Date.now() });
+    _sigPersistSignal(s);
+    _sigCloseModal();
+    _sigRenderStats();
+    _sigRenderActiveView();
+    showToast('Moved back to Drafts', 'info');
+  };
+
+  window._sigUpdateSignal = function () {
+    const s = _sigAll.find(x => x.id === _sigModalState.editId);
+    if (!s) return;
+    const row = _sigCollectFormRow();
+    if (!_sigValidateRow(row)) return;
+    Object.assign(s, row, { updated_at: Date.now(), edited_at: Date.now(), edited_by: 'You' });
+    s.version_history = s.version_history || [];
+    s.version_history.push({ ts: Date.now(), note: 'Signal updated & republished' });
+    _sigPersistSignal(s);
+    _sigCloseModal();
+    _sigRenderStats();
+    _sigRenderActiveView();
+    showToast('Signal updated', 'success');
+  };
+
+  // ── Publishing review workflow ──────────────────────────────────
+  window._sigOpenReviewModal = function (draftId) {
+    // Called either from the edit form (uses current unsaved form values)
+    // or directly from the Drafts workspace (uses the stored draft row).
+    let row, sourceDraft = null;
+    if (draftId) {
+      sourceDraft = _sigAll.find(s => s.id === draftId);
+      if (!sourceDraft) return;
+      row = { ...sourceDraft };
+    } else {
+      row = _sigCollectFormRow();
+      if (!_sigValidateRow(row)) return;
+      sourceDraft = _sigModalState.draftId ? _sigAll.find(s => s.id === _sigModalState.draftId) : null;
+    }
+    window._sigPendingPublish = { row, draftId: sourceDraft ? sourceDraft.id : null };
+    let overlay = document.getElementById('sig-review-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.id = 'sig-review-overlay';
+      overlay.onclick = (e) => { if (e.target === overlay) window._sigCloseReviewModal(); };
+      document.body.appendChild(overlay);
+    }
+    overlay.innerHTML = _sigReviewModalContent(row);
+    overlay.classList.add('open');
+  };
+  window._sigCloseReviewModal = function () {
+    const o = document.getElementById('sig-review-overlay');
+    if (o) o.classList.remove('open');
+  };
+
+  function _sigReviewModalContent(row) {
+    const expectedProfit = ((row.risk_percent || 1) * (row.risk_reward || 0)).toFixed(2);
+    return `
+    <div class="modal modal-box" style="width:560px">
+      <div class="modal-head">
+        <div class="modal-title">${icn('ic-eye')} Review &amp; Publish</div>
+        <button class="modal-close" onclick="_sigCloseReviewModal()">${icn('ic-close')}</button>
+      </div>
+      <div class="modal-body">
+        <div class="sig-review-head">
+          <div class="sig-review-pair">${row.pair || '—'} <span class="sig-dir-badge ${row.direction}">${row.direction === 'buy' ? 'BUY' : 'SELL'}</span></div>
+          <span class="sig-market-badge">${icn(MARKET_ICON[row.market] || 'ic-globe')}${MARKET_LABEL[row.market] || row.market}</span>
+        </div>
+        <div class="sig-review-ladder">
+          <div><span>Entry</span><strong class="sig-mono">${_fmtNum(row.entry)}</strong></div>
+          <div><span>Stop Loss</span><strong class="sig-mono" style="color:var(--red)">${_fmtNum(row.stop_loss)}</strong></div>
+          <div><span>TP1</span><strong class="sig-mono" style="color:var(--green)">${_fmtNum(row.tp1)}</strong></div>
+          <div><span>TP2</span><strong class="sig-mono" style="color:var(--green)">${_fmtNum(row.tp2)}</strong></div>
+          <div><span>TP3</span><strong class="sig-mono" style="color:var(--green)">${_fmtNum(row.tp3)}</strong></div>
+        </div>
+        <div class="sig-review-stats">
+          <div class="sig-review-stat"><span>Risk : Reward</span><strong>1:${row.risk_reward || 0}</strong></div>
+          <div class="sig-review-stat"><span>Risk</span><strong>${row.risk_percent || 0}%</strong></div>
+          <div class="sig-review-stat"><span>Confidence</span><strong>${CONF_LABEL[row.confidence] || '—'} (${row.confidence_score || 0}%)</strong></div>
+          <div class="sig-review-stat"><span>Expected Profit</span><strong class="sig-pips-pos">+${expectedProfit}%</strong></div>
+        </div>
+        ${row.trade_idea ? `<div class="sig-section-title" style="margin-top:14px">${icn('ic-bulb')} Trade Idea</div><div class="sig-body-text">${row.trade_idea}</div>` : ''}
+        <div id="sig-schedule-row" class="sig-schedule-row" style="display:none">
+          <input type="datetime-local" id="sig-schedule-input" class="form-input">
+          <button class="btn btn-primary" onclick="_sigConfirmSchedule()">${icn('ic-clock')} Confirm Schedule</button>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="glass-btn glass-btn-cancel" onclick="_sigCloseReviewModal()">Cancel</button>
+        <button class="glass-btn glass-btn-cancel" onclick="_sigReviewSaveDraft()">${icn('ic-save')} Save Draft</button>
+        <button class="glass-btn glass-btn-cancel" onclick="_sigToggleScheduleRow()">${icn('ic-calendar')} Schedule</button>
+        <button class="btn btn-primary" onclick="_sigConfirmPublish()">${icn('ic-check')} Publish Now</button>
+      </div>
+    </div>`;
+  }
+
+  window._sigToggleScheduleRow = function () {
+    const el = document.getElementById('sig-schedule-row');
+    if (el) el.style.display = el.style.display === 'none' ? 'flex' : 'none';
+  };
+
+  function _sigFinalizePublishedRow(row, extra) {
+    return { ...row, status: 'waiting', is_draft: false, published_at: Date.now(),
+      result: row.result || 'pending', pips: row.pips ?? null, profit_percent: row.profit_percent ?? null, r_multiple: row.r_multiple ?? null,
+      checklist: row.checklist || [], comments: row.comments || [], version_history: row.version_history || [],
+      ...extra };
+  }
+
+  window._sigConfirmPublish = function () {
+    const pending = window._sigPendingPublish; if (!pending) return;
+    const final = _sigFinalizePublishedRow(pending.row);
+    if (pending.draftId) {
+      const existing = _sigAll.find(s => s.id === pending.draftId);
+      Object.assign(existing, final, { id: pending.draftId, created_at: existing.created_at });
+      _sigPersistSignal(existing);
+    } else {
+      const created = { ...final, id: _uid(), created_at: Date.now(), updated_at: Date.now(), edited_at: null, edited_by: null };
+      _sigAll.unshift(created);
+      if (_sigUsingSupabase && typeof sb !== 'undefined' && sb) { sb.from('journal_signals').insert([{ ...created }]).then(() => {}).catch(() => {}); }
+      else _saveDemoSignals();
+    }
+    _sigCloseReviewModal();
+    _sigCloseModal();
+    _sigRenderStats();
+    _sigRenderActiveView();
+    showToast('Signal published', 'success');
+  };
+
+  window._sigConfirmSchedule = function () {
+    const pending = window._sigPendingPublish; if (!pending) return;
+    const dtVal = document.getElementById('sig-schedule-input')?.value;
+    if (!dtVal) { showToast('Pick a date & time first', 'error'); return; }
+    const ts = new Date(dtVal).getTime();
+    if (isNaN(ts) || ts <= Date.now()) { showToast('Schedule time must be in the future', 'error'); return; }
+    const final = { ...pending.row, status: 'scheduled', is_draft: false, scheduled_at: ts, published_at: null,
+      result: 'pending', pips: null, profit_percent: null, r_multiple: null, checklist: pending.row.checklist || [], comments: pending.row.comments || [] };
+    if (pending.draftId) {
+      const existing = _sigAll.find(s => s.id === pending.draftId);
+      Object.assign(existing, final, { id: pending.draftId, created_at: existing.created_at });
+      _sigPersistSignal(existing);
+    } else {
+      const created = { ...final, id: _uid(), created_at: Date.now(), updated_at: Date.now(), version_history: [] };
+      _sigAll.unshift(created);
+      if (_sigUsingSupabase && typeof sb !== 'undefined' && sb) { sb.from('journal_signals').insert([{ ...created }]).then(() => {}).catch(() => {}); }
+      else _saveDemoSignals();
+    }
+    _sigCloseReviewModal();
+    _sigCloseModal();
+    _sigRenderStats();
+    _sigRenderActiveView();
+    showToast('Signal scheduled for ' + new Date(ts).toLocaleString(), 'success');
+  };
+
+  window._sigReviewSaveDraft = function () {
+    const pending = window._sigPendingPublish; if (!pending) return;
+    const row = { ...pending.row, is_draft: true, status: 'draft', updated_at: Date.now() };
+    if (pending.draftId) {
+      const existing = _sigAll.find(s => s.id === pending.draftId);
+      Object.assign(existing, row, { id: pending.draftId, created_at: existing.created_at });
+      _sigPersistSignal(existing);
+    } else {
+      const created = { ...row, id: _uid(), created_at: Date.now(), version_history: [], checklist: [], comments: [] };
+      _sigAll.unshift(created);
+      if (_sigUsingSupabase && typeof sb !== 'undefined' && sb) { sb.from('journal_signals').insert([{ ...created }]).then(() => {}).catch(() => {}); }
+      else _saveDemoSignals();
+    }
+    _sigCloseReviewModal();
+    _sigCloseModal();
+    _sigRenderStats();
+    _sigRenderActiveView();
+    showToast('Saved as draft', 'success');
+  };
+
+  // Periodically promote scheduled signals whose time has arrived.
+  setInterval(() => {
+    const now = Date.now();
+    let changed = false;
+    _sigAll.forEach(s => {
+      if (s.status === 'scheduled' && s.scheduled_at && s.scheduled_at <= now) {
+        s.status = 'waiting'; s.published_at = now; changed = true;
+        _sigPersistSignal(s);
+      }
+    });
+    if (changed) { _sigRenderStats(); _sigRenderActiveView(); showToast('A scheduled signal just went live', 'info'); }
+  }, 30000);
 
   // ══════════════════════════════════════════════════════════════
   // Counter animation (numbers count upward on stat render)

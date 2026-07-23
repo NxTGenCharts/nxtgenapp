@@ -460,3 +460,104 @@
 .sig-rr-bar .reward{position:absolute;left:22%;top:0;bottom:0;background:linear-gradient(90deg,var(--green),#5eead4);border-radius:0 var(--r-full) var(--r-full) 0}
 .sig-load-more{display:flex;justify-content:center;padding:14px}
 .sig-load-more .btn{display:flex;align-items:center;gap:6px}
+
+/* ══════════════════════════════════════════════════════════════
+   PHASE 2 — Drafts, Edit, Status workflow, Publishing, Actions menu
+   ══════════════════════════════════════════════════════════════ */
+
+/* status badges: draft / scheduled / archived */
+.sig-badge-draft{background:rgba(167,139,250,0.14);color:var(--purple);border-color:rgba(167,139,250,0.3);border-style:dashed}
+.sig-badge-scheduled{background:rgba(45,212,191,0.14);color:var(--teal);border-color:rgba(45,212,191,0.3)}
+.sig-badge-scheduled .dot{animation:sig-pulse 1.4s ease-in-out infinite}
+.sig-badge-archived{background:var(--glass-1);color:var(--text3);border-color:var(--glass-border);opacity:.75}
+
+/* Drafts tab counter */
+.sig-drafts-count{
+  display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;
+  border-radius:var(--r-full);background:var(--purple);color:#fff;font-size:9px;font-weight:800;margin-left:4px;
+}
+.sig-drafts-count:empty{display:none}
+
+/* edited badge (modal + drawer + table) */
+.sig-edited-badge{
+  font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--gold);
+  background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.3);border-radius:var(--r-full);padding:2px 7px;
+}
+
+/* autosave status label */
+.sig-autosave-status{font-size:10.5px;color:var(--text3);font-style:italic;white-space:nowrap}
+
+/* version history */
+.sig-version-list{display:flex;flex-direction:column;gap:6px;margin-bottom:4px}
+.sig-version-item{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text2)}
+.sig-version-item .dot{width:5px;height:5px;border-radius:50%;background:var(--purple);flex-shrink:0}
+.sig-version-ts{margin-left:auto;color:var(--text3);font-size:10px}
+
+/* ── Drafts workspace ─────────────────────────────────────────── */
+.sig-drafts-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.sig-drafts-summary{display:flex;align-items:center;gap:7px;color:var(--text2);font-size:13px}
+.sig-drafts-summary strong{color:var(--text);font-family:var(--font-head)}
+.sig-drafts-tools{display:flex;align-items:center;gap:10px}
+.sig-search-wrap-sm{min-width:200px}
+.sig-drafts-sort{width:auto;padding:8px 12px;font-size:12px}
+.sig-drafts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.sig-draft-card{
+  background:var(--glass-1);backdrop-filter:var(--blur-md);-webkit-backdrop-filter:var(--blur-md);
+  border:1px dashed var(--glass-border);border-radius:var(--r-lg);padding:14px;transition:var(--t-med);
+  opacity:0;transform:translateY(10px);animation:sig-card-in 0.4s var(--ease-out) forwards;
+}
+.sig-draft-card:hover{border-color:rgba(167,139,250,0.4);background:var(--glass-2);box-shadow:var(--shadow-md);transform:translateY(-2px)}
+.sig-draft-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+.sig-draft-title{font-family:var(--font-head);font-weight:700;font-size:14px;color:var(--text);display:flex;align-items:center;gap:6px}
+.sig-draft-name{font-size:11px;color:var(--text3);margin-bottom:8px;font-style:italic}
+.sig-draft-meta{display:flex;flex-direction:column;gap:3px;font-size:10.5px;color:var(--text3);margin:8px 0}
+.sig-draft-meta span{display:flex;align-items:center;gap:5px}
+.sig-draft-actions{display:flex;align-items:center;gap:6px;margin-top:12px;flex-wrap:wrap}
+.sig-draft-actions .btn-primary{flex:1;min-width:130px;font-size:11.5px;padding:8px 10px}
+.sig-draft-actions button:not(.btn-primary){
+  width:30px;height:30px;border-radius:8px;border:1px solid var(--glass-border);background:var(--glass-1);
+  color:var(--text3);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:var(--t-fast);
+}
+.sig-draft-actions button:not(.btn-primary):hover{color:var(--text);background:var(--glass-2);border-color:var(--glass-border-h)}
+.sig-draft-actions .icn{width:13px;height:13px}
+
+/* onboarding empty state */
+.sig-empty-onboard{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:56px 24px;text-align:center;gap:6px}
+.sig-empty-illustration{
+  width:64px;height:64px;border-radius:20px;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,rgba(96,165,250,0.18),rgba(167,139,250,0.1));border:1px solid var(--glass-border-h);margin-bottom:10px;
+}
+.sig-empty-illustration .icn{width:28px;height:28px;color:var(--blue)}
+.sig-empty-title{font-family:var(--font-head);font-weight:800;font-size:16px;color:var(--text)}
+.sig-empty-sub{color:var(--text3);font-size:12.5px;max-width:340px;margin-bottom:10px}
+
+/* ── Contextual "⋮" actions menu ──────────────────────────────── */
+.sig-dots-btn{display:flex;align-items:center;gap:2px}
+.sig-dots-btn .icn{width:3px;height:3px;fill:currentColor}
+.sig-actions-menu{
+  position:fixed;z-index:2000;min-width:190px;background:var(--surface-2, #12151d);
+  border:1px solid var(--glass-border-h);border-radius:var(--r-md);padding:6px;
+  box-shadow:0 12px 32px rgba(0,0,0,0.45);backdrop-filter:var(--blur-md);-webkit-backdrop-filter:var(--blur-md);
+  display:flex;flex-direction:column;gap:1px;animation:sig-menu-in .15s var(--ease-out);
+}
+@keyframes sig-menu-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.sig-actions-menu button{
+  display:flex;align-items:center;gap:9px;padding:8px 10px;border:none;background:transparent;border-radius:7px;
+  color:var(--text2);font-size:12.5px;text-align:left;cursor:pointer;transition:var(--t-fast);width:100%;
+}
+.sig-actions-menu button .icn{width:13px;height:13px;flex-shrink:0}
+.sig-actions-menu button:hover{background:var(--glass-2);color:var(--text)}
+.sig-actions-menu button.danger{color:var(--red)}
+.sig-actions-menu button.danger:hover{background:var(--red-dim)}
+
+/* ── Publish review modal ────────────────────────────────────── */
+.sig-review-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.sig-review-pair{font-family:var(--font-head);font-size:20px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px}
+.sig-review-ladder{display:flex;flex-direction:column;gap:6px;background:var(--glass-1);border:1px solid var(--glass-border);border-radius:var(--r-md);padding:10px 14px;margin-bottom:12px}
+.sig-review-ladder div{display:flex;justify-content:space-between;font-size:12px;color:var(--text3)}
+.sig-review-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px}
+.sig-review-stat{background:var(--glass-1);border:1px solid var(--glass-border);border-radius:var(--r-md);padding:9px 12px;display:flex;flex-direction:column;gap:3px}
+.sig-review-stat span{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em}
+.sig-review-stat strong{font-family:var(--font-head);font-size:14px;color:var(--text)}
+.sig-schedule-row{display:none;gap:8px;margin-top:12px;align-items:center}
+.sig-existing-shot{font-size:10.5px;color:var(--green);margin-top:4px}
