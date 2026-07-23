@@ -114,7 +114,9 @@
   letter-spacing:.02em;white-space:nowrap;border:1px solid transparent;
 }
 .sig-badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
-.sig-badge-waiting{background:var(--glass-1);color:var(--text2);border-color:var(--glass-border)}
+.sig-badge-waiting{background:var(--green-dim);color:var(--green);border-color:rgba(52,211,153,0.3)}
+.sig-badge-waiting .dot{animation:sig-pulse 1.4s ease-in-out infinite}
+.sig-badge-neutral{background:var(--glass-1);color:var(--text2);border-color:var(--glass-border)}
 .sig-badge-active{background:rgba(96,165,250,0.14);color:var(--blue);border-color:rgba(96,165,250,0.3);box-shadow:0 0 12px rgba(96,165,250,0.12)}
 .sig-badge-partial{background:rgba(251,191,36,0.14);color:var(--gold);border-color:rgba(251,191,36,0.3)}
 .sig-badge-breakeven{background:rgba(45,212,191,0.14);color:var(--teal);border-color:rgba(45,212,191,0.3)}
@@ -158,7 +160,7 @@
 .sig-table-scroll th{
   padding:10px 14px;text-align:left;font-size:9.5px;font-weight:700;color:var(--text3);
   text-transform:uppercase;letter-spacing:.09em;border-bottom:1px solid var(--glass-border);
-  white-space:nowrap;position:sticky;top:0;background:var(--bg3);backdrop-filter:var(--blur-sm);z-index:2;
+  white-space:nowrap;background:var(--bg3);
 }
 .sig-table-scroll td{
   padding:11px 14px;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border2);

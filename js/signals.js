@@ -975,7 +975,7 @@
         <td>${_sigConfBadge(s)}</td>
         <td style="text-transform:capitalize">${(s.session || '').replace('_', '/')}</td>
         <td>${_timeAgo(s.created_at)}</td>
-        <td>${s.result === 'win' ? '<span class="sig-badge sig-badge-tp1_hit">Win</span>' : s.result === 'loss' ? '<span class="sig-badge sig-badge-stopped_out">Loss</span>' : '<span class="sig-badge sig-badge-waiting">Pending</span>'}</td>
+        <td>${s.result === 'win' ? '<span class="sig-badge sig-badge-tp1_hit">Win</span>' : s.result === 'loss' ? '<span class="sig-badge sig-badge-stopped_out">Loss</span>' : '<span class="sig-badge sig-badge-neutral">Pending</span>'}</td>
         <td class="${s.pips > 0 ? 'sig-pips-pos' : s.pips < 0 ? 'sig-pips-neg' : ''}">${s.pips != null ? (s.pips > 0 ? '+' : '') + s.pips.toFixed(1) : '—'}</td>
         <td class="${s.profit_percent > 0 ? 'sig-pips-pos' : s.profit_percent < 0 ? 'sig-pips-neg' : ''}">${s.profit_percent != null ? (s.profit_percent > 0 ? '+' : '') + s.profit_percent + '%' : '—'}</td>
         <td onclick="event.stopPropagation()">
