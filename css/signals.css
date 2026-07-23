@@ -120,7 +120,7 @@
 .sig-badge-active{background:rgba(96,165,250,0.14);color:var(--blue);border-color:rgba(96,165,250,0.3);box-shadow:0 0 12px rgba(96,165,250,0.12)}
 .sig-badge-partial{background:rgba(251,191,36,0.14);color:var(--gold);border-color:rgba(251,191,36,0.3)}
 .sig-badge-breakeven{background:rgba(45,212,191,0.14);color:var(--teal);border-color:rgba(45,212,191,0.3)}
-.sig-badge-tp1_hit,.sig-badge-tp2_hit,.sig-badge-tp3_hit{background:var(--green-dim);color:var(--green);border-color:rgba(52,211,153,0.3)}
+.sig-badge-tp1_hit,.sig-badge-tp2_hit{background:var(--green-dim);color:var(--green);border-color:rgba(52,211,153,0.3)}
 .sig-badge-stopped_out{background:var(--red-dim);color:var(--red);border-color:rgba(248,113,113,0.3)}
 .sig-badge-cancelled,.sig-badge-expired{background:var(--glass-1);color:var(--text3);border-color:var(--glass-border)}
 .sig-badge-active .dot{animation:sig-pulse 1.4s ease-in-out infinite}
@@ -138,6 +138,27 @@
   font-size:10.5px;font-weight:600;background:var(--glass-1);border:1px solid var(--glass-border);color:var(--text2);
 }
 .sig-market-badge .icn{width:11px;height:11px}
+
+/* ── Order type badge (Market Execution vs pending orders) ─────── */
+.sig-order-badge{
+  display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:var(--r-sm);
+  font-size:10.5px;font-weight:600;border:1px solid var(--glass-border);color:var(--text2);background:var(--glass-1);
+}
+.sig-order-badge .icn{width:11px;height:11px}
+.sig-order-badge.market{background:rgba(96,165,250,0.10);border-color:rgba(96,165,250,0.25);color:#60a5fa}
+.sig-order-badge.pending{background:rgba(251,191,36,0.10);border-color:rgba(251,191,36,0.25);color:var(--gold)}
+
+/* ── Form hint text (e.g. TP1 fixed 1:2 notice) ─────────────────── */
+.sig-form-hint{
+  display:flex;align-items:flex-start;gap:5px;margin-top:6px;font-size:10.5px;line-height:1.4;color:var(--text3);
+}
+.sig-form-hint .icn{width:12px;height:12px;flex:none;margin-top:1px;opacity:.8}
+
+/* ── Add Update modal — stage selection chips ───────────────────── */
+.sig-stage-chip.active{
+  background:rgba(52,211,153,0.16);border-color:rgba(52,211,153,0.4);color:var(--green);
+  box-shadow:0 0 0 1px rgba(52,211,153,0.25) inset;
+}
 
 /* ── Confidence meter ─────────────────────────────────────────── */
 .sig-conf{display:flex;flex-direction:column;gap:4px;min-width:80px}
@@ -243,10 +264,9 @@
 .sig-ladder-row:last-child{border-bottom:none}
 .sig-ladder-row .lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3)}
 .sig-ladder-row .val{font-size:14px;font-weight:800}
-.sig-ladder-row.tp3 .val,.sig-ladder-row.tp2 .val,.sig-ladder-row.tp1 .val{color:var(--green)}
+.sig-ladder-row.tp2 .val,.sig-ladder-row.tp1 .val{color:var(--green)}
 .sig-ladder-row.tp1{background:rgba(52,211,153,0.05)}
 .sig-ladder-row.tp2{background:rgba(52,211,153,0.08)}
-.sig-ladder-row.tp3{background:rgba(52,211,153,0.11)}
 .sig-ladder-row.entry{background:rgba(96,165,250,0.08)}
 .sig-ladder-row.entry .val{color:var(--blue)}
 .sig-ladder-row.sl{background:rgba(248,113,113,0.08)}
