@@ -442,11 +442,11 @@
 .sig-expand-btn .icn{width:11px;height:11px}
 .sig-expand-btn:hover{color:var(--text)}
 .sig-expand-btn.open{transform:rotate(90deg);color:var(--blue)}
-.sig-row{position:relative}
-.sig-row::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:transparent;transition:background .2s}
-.sig-row-tone-green::before{background:var(--green)}
-.sig-row-tone-red::before{background:var(--red)}
-.sig-row-tone-blue::before{background:var(--blue)}
+.sig-row td:first-child{position:relative}
+.sig-row td:first-child::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:transparent;transition:background .2s}
+.sig-row-tone-green td:first-child::before{background:var(--green)}
+.sig-row-tone-red td:first-child::before{background:var(--red)}
+.sig-row-tone-blue td:first-child::before{background:var(--blue)}
 .sig-row-expand-tr td{padding:0;border-bottom:1px solid var(--border2)}
 .sig-row-expand{
   display:grid;grid-template-columns:1.4fr 1.4fr auto;gap:18px;padding:14px 18px;
