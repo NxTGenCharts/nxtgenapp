@@ -110,6 +110,7 @@
 .acc-hero-badge.status-active{background:var(--green-dim);border-color:rgba(52,211,153,.3);color:var(--green)}
 .acc-hero-badge.status-archived{background:var(--glass-2);color:var(--text3)}
 .acc-hero-badge.status-completed{background:rgba(251,191,36,0.14);border-color:rgba(251,191,36,.32);color:var(--gold);display:inline-flex;align-items:center}
+.acc-hero-badge.phase-2{background:rgba(167,139,250,0.14);border-color:rgba(167,139,250,.28);color:var(--purple)}
 .acc-hero-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:14px 18px;position:relative;z-index:1}
 .acc-hero-stat{min-width:0}
 .acc-hero-stat-label{font-size:9.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:3px}

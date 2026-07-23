@@ -2382,6 +2382,12 @@ body{
   background:rgba(96,165,250,0.12); color:var(--blue);
   border:1px solid rgba(96,165,250,0.2);
 }
+/* Phase 1 keeps the default blue (above); Phase 2 gets its own color so the
+   two phases are distinguishable at a glance instead of looking identical. */
+.acc-type-badge.phase-2 {
+  background:rgba(167,139,250,0.14); color:var(--purple);
+  border:1px solid rgba(167,139,250,0.28);
+}
 
 /* ── Manage Accounts modal — tabs ── */
 .acc-mgr-tabs {

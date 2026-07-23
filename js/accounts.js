@@ -99,7 +99,7 @@ function _renderAccGrid() {
     return `
     <div class="acc-card${isArchived ? ' acc-card-archived' : ''}" onclick="${isArchived ? '' : `accShowDetail('${name.replace(/'/g,"\\'")}')` }">
       <div class="acc-card-head">
-        <div class="acc-name">${name}${a.type ? `<span class="acc-type-badge">${a.type}</span>` : ''}${a.type === 'Challenge' && a.challengePhase ? `<span class="acc-type-badge">${a.challengePhase}</span>` : ''}${mt5HeadBadge}</div>
+        <div class="acc-name">${name}${a.type ? `<span class="acc-type-badge">${a.type}</span>` : ''}${a.type === 'Challenge' && a.challengePhase ? `<span class="acc-type-badge${a.challengePhase === 'Phase 2' ? ' phase-2' : ''}">${a.challengePhase}</span>` : ''}${mt5HeadBadge}</div>
         <span style="display:flex;align-items:center"><span class="acc-status ${statusClass}">${statusIcon}${statusLabel}</span>${archivedCompletedBadge}</span>
       </div>
       <div class="acc-row"><span class="k">Trades</span><span class="v">${at.length || '—'}</span></div>
@@ -610,7 +610,7 @@ function accShowDetail(name) {
     <span class="acc-hero-badge status-${heroStatusClass}">${heroStatusLabel}</span>
     ${heroCompletedBadge}
     ${acc.type ? `<span class="acc-hero-badge">${acc.type}</span>` : ''}
-    ${acc.type === 'Challenge' && acc.challengePhase ? `<span class="acc-hero-badge">${acc.challengePhase}</span>` : ''}
+    ${acc.type === 'Challenge' && acc.challengePhase ? `<span class="acc-hero-badge${acc.challengePhase === 'Phase 2' ? ' phase-2' : ''}">${acc.challengePhase}</span>` : ''}
   `;
   const sizeNote = accSize > 0
     ? `$${accSize.toLocaleString()}`
