@@ -1047,7 +1047,7 @@ function _wlComputePerformanceInsights() {
     }
   }
 
-  return { bestPair, worstPair, bestDay, worstDay, bestModel, commonMistake, avgPrepScore, prepCorrelation };
+  return { bestPair, worstPair, bestDay, worstDay, bestModel, commonMistake, avgPrepScore, prepCorrelation, byDay, dayRank, pairRank };
 }
 
 function _wlBuildPerformanceInsights() {
@@ -1068,7 +1068,6 @@ function _wlBuildPerformanceInsights() {
   if (p.worstDay && p.worstDay !== p.bestDay) items.push({ label: 'Toughest Day', value: `${p.worstDay[0]} · ${Math.round(p.worstDay[1].wins/p.worstDay[1].total*100)}% win rate` });
   if (p.bestModel) items.push({ label: 'Most Profitable Model', value: `${p.bestModel[0]} · ${pnlLabel(p.bestModel[1].pnl)}` });
   if (p.commonMistake) items.push({ label: 'Most Common Mistake', value: `${p.commonMistake.item} (missing on ${p.commonMistake.count}/${p.commonMistake.of} losses)` });
-  if (p.avgPrepScore != null) items.push({ label: 'Average Weekly Prep Score', value: `${p.avgPrepScore}%` });
 
   const rows = items.map(i => `
     <div class="wl-insight-row">
@@ -1084,10 +1083,42 @@ function _wlBuildPerformanceInsights() {
       in weeks below 70% (${p.prepCorrelation.lowCount} week${p.prepCorrelation.lowCount!==1?'s':''}). A small sample — treat as a directional signal, not proof.
     </div>` : '';
 
+  // Prep-score ring (animated, reuses the same ring component as Weekly Readiness)
+  const prepRing = p.avgPrepScore != null ? _wlRingSvg(p.avgPrepScore, {
+    size: 72, stroke: 7, centerHtml: `<span class="wl-prep-ring-num">${p.avgPrepScore}%</span>`
+  }) : '';
+
+  // Win-rate by day (all 7 days that have at least one trade)
+  const DOW = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const dayBars = DOW.map(d => {
+    const v = p.byDay[d];
+    const pct = v ? Math.round(v.wins / v.total * 100) : null;
+    return `<div class="wl-day-bar-col">
+      <div class="wl-day-bar-track"><div class="wl-day-bar-fill ${pct == null ? '' : pct >= 60 ? 'bull' : pct >= 40 ? 'gold' : 'bear'}" style="height:${pct || 0}%"></div></div>
+      <span class="wl-day-bar-pct">${pct != null ? pct + '%' : '—'}</span>
+      <span class="wl-day-bar-label">${d.slice(0, 3)}</span>
+    </div>`;
+  }).join('');
+
+  // Top pairs by PnL (up to 5)
+  const topPairs = (p.pairRank || []).slice(0, 5);
+  const maxAbsPnl = Math.max(1, ...topPairs.map(([, v]) => Math.abs(v.pnl)));
+  const pairBars = topPairs.map(([name, v]) => `
+    <div class="wl-pairpnl-row">
+      <span class="wl-pairpnl-name">${name}</span>
+      <div class="wl-pairpnl-track"><div class="wl-pairpnl-fill ${v.pnl >= 0 ? 'bull' : 'bear'}" style="width:${Math.abs(v.pnl) / maxAbsPnl * 100}%"></div></div>
+      <span class="wl-pairpnl-val ${v.pnl >= 0 ? 'bull' : 'bear'}">${pnlLabel(v.pnl)}</span>
+    </div>`).join('');
+
   return `
   <div class="wl-insights-card">
     <div class="wl-checklist-title" style="margin-bottom:10px">Performance Insights</div>
+    <div class="wl-insights-top">
+      ${prepRing ? `<div class="wl-prep-ring-col">${prepRing}<span class="wl-prep-ring-label">Avg Prep Score</span></div>` : ''}
+      <div class="wl-day-bars">${dayBars}</div>
+    </div>
     <div class="wl-insight-grid">${rows}</div>
+    ${pairBars ? `<div class="wl-pairpnl-title">Top Pairs by PnL</div><div class="wl-pairpnl-list">${pairBars}</div>` : ''}
     ${corr}
   </div>`;
 }
