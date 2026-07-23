@@ -1101,7 +1101,8 @@
       published_at: null, edited_at: null, edited_by: null, version_history: [], comments: [] };
     _sigAll.unshift(copy);
     const ok = await _sigCloudSave(copy);
-    if (ok) _sigLogActivity(copy.id, 'duplicated', 'Duplicated from ' + (s.pair || 'a previous signal'));
+    if (!ok) { _sigAll = _sigAll.filter(x => x !== copy); _sigRenderStats(); _sigRenderActiveView(); return; } // error toast already shown; don't leave an unsaved phantom row in the list
+    _sigLogActivity(copy.id, 'duplicated', 'Duplicated from ' + (s.pair || 'a previous signal'));
     _sigRenderStats();
     _sigRenderActiveView();
     showToast('Duplicated as new draft', 'success');
@@ -1672,14 +1673,23 @@
       const existing = _sigAll.find(s => s.id === _sigModalState.draftId);
       Object.assign(existing, row, { id: _sigModalState.draftId, is_draft: true, status: 'draft', updated_at: Date.now() });
       ok = await _sigPersistSignal(existing);
+    } else if (_sigModalState.pendingDraft) {
+      // A previous autosave attempt failed before Supabase assigned a real
+      // id, so draftId is still null. Reuse that same in-memory row instead
+      // of unshifting another one — otherwise every failed retry tick stacks
+      // up a new ghost draft that was never actually persisted.
+      const draft = _sigModalState.pendingDraft;
+      Object.assign(draft, row, { updated_at: Date.now() });
+      ok = await _sigCloudSave(draft);
+      if (ok) { _sigModalState.draftId = draft.id; _sigModalState.pendingDraft = null; _sigLogActivity(draft.id, 'created', 'Draft autosaved'); }
     } else {
       const draft = { ...row, id: null, is_draft: true, status: 'draft', created_at: Date.now(), updated_at: Date.now(),
         published_at: null, result: 'pending', pips: null, profit_percent: null, r_multiple: null,
         edited_at: null, edited_by: null, version_history: [], checklist: [], comments: [] };
       _sigAll.unshift(draft);
       ok = await _sigCloudSave(draft);
-      _sigModalState.draftId = draft.id;
-      if (ok) _sigLogActivity(draft.id, 'created', 'Draft autosaved');
+      if (ok) { _sigModalState.draftId = draft.id; _sigLogActivity(draft.id, 'created', 'Draft autosaved'); }
+      else { _sigModalState.pendingDraft = draft; }
     }
     _sigModalState.dirty = false;
     if (!ok) { _sigSetAutosaveLabel('Save failed — will retry'); return; }
@@ -1887,6 +1897,7 @@
       _sigAll.unshift(draft);
       ok = await _sigCloudSave(draft);
       id = draft.id;
+      if (!ok) _sigAll = _sigAll.filter(x => x !== draft);
     }
     if (!ok) return; // error toast already shown; keep the modal open so nothing is lost
     if (id) _sigLogActivity(id, 'created', 'Draft saved');
@@ -2026,6 +2037,7 @@
       _sigAll.unshift(created);
       ok = await _sigCloudSave(created);
       id = created.id;
+      if (!ok) _sigAll = _sigAll.filter(x => x !== created);
     }
     if (!ok) return; // error toast already shown by _sigCloudSave — keep the review modal open, nothing is lost
     _sigLogUpdate(id, 'waiting', 'Signal published');
@@ -2060,6 +2072,7 @@
       _sigAll.unshift(created);
       ok = await _sigCloudSave(created);
       id = created.id;
+      if (!ok) _sigAll = _sigAll.filter(x => x !== created);
     }
     if (!ok) return;
     _sigLogActivity(id, 'scheduled', 'Scheduled for ' + new Date(ts).toLocaleString());
@@ -2085,6 +2098,7 @@
       _sigAll.unshift(created);
       ok = await _sigCloudSave(created);
       id = created.id;
+      if (!ok) _sigAll = _sigAll.filter(x => x !== created);
     }
     if (!ok) return;
     _sigLogActivity(id, 'created', 'Saved as draft');
