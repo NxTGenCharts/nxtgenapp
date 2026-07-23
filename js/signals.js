@@ -124,6 +124,8 @@
     out.tags = out.tags || [];
     out.confluences = out.confluences || [];
     out.comments = out.comments || [];
+    out.updates = out.updates || [];
+    out.activity = out.activity || [];
     return out;
   }
 
@@ -131,7 +133,17 @@
   // insert + capture the generated id otherwise). Returns true/false and
   // shows a toast on failure instead of swallowing the error.
   async function _sigCloudSave(row, silent) {
-    if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb)) { _saveDemoSignals(); return true; }
+    if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb)) {
+      // Local/demo mode has no database to hand back a generated id, so we
+      // must assign one ourselves the moment a row is first saved. Leaving
+      // row.id as null here was causing every `${s.id}` interpolated into
+      // an onclick handler to literally read the string "null", which then
+      // never matched the real `null` on the row when looked up — buttons
+      // like "Add Update" would silently no-op on freshly created signals.
+      if (!row.id) row.id = _uid();
+      _saveDemoSignals();
+      return true;
+    }
     const dbRow = _sigToDbRow(row);
     let error, data;
     if (row.id && _sigIsDbId(row.id)) {
@@ -161,15 +173,34 @@
 
   // Best-effort side-channel writes (updates timeline / activity log /
   // notifications). These never block the main save and never throw.
+  // In local/demo mode there's no `journal_signal_updates` table to write
+  // to, so the entries are kept right on the signal row itself and
+  // persisted to localStorage — otherwise the drawer's Updates/Activity
+  // panels were left stuck on "Loading…" forever since nothing ever
+  // resolved them.
   async function _sigLogUpdate(signalId, status, note, price) {
-    if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb) || !_sigIsDbId(signalId)) return;
-    try { await sb.from('journal_signal_updates').insert({ signal_id: signalId, status: status || null, note: note || null, price: price ?? null }); }
-    catch (e) { console.error('signal update log failed:', e); }
+    if (_sigUsingSupabase && typeof sb !== 'undefined' && sb && _sigIsDbId(signalId)) {
+      try { await sb.from('journal_signal_updates').insert({ signal_id: signalId, status: status || null, note: note || null, price: price ?? null }); }
+      catch (e) { console.error('signal update log failed:', e); }
+      return;
+    }
+    const s = _sigAll.find(x => x.id === signalId);
+    if (!s) return;
+    s.updates = s.updates || [];
+    s.updates.push({ status: status || null, note: note || null, price: price ?? null, created_at: Date.now() });
+    _saveDemoSignals();
   }
   async function _sigLogActivity(signalId, action, detail) {
-    if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb) || !_currentUser) return;
-    try { await sb.from('journal_signal_activity').insert({ signal_id: _sigIsDbId(signalId) ? signalId : null, owner_id: _currentUser.id, action, detail: detail || null }); }
-    catch (e) { console.error('signal activity log failed:', e); }
+    if (_sigUsingSupabase && typeof sb !== 'undefined' && sb && _currentUser && _sigIsDbId(signalId)) {
+      try { await sb.from('journal_signal_activity').insert({ signal_id: signalId, owner_id: _currentUser.id, action, detail: detail || null }); }
+      catch (e) { console.error('signal activity log failed:', e); }
+      return;
+    }
+    const s = _sigAll.find(x => x.id === signalId);
+    if (!s) return;
+    s.activity = s.activity || [];
+    s.activity.unshift({ action, detail: detail || null, created_at: Date.now() });
+    _saveDemoSignals();
   }
   async function _sigNotify(signalId, type, message) {
     if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb) || !_currentUser) return;
@@ -1303,16 +1334,20 @@
   // ══════════════════════════════════════════════════════════════
   // DETAIL DRAWER
   // ══════════════════════════════════════════════════════════════
-  function _sigTimelineIndex(s) {
-    if (['closed', 'stopped_out', 'cancelled', 'expired'].includes(s.status)) return 4;
-    if (s.status === 'tp2_hit') return 3;
-    if (s.status === 'tp1_hit') return 2;
-    if (['active', 'partial', 'breakeven'].includes(s.status)) return 1;
+  // Market Execution orders fill the instant they're published — they're
+  // never actually "Waiting" — so their timeline skips that step entirely
+  // rather than showing it as an already-passed stage.
+  function _sigTimelineIndex(s, isPending) {
+    if (['closed', 'stopped_out', 'cancelled', 'expired'].includes(s.status)) return isPending ? 4 : 3;
+    if (s.status === 'tp2_hit') return isPending ? 3 : 2;
+    if (s.status === 'tp1_hit') return isPending ? 2 : 1;
+    if (['active', 'partial', 'breakeven'].includes(s.status)) return isPending ? 1 : 0;
     return 0;
   }
   function _sigRenderTimeline(s) {
-    const labels = ['Waiting', 'Entry Triggered', 'TP1', 'TP2', 'Closed'];
-    const idx = _sigTimelineIndex(s);
+    const isPending = PENDING_ORDER_TYPES.includes(s.order_type);
+    const labels = isPending ? ['Waiting', 'Entry Triggered', 'TP1', 'TP2', 'Closed'] : ['Entry Triggered', 'TP1', 'TP2', 'Closed'];
+    const idx = _sigTimelineIndex(s, isPending);
     return `<div class="sig-timeline">${labels.map((l, i) => `
       <div class="sig-tl-step ${i < idx ? 'done' : i === idx ? 'current' : ''}">
         <div class="sig-tl-line"></div>
@@ -1333,9 +1368,29 @@
     }
     drawer.innerHTML = _sigDrawerContent(s);
     requestAnimationFrame(() => drawer.classList.add('open'));
+    // Local/demo signals already have their updates & activity rendered
+    // synchronously by _sigDrawerContent (they live on the row itself).
+    // Only DB-backed signals need an async fetch to fill in the "Loading…"
+    // placeholder.
     if (_sigIsDbId(s.id)) { _sigLoadUpdatesLog(s.id); _sigLoadActivityLog(s.id); }
   };
 
+  function _sigRenderUpdatesLocal(s) {
+    const data = s.updates || [];
+    if (!data.length) return `<div class="sig-body-text">No updates yet.</div>`;
+    return data.map(u => `
+      <div class="sig-version-item"><span class="dot"></span>${(u.note || STATUS_LABEL[u.status] || u.status || '')}
+        <span class="sig-version-ts">${new Date(u.created_at).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}</span>
+      </div>`).join('');
+  }
+  function _sigRenderActivityLocal(s) {
+    const data = s.activity || [];
+    if (!data.length) return `<div class="sig-body-text">No activity recorded yet.</div>`;
+    return data.map(a => `
+      <div class="sig-version-item"><span class="dot"></span>${a.action}${a.detail ? ' — ' + a.detail : ''}
+        <span class="sig-version-ts">${_timeAgo(a.created_at)}</span>
+      </div>`).join('');
+  }
   async function _sigLoadUpdatesLog(id) {
     const el = document.getElementById('sig-updates-log-' + id);
     if (!el || !(_sigUsingSupabase && typeof sb !== 'undefined' && sb)) return;
@@ -1364,12 +1419,6 @@
   };
 
   function _sigDrawerContent(s) {
-    const checklist = (s.checklist || []).map(c => `
-      <div class="sig-checklist-item ${c.done ? 'checked' : ''}">
-        <span class="chk">${c.done ? icn('ic-check') : ''}</span>${c.label}
-      </div>`).join('');
-    const confluences = (s.confluences || []).map(c => `<span class="sig-confluence-chip">${c}</span>`).join('');
-
     return `
     <div class="sig-drawer-head">
       <div>
@@ -1398,7 +1447,7 @@
     ${_sigRenderTimeline(s)}
 
     <div class="sig-section-title">${icn('ic-history')} Updates</div>
-    <div class="sig-version-list" id="sig-updates-log-${s.id}"><div class="sig-body-text">${s.is_draft ? 'Publish this signal to start a timeline.' : 'Loading updates…'}</div></div>
+    <div class="sig-version-list" id="sig-updates-log-${s.id}">${s.is_draft ? '<div class="sig-body-text">Publish this signal to start a timeline.</div>' : (_sigIsDbId(s.id) ? '<div class="sig-body-text">Loading updates…</div>' : _sigRenderUpdatesLocal(s))}</div>
 
     <div class="sig-chart-frame">
       ${s.chart_screenshot_url ? `<img src="${s.chart_screenshot_url}" alt="Chart">` : `${icn('ic-image')} <span style="margin-left:6px">No chart screenshot yet</span>`}
@@ -1413,26 +1462,14 @@
     </div>
     <div class="sig-ladder-rr">${icn('ic-scale')} Risk : Reward — 1:${s.risk_reward}</div>
 
-    <div class="sig-section-title">${icn('ic-chart-line')} Market Outlook</div>
-    <div class="sig-body-text">${s.market_outlook || '—'}</div>
-
-    <div class="sig-section-title">${icn('ic-map')} Higher Timeframe Bias</div>
-    <div class="sig-body-text">${s.htf_bias || '—'}</div>
-
-    <div class="sig-section-title">${icn('ic-target')} Confluences</div>
-    <div class="sig-confluence-list">${confluences}</div>
-
     <div class="sig-section-title">${icn('ic-warning')} Invalidation</div>
     <div class="sig-body-text">${s.invalidation || '—'}</div>
 
     <div class="sig-section-title">${icn('ic-notebook')} Management Rules</div>
     <div class="sig-body-text">${s.management_rules || '—'}</div>
 
-    <div class="sig-section-title">${icn('ic-check-c')} Trade Checklist</div>
-    <div class="sig-checklist">${checklist || '<span class="sig-body-text">No checklist items.</span>'}</div>
-
     <div class="sig-section-title">${icn('ic-clock')} Session &amp; Duration</div>
-    <div class="sig-body-text" style="text-transform:capitalize">${(s.session || '—').replace('_', '/')} · RR 1:${s.risk_reward} · Risk ${s.risk_percent || '—'}%</div>
+    <div class="sig-body-text" style="text-transform:capitalize">${(s.session || '—').replace('_', '/')} · Risk : Reward 1:${s.risk_reward}</div>
 
     <div class="sig-section-title">${icn('ic-speech')} Comments</div>
     <div id="sig-comments-${s.id}">${(s.comments || []).map(c => `
@@ -1450,7 +1487,7 @@
     ` : ''}
 
     <div class="sig-section-title">${icn('ic-activity')} Activity Log</div>
-    <div class="sig-version-list" id="sig-activity-log-${s.id}"><div class="sig-body-text">${s.is_draft ? 'No activity yet.' : 'Loading…'}</div></div>
+    <div class="sig-version-list" id="sig-activity-log-${s.id}">${s.is_draft ? '<div class="sig-body-text">No activity yet.</div>' : (_sigIsDbId(s.id) ? '<div class="sig-body-text">Loading…</div>' : _sigRenderActivityLocal(s))}</div>
 
     <div style="display:flex;gap:8px;margin-top:20px;flex-wrap:wrap">
       <button class="btn" onclick="_sigToggleLike('${s.id}')">${icn('ic-thumbs-up')} Like</button>
@@ -1618,7 +1655,7 @@
     const options = _sigStageOptionsFor(s.status);
     const isTerminal = !options.length;
     return `
-    <div class="modal modal-box" style="width:480px">
+    <div class="modal modal-box" id="sig-update-modal-box" data-status="${s.status}" style="width:480px">
       <div class="modal-head">
         <div class="modal-title" style="display:flex;align-items:center;gap:10px">
           <span style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,rgba(52,211,153,0.25),rgba(52,211,153,0.12));border:1px solid rgba(52,211,153,0.3);display:flex;align-items:center;justify-content:center;font-size:14px">${icn('ic-notebook')}</span>
@@ -1638,6 +1675,14 @@
           <div id="sig-stage-options" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px">
             ${options.map(o => `<button type="button" class="sig-chip sig-stage-chip ${o.terminal ? 'sig-stage-chip-terminal' : ''}" data-stage="${o.key}" onclick="_sigPickStage('${o.key}')">${o.label}</button>`).join('')}
           </div>
+          <div class="form-field" id="sig-close-outcome" style="display:none">
+            <label class="form-label">Result — mark this trade as</label>
+            <div style="display:flex;flex-wrap:wrap;gap:8px">
+              <button type="button" class="sig-chip sig-outcome-chip" data-outcome="win" onclick="_sigPickOutcome('win')">🏆 Winner</button>
+              <button type="button" class="sig-chip sig-outcome-chip" data-outcome="loss" onclick="_sigPickOutcome('loss')">Loser</button>
+              <button type="button" class="sig-chip sig-outcome-chip" data-outcome="breakeven" onclick="_sigPickOutcome('breakeven')">Breakeven</button>
+            </div>
+          </div>
         `}
         <div class="form-field"><label class="form-label">Price at this stage (optional)</label><input class="form-input" id="sig-update-price" type="number" step="any" placeholder="e.g. ${s.entry ?? ''}"></div>
         <div class="form-field"><label class="form-label">Note ${isTerminal ? '' : '(optional)'}</label><textarea class="form-textarea" id="sig-update-note" oninput="_sigUpdateSaveBtnState()" placeholder='e.g. "SL moved to breakeven", "Full TP hit +2R"'></textarea></div>
@@ -1654,13 +1699,40 @@
   // enabled state and the actual save can never drift out of sync.
   window._sigPickStage = function (key) {
     document.querySelectorAll('#sig-stage-options .sig-stage-chip').forEach(el => el.classList.toggle('active', el.dataset.stage === key));
+    // Closing a trade always needs an explicit Winner / Loser / Breakeven
+    // call rather than silently inferring it from whatever stage the
+    // signal happened to be at — that's what let a trade get "closed"
+    // without ever letting the user actually say whether it won or lost.
+    const outcomeWrap = document.getElementById('sig-close-outcome');
+    if (outcomeWrap) {
+      if (key === 'closed') {
+        outcomeWrap.style.display = '';
+        const curStatus = document.getElementById('sig-update-modal-box')?.dataset.status;
+        const suggested = _sigCloseResultFor(curStatus).result;
+        document.querySelectorAll('#sig-close-outcome .sig-outcome-chip').forEach(el => el.classList.toggle('active', el.dataset.outcome === suggested));
+      } else {
+        outcomeWrap.style.display = 'none';
+        document.querySelectorAll('#sig-close-outcome .sig-outcome-chip').forEach(el => el.classList.remove('active'));
+      }
+    }
+    window._sigUpdateSaveBtnState();
+  };
+  window._sigPickOutcome = function (key) {
+    document.querySelectorAll('#sig-close-outcome .sig-outcome-chip').forEach(el => el.classList.toggle('active', el.dataset.outcome === key));
     window._sigUpdateSaveBtnState();
   };
   window._sigUpdateSaveBtnState = function () {
     const btn = document.getElementById('sig-update-save-btn');
     if (!btn) return;
-    const hasPick = !!document.querySelector('#sig-stage-options .sig-stage-chip.active');
+    const pickedStage = document.querySelector('#sig-stage-options .sig-stage-chip.active')?.dataset.stage;
+    const hasPick = !!pickedStage;
     const hasNote = !!(document.getElementById('sig-update-note')?.value || '').trim();
+    if (pickedStage === 'closed') {
+      // Closing requires a result — Winner, Loser, or Breakeven — before
+      // the save button will enable, no matter what else is filled in.
+      btn.disabled = !document.querySelector('#sig-close-outcome .sig-outcome-chip.active');
+      return;
+    }
     btn.disabled = !hasPick && !hasNote;
   };
 
@@ -1676,13 +1748,25 @@
       const pickedKey = document.querySelector('#sig-stage-options .sig-stage-chip.active')?.dataset.stage || null;
       chosen = options.find(o => o.key === pickedKey) || null;
       if (!chosen && !note) { showToast('Pick a stage to advance to, or add a note', 'error'); return; }
+      if (chosen && chosen.status === 'closed' && !document.querySelector('#sig-close-outcome .sig-outcome-chip.active')) {
+        showToast('Mark this trade as Winner, Loser, or Breakeven', 'error'); return;
+      }
     } else if (!note) {
       showToast('Add a note for this update', 'error'); return;
     }
 
     let label = chosen ? chosen.label : 'Note added';
     if (chosen) {
-      const closeInfo = chosen.status === 'closed' ? _sigCloseResultFor(s.status) : null;
+      let closeInfo = chosen.status === 'closed' ? _sigCloseResultFor(s.status) : null;
+      if (chosen.status === 'closed') {
+        // The user's explicit Winner/Loser/Breakeven pick always wins over
+        // whatever the prior TP progress would have implied.
+        const outcomeKey = document.querySelector('#sig-close-outcome .sig-outcome-chip.active')?.dataset.outcome;
+        if (outcomeKey) {
+          const outcomeLabel = outcomeKey === 'win' ? 'Closed — Winner' : outcomeKey === 'loss' ? 'Closed — Loser' : 'Closed at Breakeven';
+          closeInfo = { result: outcomeKey, label: outcomeLabel };
+        }
+      }
       if (closeInfo) label = closeInfo.label;
       s.status = chosen.status;
       if (chosen.status === 'active' && !s.entered_at) s.entered_at = Date.now();
