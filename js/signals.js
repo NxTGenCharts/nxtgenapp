@@ -201,10 +201,15 @@
     for (let i = 0; i < 24; i++) {
       const inst = _pick(pairs);
       const dir = Math.random() > 0.5 ? 'buy' : 'sell';
+      const orderType = _pick(['market', 'market', 'market', dir === 'buy' ? 'buy_limit' : 'sell_limit', dir === 'buy' ? 'buy_stop' : 'sell_stop']);
       // Only 'closed' and 'cancelled' are terminal now — hitting TP1/TP2 or
       // moving SL to breakeven just advances the signal's progress; it stays
-      // "Ongoing" until it's explicitly closed or cancelled.
-      const status = _pick(['waiting', 'active', 'active', 'breakeven', 'tp1_hit', 'tp2_hit', 'closed', 'closed', 'closed', 'cancelled']);
+      // "Ongoing" until it's explicitly closed or cancelled. "Waiting" only
+      // ever applies to pending orders — a Market Execution fills instantly.
+      const isPending = PENDING_ORDER_TYPES.includes(orderType);
+      const status = _pick(isPending
+        ? ['waiting', 'waiting', 'active', 'breakeven', 'tp1_hit', 'tp2_hit', 'closed', 'closed', 'cancelled']
+        : ['active', 'active', 'breakeven', 'tp1_hit', 'tp2_hit', 'closed', 'closed', 'closed', 'cancelled']);
       const range = inst.base * 0.006;
       const entry = inst.base + _rand(-range, range);
       const slDist = Math.abs(entry) * _rand(0.002, 0.006);
@@ -220,7 +225,6 @@
       const created = now - Math.floor(_rand(0, 21)) * 86400000 - Math.floor(_rand(0, 24)) * 3600000;
       const confluences = confluenceOptions.filter(() => Math.random() > 0.55);
       if (!confluences.length) confluences.push(_pick(confluenceOptions));
-      const orderType = _pick(['market', 'market', 'market', dir === 'buy' ? 'buy_limit' : 'sell_limit', dir === 'buy' ? 'buy_stop' : 'sell_stop']);
 
       rows.push({
         id: _uid(),
@@ -1592,8 +1596,6 @@
     return { result: 'loss', label: 'Closed (Stopped Out)' };
   }
 
-  let _sigUpdatePick = null;
-
   window._sigOpenUpdateModal = function (id) {
     const s = _sigAll.find(x => x.id === id); if (!s) return;
     let overlay = document.getElementById('sig-update-modal-overlay');
@@ -1604,7 +1606,6 @@
       overlay.onclick = (e) => { if (e.target === overlay) window._sigCloseUpdateModal(); };
       document.body.appendChild(overlay);
     }
-    _sigUpdatePick = null;
     overlay.innerHTML = _sigUpdateModalContent(s);
     overlay.classList.add('open');
   };
@@ -1639,18 +1640,28 @@
           </div>
         `}
         <div class="form-field"><label class="form-label">Price at this stage (optional)</label><input class="form-input" id="sig-update-price" type="number" step="any" placeholder="e.g. ${s.entry ?? ''}"></div>
-        <div class="form-field"><label class="form-label">Note (optional)</label><textarea class="form-textarea" id="sig-update-note" placeholder='e.g. "SL moved to breakeven", "Full TP hit +2R"'></textarea></div>
+        <div class="form-field"><label class="form-label">Note ${isTerminal ? '' : '(optional)'}</label><textarea class="form-textarea" id="sig-update-note" oninput="_sigUpdateSaveBtnState()" placeholder='e.g. "SL moved to breakeven", "Full TP hit +2R"'></textarea></div>
       </div>
       <div class="form-actions">
         <button class="glass-btn glass-btn-cancel" onclick="_sigCloseUpdateModal()">Cancel</button>
-        <button class="btn btn-primary" onclick="_sigSaveUpdate('${s.id}')">${icn('ic-check')} Save Update</button>
+        <button class="btn btn-primary" id="sig-update-save-btn" ${isTerminal ? 'disabled' : ''} onclick="_sigSaveUpdate('${s.id}')">${icn('ic-check')} Save Update</button>
       </div>
     </div>`;
   }
 
+  // Source of truth for "what's picked" is the DOM itself (whichever chip
+  // has .active) rather than a separate JS variable, so the Save button's
+  // enabled state and the actual save can never drift out of sync.
   window._sigPickStage = function (key) {
-    _sigUpdatePick = key;
     document.querySelectorAll('#sig-stage-options .sig-stage-chip').forEach(el => el.classList.toggle('active', el.dataset.stage === key));
+    window._sigUpdateSaveBtnState();
+  };
+  window._sigUpdateSaveBtnState = function () {
+    const btn = document.getElementById('sig-update-save-btn');
+    if (!btn) return;
+    const hasPick = !!document.querySelector('#sig-stage-options .sig-stage-chip.active');
+    const hasNote = !!(document.getElementById('sig-update-note')?.value || '').trim();
+    btn.disabled = !hasPick && !hasNote;
   };
 
   window._sigSaveUpdate = async function (id) {
@@ -1662,7 +1673,8 @@
 
     let chosen = null;
     if (options.length) {
-      chosen = options.find(o => o.key === _sigUpdatePick) || null;
+      const pickedKey = document.querySelector('#sig-stage-options .sig-stage-chip.active')?.dataset.stage || null;
+      chosen = options.find(o => o.key === pickedKey) || null;
       if (!chosen && !note) { showToast('Pick a stage to advance to, or add a note', 'error'); return; }
     } else if (!note) {
       showToast('Add a note for this update', 'error'); return;
@@ -2175,7 +2187,14 @@
   };
 
   function _sigFinalizePublishedRow(row, extra) {
-    return { ...row, status: 'waiting', is_draft: false, published_at: Date.now(),
+    // Market Execution fills the instant it's published — the trade is
+    // live right away. Pending orders (Buy/Sell Limit or Stop) sit resting
+    // in the market until price reaches the entry, so only those start out
+    // "Waiting". This is also why the "Waiting" filter/stat only ever
+    // shows pending orders, not live market fills.
+    const status = PENDING_ORDER_TYPES.includes(row.order_type) ? 'waiting' : 'active';
+    return { ...row, status, is_draft: false, published_at: Date.now(),
+      entered_at: status === 'active' ? Date.now() : null,
       result: row.result || 'pending', pips: row.pips ?? null, profit_percent: row.profit_percent ?? null, r_multiple: row.r_multiple ?? null,
       checklist: row.checklist || [], comments: row.comments || [], version_history: row.version_history || [],
       ...extra };
@@ -2198,7 +2217,7 @@
       if (!ok) _sigAll = _sigAll.filter(x => x !== created);
     }
     if (!ok) return; // error toast already shown by _sigCloudSave — keep the review modal open, nothing is lost
-    _sigLogUpdate(id, 'waiting', 'Signal published');
+    _sigLogUpdate(id, final.status, final.status === 'active' ? 'Signal published — entry triggered (market execution)' : 'Signal published — waiting for entry');
     _sigLogActivity(id, pending.draftId ? 'published' : 'created', 'Published live');
     _sigNotify(id, 'published', `${final.pair} ${final.direction === 'buy' ? 'BUY' : 'SELL'} signal published`);
     // Requirement: never trust local state alone — reload the live list
@@ -2273,7 +2292,8 @@
     let changed = false;
     _sigAll.forEach(s => {
       if (s.status === 'scheduled' && s.scheduled_at && s.scheduled_at <= now) {
-        s.status = 'waiting'; s.published_at = now; changed = true;
+        const status = PENDING_ORDER_TYPES.includes(s.order_type) ? 'waiting' : 'active';
+        s.status = status; s.published_at = now; s.entered_at = status === 'active' ? now : null; changed = true;
         _sigPersistSignal(s);
       }
     });
