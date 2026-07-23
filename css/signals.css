@@ -123,6 +123,7 @@
 .sig-badge-tp1_hit,.sig-badge-tp2_hit{background:var(--green-dim);color:var(--green);border-color:rgba(52,211,153,0.3)}
 .sig-badge-stopped_out{background:var(--red-dim);color:var(--red);border-color:rgba(248,113,113,0.3)}
 .sig-badge-cancelled,.sig-badge-expired{background:var(--glass-1);color:var(--text3);border-color:var(--glass-border)}
+.sig-badge-closed{background:var(--glass-2);color:var(--text);border-color:var(--glass-border-h)}
 .sig-badge-active .dot{animation:sig-pulse 1.4s ease-in-out infinite}
 @keyframes sig-pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 currentColor}50%{opacity:.5}}
 
@@ -158,6 +159,11 @@
 .sig-stage-chip.active{
   background:rgba(52,211,153,0.16);border-color:rgba(52,211,153,0.4);color:var(--green);
   box-shadow:0 0 0 1px rgba(52,211,153,0.25) inset;
+}
+.sig-stage-chip-terminal{border-style:dashed}
+.sig-stage-chip-terminal.active{
+  background:rgba(248,113,113,0.14);border-color:rgba(248,113,113,0.35);color:var(--red);
+  box-shadow:0 0 0 1px rgba(248,113,113,0.22) inset;
 }
 
 /* ── Confidence meter ─────────────────────────────────────────── */

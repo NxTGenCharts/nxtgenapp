@@ -33,12 +33,19 @@
   };
   const STATUS_LABEL = {
     draft: 'Draft', scheduled: 'Scheduled',
-    waiting: 'Ongoing', active: 'Active', partial: 'Partial', breakeven: 'Breakeven',
-    tp1_hit: 'Hit TP1', tp2_hit: 'Hit TP2',
-    stopped_out: 'Stopped Out', cancelled: 'Cancelled', expired: 'Expired'
+    // Only Cancelled and Closed are terminal — every other stage is still
+    // "Ongoing" (the timeline / stage badge shows exactly how far it's got).
+    waiting: 'Ongoing', active: 'Ongoing', partial: 'Ongoing', breakeven: 'Ongoing',
+    tp1_hit: 'Ongoing', tp2_hit: 'Ongoing',
+    stopped_out: 'Closed', cancelled: 'Cancelled', expired: 'Expired', closed: 'Closed'
   };
   const CONF_LABEL = { low: 'Low', medium: 'Medium', high: 'High', very_high: 'Very High' };
   const TIMELINE_STEPS = ['waiting', 'active', 'tp1_hit', 'tp2_hit', 'closed'];
+  // Only Cancelled and Closed take a signal out of "Ongoing" — every other
+  // status (waiting to be triggered, live, breakeven, TP1/TP2 hit) is still
+  // an open, in-progress signal.
+  const ONGOING_STATUSES = ['waiting', 'active', 'partial', 'breakeven', 'tp1_hit', 'tp2_hit'];
+  const ENTERED_STATUSES = ['active', 'partial', 'breakeven', 'tp1_hit', 'tp2_hit'];
   // Order execution type — is this a live market fill or a pending (resting) order?
   const ORDER_TYPE_LABEL = {
     market: 'Market Execution', buy_limit: 'Buy Limit', sell_limit: 'Sell Limit',
@@ -81,8 +88,8 @@
   const SIGNAL_DB_COLUMNS = [
     'pair', 'market', 'direction', 'order_type', 'entry', 'stop_loss', 'tp1', 'tp2',
     'risk_reward', 'risk_percent', 'risk_amount', 'confidence', 'confidence_score',
-    'session', 'status', 'visibility', 'trade_idea', 'market_outlook',
-    'htf_bias', 'entry_reason', 'invalidation', 'management_rules', 'notes', 'lessons',
+    'session', 'status', 'visibility', 'market_outlook',
+    'htf_bias', 'invalidation', 'management_rules', 'notes', 'lessons',
     'confluences', 'tags', 'chart_screenshot_url', 'tradingview_link', 'expires_at',
     'published_at', 'entered_at', 'closed_at', 'result', 'pips', 'profit_percent',
     'r_multiple', 'is_draft', 'draft_name', 'archived', 'scheduled_at', 'edited_at',
@@ -185,7 +192,6 @@
       { p: 'AAPL', m: 'stocks', dec: 2, base: 224.5 },
       { p: 'Boom 1000', m: 'synthetic', dec: 2, base: 9520 }
     ];
-    const statuses = ['waiting', 'active', 'active', 'partial', 'tp1_hit', 'tp2_hit', 'stopped_out', 'cancelled', 'expired'];
     const confidences = ['low', 'medium', 'high', 'very_high'];
     const sessions = ['sydney', 'tokyo', 'london', 'new_york', 'london_ny_overlap'];
     const confluenceOptions = ['Liquidity Sweep', 'FVG', 'Order Block', 'SMT', 'Structure Shift', 'Volume Spike'];
@@ -195,7 +201,10 @@
     for (let i = 0; i < 24; i++) {
       const inst = _pick(pairs);
       const dir = Math.random() > 0.5 ? 'buy' : 'sell';
-      const status = _pick(statuses);
+      // Only 'closed' and 'cancelled' are terminal now — hitting TP1/TP2 or
+      // moving SL to breakeven just advances the signal's progress; it stays
+      // "Ongoing" until it's explicitly closed or cancelled.
+      const status = _pick(['waiting', 'active', 'active', 'breakeven', 'tp1_hit', 'tp2_hit', 'closed', 'closed', 'closed', 'cancelled']);
       const range = inst.base * 0.006;
       const entry = inst.base + _rand(-range, range);
       const slDist = Math.abs(entry) * _rand(0.002, 0.006);
@@ -204,9 +213,10 @@
       const tp1 = dir === 'buy' ? entry + slDist * 2 : entry - slDist * 2;
       const tp2 = dir === 'buy' ? entry + slDist * _rand(2.4, 3.8) : entry - slDist * _rand(2.4, 3.8);
       const rr = (Math.abs(tp2 - entry) / Math.abs(entry - sl)).toFixed(1);
-      const isClosed = ['tp1_hit', 'tp2_hit', 'stopped_out', 'cancelled', 'expired'].includes(status);
-      const isWin = ['tp1_hit', 'tp2_hit'].includes(status);
-      const pips = isClosed ? (isWin ? _rand(15, 180) : (status === 'stopped_out' ? -_rand(10, 60) : 0)) : null;
+      const isClosed = ['closed', 'cancelled'].includes(status);
+      const result = status === 'closed' ? _pick(['win', 'win', 'win', 'loss', 'breakeven']) : status === 'cancelled' ? 'pending' : 'pending';
+      const isWin = result === 'win';
+      const pips = isClosed ? (isWin ? _rand(15, 180) : (result === 'loss' ? -_rand(10, 60) : 0)) : null;
       const created = now - Math.floor(_rand(0, 21)) * 86400000 - Math.floor(_rand(0, 24)) * 3600000;
       const confluences = confluenceOptions.filter(() => Math.random() > 0.55);
       if (!confluences.length) confluences.push(_pick(confluenceOptions));
@@ -221,10 +231,8 @@
         confidence: _pick(confidences), confidence_score: Math.floor(_rand(55, 98)),
         session: _pick(sessions), status,
         visibility: _pick(['public', 'public', 'premium', 'private']),
-        trade_idea: `${dir === 'buy' ? 'Bullish' : 'Bearish'} continuation off higher-timeframe ${dir === 'buy' ? 'demand' : 'supply'} with confirmed liquidity sweep.`,
         market_outlook: `${inst.p} showing ${dir === 'buy' ? 'accumulation' : 'distribution'} on the 4H with a clean break of structure.`,
         htf_bias: dir === 'buy' ? 'Bullish' : 'Bearish',
-        entry_reason: `Price swept ${dir === 'buy' ? 'sell-side' : 'buy-side'} liquidity and reacted from an unmitigated ${_pick(['order block', 'FVG', 'breaker'])}.`,
         invalidation: `Close beyond the ${dir === 'buy' ? 'low' : 'high'} of the reaction candle invalidates the idea.`,
         management_rules: 'Move to breakeven after TP1. Trail remainder behind structure after TP2.',
         notes: '', lessons: '',
@@ -233,10 +241,10 @@
         expires_at: null,
         published_at: created, entered_at: status !== 'waiting' ? created + 3600000 : null,
         closed_at: isClosed ? created + 7200000 : null,
-        result: isClosed ? (isWin ? 'win' : (status === 'stopped_out' ? 'loss' : 'breakeven')) : 'pending',
+        result,
         pips: pips !== null ? +pips.toFixed(1) : null,
         profit_percent: pips !== null ? +((pips / 100) * _pick([0.8, 1, 1.2])).toFixed(2) : null,
-        r_multiple: isClosed ? (isWin ? +_rand(1, 3.8).toFixed(1) : (status === 'stopped_out' ? -1 : 0)) : null,
+        r_multiple: isClosed ? (isWin ? +_rand(1, 3.8).toFixed(1) : (result === 'loss' ? -1 : 0)) : null,
         is_draft: false,
         created_at: created, updated_at: created,
         checklist: [
@@ -538,7 +546,7 @@
         if (!hay.includes(_sigSearch)) return false;
       }
       if (has('status', 'active') || has('status', 'closed')) {
-        const isActive = ['waiting', 'active', 'partial'].includes(s.status);
+        const isActive = ONGOING_STATUSES.includes(s.status);
         if (has('status', 'active') && !isActive && !has('status', 'closed')) return false;
         if (has('status', 'closed') && isActive && !has('status', 'active')) return false;
       }
@@ -638,7 +646,7 @@
     const prevWeekAgo = now - 14 * 86400000;
     const monthAgo = now - 30 * 86400000;
 
-    const active = all.filter(s => ['waiting', 'active', 'partial'].includes(s.status));
+    const active = all.filter(s => ONGOING_STATUSES.includes(s.status));
     const wins = all.filter(s => s.result === 'win');
     const losses = all.filter(s => s.result === 'loss');
     const closed = all.filter(s => s.result === 'win' || s.result === 'loss');
@@ -654,7 +662,7 @@
     const avgRR = all.length ? (all.reduce((a, s) => a + (+s.risk_reward || 0), 0) / all.length) : 0;
     const totalPips = closed.reduce((a, s) => a + (+s.pips || 0), 0);
     const totalR = closed.reduce((a, s) => a + (+s.r_multiple || 0), 0);
-    const openPositions = all.filter(s => ['active', 'partial'].includes(s.status)).length;
+    const openPositions = all.filter(s => ENTERED_STATUSES.includes(s.status)).length;
     const closedPositions = closed.length;
     const monthClosed = closed.filter(s => s.created_at >= monthAgo);
     const monthProfit = monthClosed.reduce((a, s) => a + (+s.profit_percent || 0), 0);
@@ -664,7 +672,7 @@
     const hourly = new Array(24).fill(0);
     todays.forEach(s => { hourly[new Date(s.created_at).getHours()]++; });
 
-    const activeTrend = _sigDaySeries(s => ['waiting', 'active', 'partial'].includes(s.status));
+    const activeTrend = _sigDaySeries(s => ONGOING_STATUSES.includes(s.status));
     const winTrend = _sigDaySeries(s => s.result === 'win');
     const lossTrend = _sigDaySeries(s => s.result === 'loss');
 
@@ -952,14 +960,14 @@
     const rows = allRows.slice(0, _sigTableLimit);
     const body = rows.map(s => {
       const expanded = _sigExpandedRows.has(s.id);
-      const statusTone = s.result === 'win' ? 'green' : s.result === 'loss' ? 'red' : ['active', 'partial'].includes(s.status) ? 'blue' : '';
+      const statusTone = s.result === 'win' ? 'green' : s.result === 'loss' ? 'red' : ENTERED_STATUSES.includes(s.status) ? 'blue' : '';
       const expandRow = expanded ? `
       <tr class="sig-row-expand-tr">
         <td colspan="18">
           <div class="sig-row-expand">
             <div class="sig-row-expand-col">
-              <div class="sig-section-title" style="margin-top:0">${icn('ic-bulb')} Trade Idea</div>
-              <div class="sig-body-text">${s.trade_idea || '—'}</div>
+              <div class="sig-section-title" style="margin-top:0">${icn('ic-bulb')} Management Rules</div>
+              <div class="sig-body-text">${s.management_rules || '—'}</div>
             </div>
             <div class="sig-row-expand-col">
               <div class="sig-section-title" style="margin-top:0">${icn('ic-target')} Confluences</div>
@@ -1292,8 +1300,10 @@
   // DETAIL DRAWER
   // ══════════════════════════════════════════════════════════════
   function _sigTimelineIndex(s) {
-    if (['tp1_hit', 'tp2_hit', 'stopped_out', 'cancelled', 'expired', 'breakeven'].includes(s.status)) return 4;
-    if (s.status === 'active' || s.status === 'partial') return 1;
+    if (['closed', 'stopped_out', 'cancelled', 'expired'].includes(s.status)) return 4;
+    if (s.status === 'tp2_hit') return 3;
+    if (s.status === 'tp1_hit') return 2;
+    if (['active', 'partial', 'breakeven'].includes(s.status)) return 1;
     return 0;
   }
   function _sigRenderTimeline(s) {
@@ -1399,17 +1409,13 @@
     </div>
     <div class="sig-ladder-rr">${icn('ic-scale')} Risk : Reward — 1:${s.risk_reward}</div>
 
-    <div class="sig-section-title">${icn('ic-bulb')} Trade Idea</div>
-    <div class="sig-body-text">${s.trade_idea || '—'}</div>
-
     <div class="sig-section-title">${icn('ic-chart-line')} Market Outlook</div>
     <div class="sig-body-text">${s.market_outlook || '—'}</div>
 
     <div class="sig-section-title">${icn('ic-map')} Higher Timeframe Bias</div>
     <div class="sig-body-text">${s.htf_bias || '—'}</div>
 
-    <div class="sig-section-title">${icn('ic-target')} Entry Reason &amp; Confluences</div>
-    <div class="sig-body-text">${s.entry_reason || '—'}</div>
+    <div class="sig-section-title">${icn('ic-target')} Confluences</div>
     <div class="sig-confluence-list">${confluences}</div>
 
     <div class="sig-section-title">${icn('ic-warning')} Invalidation</div>
@@ -1538,8 +1544,10 @@
   // Replaces the old prompt()-based "Add Update" / "Close Signal" flow
   // (which never actually advanced a signal's stage) with a real modal
   // that walks a signal through its stages and always persists the
-  // change — the trade is marked closed the moment a terminal stage
-  // (TP hit / SL hit / breakeven / cancelled) is chosen.
+  // change. Only two stages are terminal — Cancelled and Close — every
+  // other stage (Entry Triggered, SL to Breakeven, TP1 Hit, TP2 Hit) is
+  // just progress and the signal stays "Ongoing" until it's actually
+  // closed or cancelled.
   // ══════════════════════════════════════════════════════════════
   const SIG_STAGE_OPTIONS = {
     waiting: [
@@ -1547,15 +1555,42 @@
       { key: 'cancelled', status: 'cancelled', result: 'pending', label: 'Cancelled', terminal: true }
     ],
     active: [
-      { key: 'tp1_hit', status: 'tp1_hit', result: 'win', label: 'TP1 Hit (1:2)', terminal: true },
-      { key: 'tp2_hit', status: 'tp2_hit', result: 'win', label: 'TP2 Hit', terminal: true },
-      { key: 'breakeven', status: 'breakeven', result: 'breakeven', label: 'Closed at Breakeven', terminal: true },
-      { key: 'stopped_out', status: 'stopped_out', result: 'loss', label: 'Stop Loss Hit', terminal: true },
-      { key: 'cancelled', status: 'cancelled', result: 'pending', label: 'Cancelled', terminal: true }
+      { key: 'breakeven', status: 'breakeven', label: 'SL to Breakeven', terminal: false },
+      { key: 'tp1_hit', status: 'tp1_hit', label: 'TP1 Hit', terminal: false },
+      { key: 'tp2_hit', status: 'tp2_hit', label: 'TP2 Hit', terminal: false },
+      { key: 'cancelled', status: 'cancelled', result: 'pending', label: 'Cancelled', terminal: true },
+      { key: 'closed', status: 'closed', label: 'Close', terminal: true }
+    ],
+    breakeven: [
+      { key: 'tp1_hit', status: 'tp1_hit', label: 'TP1 Hit', terminal: false },
+      { key: 'tp2_hit', status: 'tp2_hit', label: 'TP2 Hit', terminal: false },
+      { key: 'cancelled', status: 'cancelled', result: 'pending', label: 'Cancelled', terminal: true },
+      { key: 'closed', status: 'closed', label: 'Close', terminal: true }
+    ],
+    tp1_hit: [
+      { key: 'breakeven', status: 'breakeven', label: 'SL to Breakeven', terminal: false },
+      { key: 'tp2_hit', status: 'tp2_hit', label: 'TP2 Hit', terminal: false },
+      { key: 'cancelled', status: 'cancelled', result: 'pending', label: 'Cancelled', terminal: true },
+      { key: 'closed', status: 'closed', label: 'Close', terminal: true }
+    ],
+    tp2_hit: [
+      { key: 'breakeven', status: 'breakeven', label: 'SL to Breakeven', terminal: false },
+      { key: 'cancelled', status: 'cancelled', result: 'pending', label: 'Cancelled', terminal: true },
+      { key: 'closed', status: 'closed', label: 'Close', terminal: true }
     ]
   };
   SIG_STAGE_OPTIONS.partial = SIG_STAGE_OPTIONS.active;
   function _sigStageOptionsFor(status) { return SIG_STAGE_OPTIONS[status] || []; }
+
+  // "Close" doesn't have its own fixed outcome — it finalizes the signal
+  // using whatever progress was made before it: TP2 hit or TP1 hit both
+  // close as a win, breakeven closes flat, and closing straight from
+  // "active" (nothing hit yet) closes as a loss — i.e. stopped out.
+  function _sigCloseResultFor(status) {
+    if (status === 'tp2_hit' || status === 'tp1_hit') return { result: 'win', label: `Closed (${status === 'tp2_hit' ? 'TP2' : 'TP1'} Hit)` };
+    if (status === 'breakeven') return { result: 'breakeven', label: 'Closed at Breakeven' };
+    return { result: 'loss', label: 'Closed (Stopped Out)' };
+  }
 
   let _sigUpdatePick = null;
 
@@ -1596,11 +1631,11 @@
           <span class="sig-badge sig-badge-${s.status}"><span class="dot"></span>${STATUS_LABEL[s.status] || s.status}</span>
         </div>
         ${isTerminal ? `
-          <div class="sig-body-text" style="margin-bottom:16px">This signal is already closed (${STATUS_LABEL[s.status]}). You can still log a note below, but the stage won't change.</div>
+          <div class="sig-body-text" style="margin-bottom:16px">This signal is already ${STATUS_LABEL[s.status].toLowerCase()}. You can still log a note below, but the stage won't change.</div>
         ` : `
           <div class="form-label" style="margin-bottom:8px">Advance to</div>
           <div id="sig-stage-options" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px">
-            ${options.map(o => `<button type="button" class="sig-chip sig-stage-chip" data-stage="${o.key}" onclick="_sigPickStage('${o.key}')">${o.label}</button>`).join('')}
+            ${options.map(o => `<button type="button" class="sig-chip sig-stage-chip ${o.terminal ? 'sig-stage-chip-terminal' : ''}" data-stage="${o.key}" onclick="_sigPickStage('${o.key}')">${o.label}</button>`).join('')}
           </div>
         `}
         <div class="form-field"><label class="form-label">Price at this stage (optional)</label><input class="form-input" id="sig-update-price" type="number" step="any" placeholder="e.g. ${s.entry ?? ''}"></div>
@@ -1633,15 +1668,17 @@
       showToast('Add a note for this update', 'error'); return;
     }
 
-    const label = chosen ? chosen.label : 'Note added';
+    let label = chosen ? chosen.label : 'Note added';
     if (chosen) {
+      const closeInfo = chosen.status === 'closed' ? _sigCloseResultFor(s.status) : null;
+      if (closeInfo) label = closeInfo.label;
       s.status = chosen.status;
       if (chosen.status === 'active' && !s.entered_at) s.entered_at = Date.now();
-      // A terminal stage — TP hit, SL hit, breakeven, or cancelled — always
-      // marks the signal closed right here, so it never gets stuck "Ongoing".
+      // Only Cancelled and Close are terminal — that's the moment a signal
+      // actually leaves "Ongoing" and gets a final win/loss/breakeven result.
       if (chosen.terminal) {
         s.closed_at = Date.now();
-        s.result = chosen.result;
+        s.result = closeInfo ? closeInfo.result : chosen.result;
       }
     }
     s.updated_at = Date.now();
@@ -1655,7 +1692,7 @@
     _sigNotify(id, s.status, `${s.pair}: ${logNote}`);
     _sigRenderStats();
     _sigRenderActiveView();
-    showToast(chosen ? label : 'Update added', chosen && chosen.result === 'loss' ? 'error' : 'success');
+    showToast(chosen ? label : 'Update added', chosen && s.result === 'loss' ? 'error' : 'success');
     window._sigCloseUpdateModal();
     if (document.getElementById('signal-drawer')?.classList.contains('open')) window._sigOpenDrawer(id);
   };
@@ -1677,7 +1714,7 @@
     const s = _sigAll.find(x => x.id === id);
     if (!s) return;
     // Lightweight text export (kept dependency-free). Swap for a PDF lib if you want a styled PDF.
-    const text = `NxTGen Signal — ${s.pair} ${s.direction.toUpperCase()}\n\nStatus: ${STATUS_LABEL[s.status]}\nOrder Type: ${ORDER_TYPE_LABEL[s.order_type] || 'Market Execution'}\nEntry: ${_fmtNum(s.entry)}\nStop Loss: ${_fmtNum(s.stop_loss)}\nTP1/TP2: ${_fmtNum(s.tp1)} / ${_fmtNum(s.tp2)}\nRisk:Reward: 1:${s.risk_reward}\nConfidence: ${CONF_LABEL[s.confidence]} (${s.confidence_score}%)\nSession: ${(s.session || '').replace('_', '/')}\n\nTrade idea:\n${s.trade_idea || '—'}\n\nEntry reason:\n${s.entry_reason || '—'}\n\nInvalidation:\n${s.invalidation || '—'}\n`;
+    const text = `NxTGen Signal — ${s.pair} ${s.direction.toUpperCase()}\n\nStatus: ${STATUS_LABEL[s.status]}\nOrder Type: ${ORDER_TYPE_LABEL[s.order_type] || 'Market Execution'}\nEntry: ${_fmtNum(s.entry)}\nStop Loss: ${_fmtNum(s.stop_loss)}\nTP1/TP2: ${_fmtNum(s.tp1)} / ${_fmtNum(s.tp2)}\nRisk:Reward: 1:${s.risk_reward}\nConfidence: ${CONF_LABEL[s.confidence]} (${s.confidence_score}%)\nSession: ${(s.session || '').replace('_', '/')}\n\nMarket outlook:\n${s.market_outlook || '—'}\n\nInvalidation:\n${s.invalidation || '—'}\n`;
     const blob = new Blob([text], { type: 'text/plain' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -1861,8 +1898,6 @@
             <select class="form-select" id="sf-visibility"><option value="public" ${opt('public', s.visibility)}>Public</option><option value="premium" ${opt('premium', s.visibility)}>Premium</option><option value="private" ${opt('private', s.visibility)}>Private</option></select>
           </div>
 
-          <div class="form-field full"><label class="form-label">Trade Idea</label><textarea class="form-textarea" id="sf-idea" placeholder="Why this trade, in one or two sentences…">${s.trade_idea || ''}</textarea></div>
-          <div class="form-field full"><label class="form-label">Entry Reason</label><textarea class="form-textarea" id="sf-reason">${s.entry_reason || ''}</textarea></div>
           <div class="form-field full"><label class="form-label">Management Rules</label><textarea class="form-textarea" id="sf-mgmt">${s.management_rules || ''}</textarea></div>
           <div class="form-field full"><label class="form-label">Notes</label><textarea class="form-textarea" id="sf-notes" placeholder="Private notes — not shown publicly">${s.notes || ''}</textarea></div>
           <div class="form-field"><label class="form-label">Tags</label><input class="form-input" id="sf-tags" placeholder="breakout, htf-bias, news" value="${(s.tags || []).join(', ')}"></div>
@@ -1924,7 +1959,7 @@
       confidence: val('sf-confidence'), confidence_score: parseInt(val('sf-confscore')) || 0,
       session: val('sf-session'),
       visibility: val('sf-visibility'),
-      trade_idea: val('sf-idea') || '', entry_reason: val('sf-reason') || '', management_rules: val('sf-mgmt') || '',
+      management_rules: val('sf-mgmt') || '',
       notes: val('sf-notes') || '', tags: (val('sf-tags') || '').split(',').map(t => t.trim()).filter(Boolean),
       tradingview_link: val('sf-tvlink') || '', chart_screenshot_url: screenshot
     };
@@ -2119,7 +2154,7 @@
           <div class="sig-review-stat"><span>Confidence</span><strong>${CONF_LABEL[row.confidence] || '—'} (${row.confidence_score || 0}%)</strong></div>
           <div class="sig-review-stat"><span>Expected Profit</span><strong class="sig-pips-pos">+${expectedProfit}%</strong></div>
         </div>
-        ${row.trade_idea ? `<div class="sig-section-title" style="margin-top:14px">${icn('ic-bulb')} Trade Idea</div><div class="sig-body-text">${row.trade_idea}</div>` : ''}
+        ${row.market_outlook ? `<div class="sig-section-title" style="margin-top:14px">${icn('ic-chart-line')} Market Outlook</div><div class="sig-body-text">${row.market_outlook}</div>` : ''}
         <div id="sig-schedule-row" class="sig-schedule-row" style="display:none">
           <input type="datetime-local" id="sig-schedule-input" class="form-input">
           <button class="btn btn-primary" onclick="_sigConfirmSchedule()">${icn('ic-clock')} Confirm Schedule</button>
