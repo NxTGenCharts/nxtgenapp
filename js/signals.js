@@ -33,7 +33,7 @@
   };
   const STATUS_LABEL = {
     draft: 'Draft', scheduled: 'Scheduled',
-    waiting: 'Pending', active: 'Active', partial: 'Partial', breakeven: 'Breakeven',
+    waiting: 'Ongoing', active: 'Active', partial: 'Partial', breakeven: 'Breakeven',
     tp1_hit: 'Hit TP1', tp2_hit: 'Hit TP2', tp3_hit: 'Hit TP3',
     stopped_out: 'Stopped Out', cancelled: 'Cancelled', expired: 'Expired'
   };
@@ -117,7 +117,7 @@
   // Save one signal row to Supabase (update if it already has a real DB id,
   // insert + capture the generated id otherwise). Returns true/false and
   // shows a toast on failure instead of swallowing the error.
-  async function _sigCloudSave(row) {
+  async function _sigCloudSave(row, silent) {
     if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb)) { _saveDemoSignals(); return true; }
     const dbRow = _sigToDbRow(row);
     let error, data;
@@ -135,7 +135,12 @@
     }
     if (error) {
       console.error('signal save error:', error.message, error.details || '', error.hint || '');
-      showToast('Save failed: ' + error.message, 'error');
+      // Background autosave ticks pass silent=true — the modal's own
+      // "Save failed — will retry" label already tells the user, and a
+      // toast on every 4s retry while they're mid-typing is just noise.
+      // Manual Save Draft / Publish never pass silent, so real user-
+      // initiated saves still surface an error toast immediately.
+      if (!silent) showToast('Save failed: ' + error.message, 'error');
       return false;
     }
     return true;
@@ -255,8 +260,8 @@
   // Persist a single (already-mutated) row back to whichever store is active.
   // Awaited — callers should `await` this so the UI never claims "saved"
   // before the write actually lands.
-  async function _sigPersistSignal(row) {
-    return _sigCloudSave(row);
+  async function _sigPersistSignal(row, silent) {
+    return _sigCloudSave(row, silent);
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -631,7 +636,7 @@
     const wins = all.filter(s => s.result === 'win');
     const losses = all.filter(s => s.result === 'loss');
     const closed = all.filter(s => s.result === 'win' || s.result === 'loss');
-    const todays = all.filter(s => s.created_at >= today.getTime());
+    const todays = all.filter(s => !s.is_draft && s.status !== 'scheduled' && s.created_at >= today.getTime());
     const thisWeek = all.filter(s => s.created_at >= weekAgo);
     const prevWeek = all.filter(s => s.created_at >= prevWeekAgo && s.created_at < weekAgo);
 
@@ -1672,7 +1677,7 @@
     if (_sigModalState.draftId) {
       const existing = _sigAll.find(s => s.id === _sigModalState.draftId);
       Object.assign(existing, row, { id: _sigModalState.draftId, is_draft: true, status: 'draft', updated_at: Date.now() });
-      ok = await _sigPersistSignal(existing);
+      ok = await _sigPersistSignal(existing, true);
     } else if (_sigModalState.pendingDraft) {
       // A previous autosave attempt failed before Supabase assigned a real
       // id, so draftId is still null. Reuse that same in-memory row instead
@@ -1680,14 +1685,14 @@
       // up a new ghost draft that was never actually persisted.
       const draft = _sigModalState.pendingDraft;
       Object.assign(draft, row, { updated_at: Date.now() });
-      ok = await _sigCloudSave(draft);
+      ok = await _sigCloudSave(draft, true);
       if (ok) { _sigModalState.draftId = draft.id; _sigModalState.pendingDraft = null; _sigLogActivity(draft.id, 'created', 'Draft autosaved'); }
     } else {
       const draft = { ...row, id: null, is_draft: true, status: 'draft', created_at: Date.now(), updated_at: Date.now(),
         published_at: null, result: 'pending', pips: null, profit_percent: null, r_multiple: null,
         edited_at: null, edited_by: null, version_history: [], checklist: [], comments: [] };
       _sigAll.unshift(draft);
-      ok = await _sigCloudSave(draft);
+      ok = await _sigCloudSave(draft, true);
       if (ok) { _sigModalState.draftId = draft.id; _sigLogActivity(draft.id, 'created', 'Draft autosaved'); }
       else { _sigModalState.pendingDraft = draft; }
     }
