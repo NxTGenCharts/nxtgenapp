@@ -7,6 +7,21 @@ function buildAccounts() {
   _renderMilestones();
 }
 
+/* ── Account grid section collapse/expand (Active + Archived) ──
+   State persists per-browser in localStorage, same pattern used elsewhere
+   in the app (e.g. dash_cal_visible). Both sections default to expanded. */
+function _accSectionVisible(section) {
+  try {
+    const v = localStorage.getItem('nx_acc_section_' + section);
+    return v === null ? true : v === '1';
+  } catch (e) { return true; }
+}
+function _accToggleSection(section) {
+  const next = !_accSectionVisible(section);
+  try { localStorage.setItem('nx_acc_section_' + section, next ? '1' : '0'); } catch (e) {}
+  _renderAccGrid();
+}
+
 /* ── Account cards ── */
 function _renderAccGrid() {
   const accounts = _getCustomAccounts();
@@ -46,10 +61,19 @@ function _renderAccGrid() {
       `<span class="acc-dot ${t.outcome==='Win'?'w':t.outcome==='Loss'?'l':'b'}"></span>`
     ).join('');
     const isArchived    = a.status === 'archived';
-    const isChalDone    = !isArchived && _accChallengeIsComplete(a, pnlDollars, _cardAccSize);
+    // Challenge completion is a fact about the account's trading history — it
+    // doesn't un-happen just because the account was later archived, so this
+    // is computed regardless of archived state.
+    const isChalDone    = _accChallengeIsComplete(a, pnlDollars, _cardAccSize);
     const statusClass   = isArchived ? 'archived' : (isChalDone ? 'completed' : 'active');
     const statusLabel   = isArchived ? 'Archived' : (isChalDone ? 'Completed' : 'Active');
     const statusIcon    = isChalDone ? `<svg class="icn" aria-hidden="true" style="width:11px;height:11px;margin-right:3px;vertical-align:-1.5px"><use href="#ic-check-c"></use></svg>` : '';
+    // When an already-archived account also hit its challenge profit target,
+    // show a second small "Completed" pill alongside "Archived" so that fact
+    // isn't lost on archive.
+    const archivedCompletedBadge = (isArchived && isChalDone)
+      ? `<span class="acc-status completed" style="margin-left:4px"><svg class="icn" aria-hidden="true" style="width:11px;height:11px;margin-right:3px;vertical-align:-1.5px"><use href="#ic-check-c"></use></svg>Completed</span>`
+      : '';
     // MT5 integration
     const mt5cfg        = a.mt5;
     const mt5Enabled    = !!mt5cfg?.enabled;
@@ -76,7 +100,7 @@ function _renderAccGrid() {
     <div class="acc-card${isArchived ? ' acc-card-archived' : ''}" onclick="${isArchived ? '' : `accShowDetail('${name.replace(/'/g,"\\'")}')` }">
       <div class="acc-card-head">
         <div class="acc-name">${name}${a.type ? `<span class="acc-type-badge">${a.type}</span>` : ''}${a.type === 'Challenge' && a.challengePhase ? `<span class="acc-type-badge">${a.challengePhase}</span>` : ''}${mt5HeadBadge}</div>
-        <span class="acc-status ${statusClass}">${statusIcon}${statusLabel}</span>
+        <span style="display:flex;align-items:center"><span class="acc-status ${statusClass}">${statusIcon}${statusLabel}</span>${archivedCompletedBadge}</span>
       </div>
       <div class="acc-row"><span class="k">Trades</span><span class="v">${at.length || '—'}</span></div>
       <div class="acc-row"><span class="k">Win Rate</span><span class="v" style="color:${wrColor}">${wr !== null ? wr + '%' : '—'}</span></div>
@@ -88,11 +112,39 @@ function _renderAccGrid() {
     </div>`;
   };
 
-  let html = active.map(renderCard).join('');
-  if (archived.length) {
-    html += `<div class="acc-archived-divider"><span>Archived (${archived.length})</span></div>`;
-    html += archived.map(renderCard).join('');
+  const activeVisible   = _accSectionVisible('active');
+  const archivedVisible = _accSectionVisible('archived');
+
+  const sectionToggleBtn = (section, visible) => `
+    <button class="acc-section-toggle-btn" title="${visible ? 'Hide' : 'Show'} ${section} accounts"
+      onclick="event.stopPropagation();_accToggleSection('${section}')">
+      <svg class="icn acc-section-chevron${visible ? ' open' : ''}" aria-hidden="true"><use href="#ic-chevron-right"></use></svg>
+      ${visible ? 'Hide' : 'Show'}
+    </button>`;
+
+  let html = '';
+
+  // Active section — only show a collapsible header when there's also an
+  // archived section to distinguish it from (otherwise the plain grid is
+  // enough), but always let the user collapse/expand it.
+  html += `<div class="acc-archived-divider acc-section-divider" onclick="_accToggleSection('active')">
+    <span>Active (${active.length})</span>
+    ${sectionToggleBtn('active', activeVisible)}
+  </div>`;
+  if (activeVisible) {
+    html += active.length
+      ? active.map(renderCard).join('')
+      : `<div class="acc-empty" style="grid-column:1/-1">No active accounts.</div>`;
   }
+
+  if (archived.length) {
+    html += `<div class="acc-archived-divider acc-section-divider" onclick="_accToggleSection('archived')">
+      <span>Archived (${archived.length})</span>
+      ${sectionToggleBtn('archived', archivedVisible)}
+    </div>`;
+    if (archivedVisible) html += archived.map(renderCard).join('');
+  }
+
   grid.innerHTML = html;
 }
 
@@ -540,17 +592,23 @@ function accShowDetail(name) {
 
   const isArchived = acc.status === 'archived';
   const netProfitPct = accSize > 0 ? (m.netDollars / accSize) * 100 : null;
-  const isChalDone  = !isArchived && _accChallengeIsComplete(acc, m.netDollars, accSize);
+  // Challenge completion is a historical fact — keep showing it even after
+  // the account has been archived, instead of it silently disappearing.
+  const isChalDone  = _accChallengeIsComplete(acc, m.netDollars, accSize);
   const heroStatusClass = isArchived ? 'archived' : (isChalDone ? 'completed' : 'active');
   const heroStatusLabel = isArchived
     ? 'Archived'
     : (isChalDone
         ? `<svg class="icn" aria-hidden="true" style="width:11px;height:11px;margin-right:3px;vertical-align:-1.5px"><use href="#ic-check-c"></use></svg>Completed`
         : 'Active');
+  const heroCompletedBadge = (isArchived && isChalDone)
+    ? `<span class="acc-hero-badge status-completed"><svg class="icn" aria-hidden="true" style="width:11px;height:11px;margin-right:3px;vertical-align:-1.5px"><use href="#ic-check-c"></use></svg>Completed</span>`
+    : '';
 
   // ── Hero ──
   const heroBadges = `
     <span class="acc-hero-badge status-${heroStatusClass}">${heroStatusLabel}</span>
+    ${heroCompletedBadge}
     ${acc.type ? `<span class="acc-hero-badge">${acc.type}</span>` : ''}
     ${acc.type === 'Challenge' && acc.challengePhase ? `<span class="acc-hero-badge">${acc.challengePhase}</span>` : ''}
   `;

@@ -2356,6 +2356,18 @@ body{
 .acc-archived-divider::after {
   content:''; flex:1; height:1px; background:var(--border2);
 }
+.acc-section-divider { cursor:pointer; user-select:none; }
+.acc-section-toggle-btn {
+  flex:none; display:inline-flex; align-items:center; gap:4px;
+  background:transparent; border:1px solid var(--glass-border);
+  color:var(--text3); font-size:9.5px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.06em;
+  padding:3px 9px; border-radius:var(--r-full);
+  cursor:pointer; transition:var(--t-fast); font-family:var(--font-body);
+}
+.acc-section-toggle-btn:hover { background:var(--glass-2); color:var(--text); border-color:var(--glass-border-h); }
+.acc-section-chevron { width:10px; height:10px; transition:transform .18s var(--ease-out); }
+.acc-section-chevron.open { transform:rotate(90deg); }
 .acc-restore-btn {
   margin-top:10px; width:100%; padding:6px;
   background:transparent; border:1px solid var(--glass-border-h);
