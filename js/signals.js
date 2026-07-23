@@ -84,11 +84,21 @@
   ];
   const SIGNAL_TS_FIELDS = ['expires_at', 'published_at', 'entered_at', 'closed_at', 'scheduled_at', 'edited_at', 'created_at', 'updated_at'];
 
+  // Columns in journal_signals that are declared NOT NULL. If a row being
+  // saved never set these (e.g. a brand-new draft built before `archived`
+  // existed on the object), we must fall back to their schema default
+  // instead of sending `null` — Postgres will reject a null insert even
+  // though the column has a default, because an explicit null overrides it.
+  const SIGNAL_NOT_NULL_DEFAULTS = { archived: false, checklist: [], version_history: [] };
+
   function _sigToDbRow(row) {
     const out = { owner_id: (typeof _currentUser !== 'undefined' && _currentUser) ? _currentUser.id : undefined };
     SIGNAL_DB_COLUMNS.forEach(k => {
       let v = row[k];
       if (SIGNAL_TS_FIELDS.includes(k)) v = _sigIso(v);
+      if ((v === undefined || v === null) && Object.prototype.hasOwnProperty.call(SIGNAL_NOT_NULL_DEFAULTS, k)) {
+        v = SIGNAL_NOT_NULL_DEFAULTS[k];
+      }
       out[k] = v === undefined ? null : v;
     });
     return out;
