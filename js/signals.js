@@ -124,8 +124,6 @@
     out.tags = out.tags || [];
     out.confluences = out.confluences || [];
     out.comments = out.comments || [];
-    out.updates = out.updates || [];
-    out.activity = out.activity || [];
     return out;
   }
 
@@ -172,35 +170,20 @@
   }
 
   // Best-effort side-channel writes (updates timeline / activity log /
-  // notifications). These never block the main save and never throw.
-  // In local/demo mode there's no `journal_signal_updates` table to write
-  // to, so the entries are kept right on the signal row itself and
-  // persisted to localStorage — otherwise the drawer's Updates/Activity
-  // panels were left stuck on "Loading…" forever since nothing ever
-  // resolved them.
+  // notifications). These write straight to Supabase so the timeline stays
+  // in sync across devices. They're logged to console on failure rather
+  // than blocking the main save, but they no longer silently no-op —
+  // see the note on _sigLoadUpdatesLog/_sigLoadActivityLog below for why
+  // these were appearing to do nothing.
   async function _sigLogUpdate(signalId, status, note, price) {
-    if (_sigUsingSupabase && typeof sb !== 'undefined' && sb && _sigIsDbId(signalId)) {
-      try { await sb.from('journal_signal_updates').insert({ signal_id: signalId, status: status || null, note: note || null, price: price ?? null }); }
-      catch (e) { console.error('signal update log failed:', e); }
-      return;
-    }
-    const s = _sigAll.find(x => x.id === signalId);
-    if (!s) return;
-    s.updates = s.updates || [];
-    s.updates.push({ status: status || null, note: note || null, price: price ?? null, created_at: Date.now() });
-    _saveDemoSignals();
+    if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb) || !_sigIsDbId(signalId)) return;
+    try { await sb.from('journal_signal_updates').insert({ signal_id: signalId, status: status || null, note: note || null, price: price ?? null }); }
+    catch (e) { console.error('signal update log failed:', e); }
   }
   async function _sigLogActivity(signalId, action, detail) {
-    if (_sigUsingSupabase && typeof sb !== 'undefined' && sb && _currentUser && _sigIsDbId(signalId)) {
-      try { await sb.from('journal_signal_activity').insert({ signal_id: signalId, owner_id: _currentUser.id, action, detail: detail || null }); }
-      catch (e) { console.error('signal activity log failed:', e); }
-      return;
-    }
-    const s = _sigAll.find(x => x.id === signalId);
-    if (!s) return;
-    s.activity = s.activity || [];
-    s.activity.unshift({ action, detail: detail || null, created_at: Date.now() });
-    _saveDemoSignals();
+    if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb) || !_currentUser) return;
+    try { await sb.from('journal_signal_activity').insert({ signal_id: _sigIsDbId(signalId) ? signalId : null, owner_id: _currentUser.id, action, detail: detail || null }); }
+    catch (e) { console.error('signal activity log failed:', e); }
   }
   async function _sigNotify(signalId, type, message) {
     if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb) || !_currentUser) return;
@@ -1369,49 +1352,49 @@
     drawer.innerHTML = _sigDrawerContent(s);
     requestAnimationFrame(() => drawer.classList.add('open'));
     // Local/demo signals already have their updates & activity rendered
-    // synchronously by _sigDrawerContent (they live on the row itself).
-    // Only DB-backed signals need an async fetch to fill in the "Loading…"
-    // placeholder.
+    // Updates & Activity are fetched fresh from Supabase every time the
+    // drawer opens, so the panel always reflects what's actually saved in
+    // the cloud rather than whatever was last rendered on this device.
     if (_sigIsDbId(s.id)) { _sigLoadUpdatesLog(s.id); _sigLoadActivityLog(s.id); }
   };
 
-  function _sigRenderUpdatesLocal(s) {
-    const data = s.updates || [];
-    if (!data.length) return `<div class="sig-body-text">No updates yet.</div>`;
-    return data.map(u => `
-      <div class="sig-version-item"><span class="dot"></span>${(u.note || STATUS_LABEL[u.status] || u.status || '')}
-        <span class="sig-version-ts">${new Date(u.created_at).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}</span>
-      </div>`).join('');
-  }
-  function _sigRenderActivityLocal(s) {
-    const data = s.activity || [];
-    if (!data.length) return `<div class="sig-body-text">No activity recorded yet.</div>`;
-    return data.map(a => `
-      <div class="sig-version-item"><span class="dot"></span>${a.action}${a.detail ? ' — ' + a.detail : ''}
-        <span class="sig-version-ts">${_timeAgo(a.created_at)}</span>
-      </div>`).join('');
-  }
   async function _sigLoadUpdatesLog(id) {
     const el = document.getElementById('sig-updates-log-' + id);
     if (!el || !(_sigUsingSupabase && typeof sb !== 'undefined' && sb)) return;
-    const { data, error } = await sb.from('journal_signal_updates').select('*').eq('signal_id', id).order('created_at', { ascending: true });
-    if (error) { el.innerHTML = `<div class="sig-body-text">Couldn't load updates.</div>`; return; }
-    if (!data || !data.length) { el.innerHTML = `<div class="sig-body-text">No updates yet.</div>`; return; }
-    el.innerHTML = data.map(u => `
-      <div class="sig-version-item"><span class="dot"></span>${(u.note || STATUS_LABEL[u.status] || u.status || '')}
-        <span class="sig-version-ts">${new Date(u.created_at).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}</span>
-      </div>`).join('');
+    // This previously had no try/catch. If the `journal_signal_updates`
+    // query threw instead of resolving with an {error} object (e.g. the
+    // table wasn't migrated yet, or a transient network failure), this
+    // function would blow up mid-await and never touch el.innerHTML again
+    // — leaving the panel stuck on "Loading updates…" forever with no way
+    // to tell it had actually failed.
+    try {
+      const { data, error } = await sb.from('journal_signal_updates').select('*').eq('signal_id', id).order('created_at', { ascending: true });
+      if (error) throw error;
+      if (!data || !data.length) { el.innerHTML = `<div class="sig-body-text">No updates yet.</div>`; return; }
+      el.innerHTML = data.map(u => `
+        <div class="sig-version-item"><span class="dot"></span>${(u.note || STATUS_LABEL[u.status] || u.status || '')}
+          <span class="sig-version-ts">${new Date(u.created_at).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}</span>
+        </div>`).join('');
+    } catch (e) {
+      console.error('load updates failed:', e);
+      el.innerHTML = `<div class="sig-body-text">Couldn't load updates. <button class="btn" style="padding:2px 8px;font-size:11px;margin-left:6px" onclick="_sigLoadUpdatesLog('${id}')">Retry</button></div>`;
+    }
   }
   async function _sigLoadActivityLog(id) {
     const el = document.getElementById('sig-activity-log-' + id);
     if (!el || !(_sigUsingSupabase && typeof sb !== 'undefined' && sb)) return;
-    const { data, error } = await sb.from('journal_signal_activity').select('*').eq('signal_id', id).order('created_at', { ascending: false }).limit(50);
-    if (error) { el.innerHTML = `<div class="sig-body-text">Couldn't load activity.</div>`; return; }
-    if (!data || !data.length) { el.innerHTML = `<div class="sig-body-text">No activity recorded yet.</div>`; return; }
-    el.innerHTML = data.map(a => `
-      <div class="sig-version-item"><span class="dot"></span>${a.action}${a.detail ? ' — ' + a.detail : ''}
-        <span class="sig-version-ts">${_timeAgo(new Date(a.created_at).getTime())}</span>
-      </div>`).join('');
+    try {
+      const { data, error } = await sb.from('journal_signal_activity').select('*').eq('signal_id', id).order('created_at', { ascending: false }).limit(50);
+      if (error) throw error;
+      if (!data || !data.length) { el.innerHTML = `<div class="sig-body-text">No activity recorded yet.</div>`; return; }
+      el.innerHTML = data.map(a => `
+        <div class="sig-version-item"><span class="dot"></span>${a.action}${a.detail ? ' — ' + a.detail : ''}
+          <span class="sig-version-ts">${_timeAgo(new Date(a.created_at).getTime())}</span>
+        </div>`).join('');
+    } catch (e) {
+      console.error('load activity failed:', e);
+      el.innerHTML = `<div class="sig-body-text">Couldn't load activity. <button class="btn" style="padding:2px 8px;font-size:11px;margin-left:6px" onclick="_sigLoadActivityLog('${id}')">Retry</button></div>`;
+    }
   }
   window._sigCloseDrawer = function () {
     const d = document.getElementById('signal-drawer');
@@ -1447,7 +1430,7 @@
     ${_sigRenderTimeline(s)}
 
     <div class="sig-section-title">${icn('ic-history')} Updates</div>
-    <div class="sig-version-list" id="sig-updates-log-${s.id}">${s.is_draft ? '<div class="sig-body-text">Publish this signal to start a timeline.</div>' : (_sigIsDbId(s.id) ? '<div class="sig-body-text">Loading updates…</div>' : _sigRenderUpdatesLocal(s))}</div>
+    <div class="sig-version-list" id="sig-updates-log-${s.id}"><div class="sig-body-text">${s.is_draft ? 'Publish this signal to start a timeline.' : 'Loading updates…'}</div></div>
 
     <div class="sig-chart-frame">
       ${s.chart_screenshot_url ? `<img src="${s.chart_screenshot_url}" alt="Chart">` : `${icn('ic-image')} <span style="margin-left:6px">No chart screenshot yet</span>`}
@@ -1487,7 +1470,7 @@
     ` : ''}
 
     <div class="sig-section-title">${icn('ic-activity')} Activity Log</div>
-    <div class="sig-version-list" id="sig-activity-log-${s.id}">${s.is_draft ? '<div class="sig-body-text">No activity yet.</div>' : (_sigIsDbId(s.id) ? '<div class="sig-body-text">Loading…</div>' : _sigRenderActivityLocal(s))}</div>
+    <div class="sig-version-list" id="sig-activity-log-${s.id}"><div class="sig-body-text">${s.is_draft ? 'No activity yet.' : 'Loading…'}</div></div>
 
     <div style="display:flex;gap:8px;margin-top:20px;flex-wrap:wrap">
       <button class="btn" onclick="_sigToggleLike('${s.id}')">${icn('ic-thumbs-up')} Like</button>
