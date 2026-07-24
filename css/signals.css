@@ -783,7 +783,7 @@
 .sig-dots-btn{display:flex;align-items:center;gap:2px}
 .sig-dots-btn .icn{width:3px;height:3px;fill:currentColor}
 .sig-actions-menu{
-  position:fixed;z-index:2000;min-width:190px;background:var(--surface-2, #12151d);
+  position:fixed;z-index:2000;min-width:190px;background:var(--glass-1);
   border:1px solid var(--glass-border-h);border-radius:var(--r-md);padding:6px;
   box-shadow:0 12px 32px rgba(0,0,0,0.45);backdrop-filter:var(--blur-md);-webkit-backdrop-filter:var(--blur-md);
   display:flex;flex-direction:column;gap:1px;animation:sig-menu-in .15s var(--ease-out);

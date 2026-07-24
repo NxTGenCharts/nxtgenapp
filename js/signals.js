@@ -52,6 +52,10 @@
     buy_stop: 'Buy Stop', sell_stop: 'Sell Stop'
   };
   const PENDING_ORDER_TYPES = ['buy_limit', 'sell_limit', 'buy_stop', 'sell_stop'];
+  // Sessions in use across the app — Sydney/Tokyo are folded into "Asian",
+  // and the London/NY Overlap session has been retired.
+  const SESSIONS = ['asian', 'london', 'new_york'];
+  const SESSION_LABEL = { asian: 'Asian', london: 'London', new_york: 'New York' };
   let _sigDraftSearch = '';
   let _sigDraftSort = 'modified';
 
@@ -248,7 +252,7 @@
       { p: 'Boom 1000', m: 'synthetic', dec: 2, base: 9520 }
     ];
     const confidences = ['low', 'medium', 'high', 'very_high'];
-    const sessions = ['sydney', 'tokyo', 'london', 'new_york', 'london_ny_overlap'];
+    const sessions = SESSIONS;
     const confluenceOptions = ['Liquidity Sweep', 'FVG', 'Order Block', 'SMT', 'Structure Shift', 'Volume Spike'];
 
     const rows = [];
@@ -512,7 +516,7 @@
     timeframe: [{ id: 'today', label: 'Today' }, { id: 'week', label: 'This Week' }, { id: 'month', label: 'This Month' }],
     confidence: [{ id: 'highconf', label: 'High Confidence' }, { id: 'lowconf', label: 'Low Confidence' }],
     rr: [{ id: 'highrr', label: 'High RR' }],
-    session: [{ id: 'london', label: 'London' }, { id: 'new_york', label: 'New York' }, { id: 'tokyo', label: 'Tokyo' }, { id: 'sydney', label: 'Sydney' }, { id: 'london_ny_overlap', label: 'Overlap' }]
+    session: [{ id: 'asian', label: 'Asian' }, { id: 'london', label: 'London' }, { id: 'new_york', label: 'New York' }]
   };
   // quick one-tap presets — apply a whole combo in one click
   const QUICK_PRESETS = [
@@ -811,7 +815,10 @@
   }
 
   function _sigComputeMetrics() {
-    const all = _sigAll;
+    // Drafts are unpublished — they must never count towards any published-
+    // signal stat (market breakdown, session performance, confidence,
+    // RR distribution, etc.), so they're excluded right at the source.
+    const all = _sigAll.filter(s => !s.is_draft);
     const now = Date.now();
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const weekAgo = now - 7 * 86400000;
@@ -1061,7 +1068,7 @@
       _sigMiniBar('Signal Success Rate', m.tpHitPct.toFixed(0) + '%', m.tpHitPct, m.tpHitPct >= 50 ? 'green' : 'red'),
       _sigMiniBar('Average Confidence', m.avgConf.toFixed(0) + '%', m.avgConf, 'gold'),
       _sigMiniStat('Best Performing Pair', m.bestPair, 'green'),
-      _sigMiniStat('Best Session', (m.bestSession || '—').replace('_', '/'), 'blue'),
+      _sigMiniStat('Best Session', SESSION_LABEL[m.bestSession] || (m.bestSession || '—'), 'blue'),
       _sigMiniStat('Signals This Week', m.thisWeek.length),
       _sigMiniStat('Signals This Month', _sigAll.filter(s => !s.is_draft && s.created_at >= Date.now() - 30 * 86400000).length),
       _sigMiniStat('Pending Signals', m.pending, 'gold'),
@@ -1175,7 +1182,7 @@
         <td>${_sigOrderTypeBadge(s)}</td>
         <td>${_sigRrViz(s)}</td>
         <td>${_sigConfBadge(s)}</td>
-        <td style="text-transform:capitalize">${(s.session || '').replace('_', '/')}</td>
+        <td>${SESSION_LABEL[s.session] || (s.session || '—')}</td>
         <td>${_timeAgo(s.created_at)}</td>
         <td>${_sigResultBadge(s)}</td>
         <td class="${em.pips > 0 ? 'sig-pips-pos' : em.pips < 0 ? 'sig-pips-neg' : ''}">${_sigHasOutcome(s) ? (em.pips > 0 ? '+' : '') + em.pips.toFixed(1) : '—'}</td>
@@ -1345,7 +1352,7 @@
         </svg>
         <div class="sig-card-meta-row">
           <span>${icn('ic-clock', '')} ${_timeAgo(s.created_at)}</span>
-          <span>${(s.session || '').replace('_', '/')}</span>
+          <span>${SESSION_LABEL[s.session] || (s.session || '—')}</span>
         </div>
         <div class="sig-card-foot">
           <div class="sig-card-social">
@@ -1371,7 +1378,7 @@
     const daysInMonth = new Date(y, m + 1, 0).getDate();
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const isCurrentMonth = today.getFullYear() === y && today.getMonth() === m;
-    const SESSION_ABBR = { london: 'LDN', new_york: 'NY', tokyo: 'TOK', sydney: 'SYD', london_ny_overlap: 'LDN/NY' };
+    const SESSION_ABBR = { asian: 'ASN', london: 'LDN', new_york: 'NY' };
 
     const byDay = {};
     rows.forEach(s => {
@@ -1533,7 +1540,7 @@
     const totalR = closed.reduce((a, s) => a + _sigEffectiveMath(s).r_multiple, 0);
     const expectancy = closed.length ? (totalR / closed.length).toFixed(2) : '0.00';
 
-    const SESSION_LABEL = { london: 'London', new_york: 'New York', tokyo: 'Tokyo', sydney: 'Sydney', london_ny_overlap: 'London/NY Overlap' };
+    // SESSION_LABEL is defined once, top-level, and shared across the page.
 
     // ── Performance by pair ──
     const byPair = {};
@@ -1782,7 +1789,7 @@
     <div class="sig-body-text">${s.management_rules || '—'}</div>
 
     <div class="sig-section-title">${icn('ic-clock')} Session &amp; Duration</div>
-    <div class="sig-body-text" style="text-transform:capitalize">${(s.session || '—').replace('_', '/')} · Risk : Reward 1:${s.risk_reward}</div>
+    <div class="sig-body-text">${SESSION_LABEL[s.session] || (s.session || '—')} · Risk : Reward 1:${s.risk_reward}</div>
 
     <div class="sig-section-title">${icn('ic-speech')} Comments</div>
     <div id="sig-comments-${s.id}">${(s.comments || []).map(c => `
@@ -2194,7 +2201,7 @@
   window._sigCopyDetails = function (id) {
     const s = _sigAll.find(x => x.id === id);
     if (!s) return;
-    const text = `${s.pair} ${s.direction.toUpperCase()} (${ORDER_TYPE_LABEL[s.order_type] || 'Market Execution'})\nEntry: ${_fmtNum(s.entry)}\nSL: ${_fmtNum(s.stop_loss)}\nTP1: ${_fmtNum(s.tp1)}  TP2: ${_fmtNum(s.tp2)}\nRR: 1:${s.risk_reward}\nConfidence: ${CONF_LABEL[s.confidence]} (${s.confidence_score}%)\nSession: ${(s.session || '').replace('_', '/')}`;
+    const text = `${s.pair} ${s.direction.toUpperCase()} (${ORDER_TYPE_LABEL[s.order_type] || 'Market Execution'})\nEntry: ${_fmtNum(s.entry)}\nSL: ${_fmtNum(s.stop_loss)}\nTP1: ${_fmtNum(s.tp1)}  TP2: ${_fmtNum(s.tp2)}\nRR: 1:${s.risk_reward}\nConfidence: ${CONF_LABEL[s.confidence]} (${s.confidence_score}%)\nSession: ${SESSION_LABEL[s.session] || (s.session || '—')}`;
     navigator.clipboard?.writeText(text);
     showToast('Signal details copied', 'success');
   };
@@ -2208,7 +2215,7 @@
     const s = _sigAll.find(x => x.id === id);
     if (!s) return;
     // Lightweight text export (kept dependency-free). Swap for a PDF lib if you want a styled PDF.
-    const text = `NxTGen Signal — ${s.pair} ${s.direction.toUpperCase()}\n\nStatus: ${STATUS_LABEL[s.status]}\nOrder Type: ${ORDER_TYPE_LABEL[s.order_type] || 'Market Execution'}\nEntry: ${_fmtNum(s.entry)}\nStop Loss: ${_fmtNum(s.stop_loss)}\nTP1/TP2: ${_fmtNum(s.tp1)} / ${_fmtNum(s.tp2)}\nRisk:Reward: 1:${s.risk_reward}\nConfidence: ${CONF_LABEL[s.confidence]} (${s.confidence_score}%)\nSession: ${(s.session || '').replace('_', '/')}\n\nMarket outlook:\n${s.market_outlook || '—'}\n\nInvalidation:\n${s.invalidation || '—'}\n`;
+    const text = `NxTGen Signal — ${s.pair} ${s.direction.toUpperCase()}\n\nStatus: ${STATUS_LABEL[s.status]}\nOrder Type: ${ORDER_TYPE_LABEL[s.order_type] || 'Market Execution'}\nEntry: ${_fmtNum(s.entry)}\nStop Loss: ${_fmtNum(s.stop_loss)}\nTP1/TP2: ${_fmtNum(s.tp1)} / ${_fmtNum(s.tp2)}\nRisk:Reward: 1:${s.risk_reward}\nConfidence: ${CONF_LABEL[s.confidence]} (${s.confidence_score}%)\nSession: ${SESSION_LABEL[s.session] || (s.session || '—')}\n\nMarket outlook:\n${s.market_outlook || '—'}\n\nInvalidation:\n${s.invalidation || '—'}\n`;
     const blob = new Blob([text], { type: 'text/plain' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -2384,8 +2391,8 @@
           <div class="form-field"><label class="form-label">Confidence Score %</label><input class="form-input" id="sf-confscore" type="number" min="0" max="100" value="${s.confidence_score ?? 75}"></div>
           <div class="form-field"><label class="form-label">Session</label>
             <select class="form-select" id="sf-session">
-              <option value="sydney" ${opt('sydney', s.session)}>Sydney</option><option value="tokyo" ${opt('tokyo', s.session)}>Tokyo</option><option value="london" ${opt('london', s.session)}>London</option>
-              <option value="new_york" ${opt('new_york', s.session)}>New York</option><option value="london_ny_overlap" ${opt('london_ny_overlap', s.session)}>London/NY Overlap</option>
+              <option value="asian" ${opt('asian', s.session)}>Asian</option><option value="london" ${opt('london', s.session)}>London</option>
+              <option value="new_york" ${opt('new_york', s.session)}>New York</option>
             </select>
           </div>
           <div class="form-field"><label class="form-label">Visibility</label>
