@@ -680,8 +680,10 @@
     const losses = all.filter(s => s.result === 'loss');
     const closed = all.filter(s => s.result === 'win' || s.result === 'loss');
     const todays = all.filter(s => !s.is_draft && s.status !== 'scheduled' && s.created_at >= today.getTime());
-    const thisWeek = all.filter(s => s.created_at >= weekAgo);
-    const prevWeek = all.filter(s => s.created_at >= prevWeekAgo && s.created_at < weekAgo);
+    // Drafts aren't published signals — they shouldn't inflate "this week" /
+    // "this month" counts (Active Signals footer, More Analytics tiles).
+    const thisWeek = all.filter(s => !s.is_draft && s.created_at >= weekAgo);
+    const prevWeek = all.filter(s => !s.is_draft && s.created_at >= prevWeekAgo && s.created_at < weekAgo);
 
     const weekClosed = closed.filter(s => s.created_at >= weekAgo);
     const weekAcc = weekClosed.length ? (weekClosed.filter(s => s.result === 'win').length / weekClosed.length * 100) : 0;
@@ -918,7 +920,7 @@
       _sigMiniStat('Best Performing Pair', m.bestPair, 'green'),
       _sigMiniStat('Best Session', (m.bestSession || '—').replace('_', '/'), 'blue'),
       _sigMiniStat('Signals This Week', m.thisWeek.length),
-      _sigMiniStat('Signals This Month', _sigAll.filter(s => s.created_at >= Date.now() - 30 * 86400000).length),
+      _sigMiniStat('Signals This Month', _sigAll.filter(s => !s.is_draft && s.created_at >= Date.now() - 30 * 86400000).length),
       _sigMiniStat('Pending Signals', m.pending, 'gold'),
       _sigMiniStat('Expired Signals', m.expiredCt, 'red'),
       _sigMiniStat('High Confidence Signals', m.highConf, 'green'),
@@ -1627,6 +1629,40 @@
     return { result: 'loss', label: 'Closed (Stopped Out)' };
   }
 
+  // Turn a stage transition into real numbers (pips / R-multiple / profit %)
+  // instead of leaving them null forever — this is what Total Pips, Total R,
+  // and Monthly Profit are actually summed from, so a "win" that never gets
+  // a number attached to it will always add up to 0. Uses the price the
+  // user typed into "Price at this stage" when given; otherwise falls back
+  // to the known level for that stage (TP1/TP2/entry/stop-loss) so a trade
+  // still gets credited even if no custom price was entered.
+  function _sigTradeMath(s, stage, customPrice) {
+    const entry = +s.entry, sl = +s.stop_loss;
+    const none = { pips: null, r_multiple: null, profit_percent: null };
+    if (!entry || !sl || entry === sl) return none;
+    const riskDist = Math.abs(entry - sl);
+    const dir = s.direction === 'buy' ? 1 : -1;
+    let exitPrice = customPrice;
+    if (exitPrice == null || isNaN(exitPrice)) {
+      if (stage === 'tp1_hit' && s.tp1 != null) exitPrice = +s.tp1;
+      else if (stage === 'tp2_hit' && s.tp2 != null) exitPrice = +s.tp2;
+      else if (stage === 'breakeven') exitPrice = entry;
+      else if (stage === 'stopped_out') exitPrice = sl;
+    }
+    if (exitPrice == null || isNaN(exitPrice)) return none;
+    const rewardDist = (exitPrice - entry) * dir;
+    const rMultiple = +(rewardDist / riskDist).toFixed(2);
+    const riskPct = +s.risk_percent || 1;
+    const profitPercent = +(rMultiple * riskPct).toFixed(2);
+    // "Pips" — scale the raw price distance the way most FX traders read
+    // it (×10,000, or ×100 for JPY pairs); other markets just get the raw
+    // price distance, which is the closest generic equivalent available.
+    let pipMult = 1;
+    if (s.market === 'forex') pipMult = /JPY/i.test(s.pair || '') ? 100 : 10000;
+    const pips = +(rewardDist * pipMult).toFixed(1);
+    return { pips, r_multiple: rMultiple, profit_percent: profitPercent };
+  }
+
   window._sigOpenUpdateModal = function (id) {
     const s = _sigAll.find(x => x.id === id); if (!s) return;
     let overlay = document.getElementById('sig-update-modal-overlay');
@@ -1751,7 +1787,8 @@
 
     let label = chosen ? chosen.label : 'Note added';
     if (chosen) {
-      let closeInfo = chosen.status === 'closed' ? _sigCloseResultFor(s.status) : null;
+      const priorStatus = s.status;
+      let closeInfo = chosen.status === 'closed' ? _sigCloseResultFor(priorStatus) : null;
       if (chosen.status === 'closed') {
         // The user's explicit Winner/Loser/Breakeven pick always wins over
         // whatever the prior TP progress would have implied.
@@ -1769,12 +1806,27 @@
       // wait until they explicitly Close the signal to see it counted as
       // a win. (Closing later can still override this, e.g. if the
       // remainder gets stopped out at breakeven.)
-      if (chosen.status === 'tp1_hit' || chosen.status === 'tp2_hit') s.result = 'win';
+      if (chosen.status === 'tp1_hit' || chosen.status === 'tp2_hit') {
+        s.result = 'win';
+        const math = _sigTradeMath(s, chosen.status, price);
+        if (math.pips !== null) { s.pips = math.pips; s.r_multiple = math.r_multiple; s.profit_percent = math.profit_percent; }
+      }
       // Only Cancelled and Close are terminal — that's the moment a signal
       // actually leaves "Ongoing" and gets a final win/loss/breakeven result.
       if (chosen.terminal) {
         s.closed_at = Date.now();
         s.result = closeInfo ? closeInfo.result : chosen.result;
+        if (chosen.status === 'closed') {
+          // Base the exit price on whichever outcome actually applies: a win
+          // exits at whatever TP progress was made, a loss exits at the
+          // stop-loss, breakeven exits at entry — unless a custom price was
+          // typed in, which always wins.
+          const mathStage = s.result === 'win'
+            ? (priorStatus === 'tp2_hit' ? 'tp2_hit' : 'tp1_hit')
+            : s.result === 'breakeven' ? 'breakeven' : 'stopped_out';
+          const math = _sigTradeMath(s, mathStage, price);
+          if (math.pips !== null) { s.pips = math.pips; s.r_multiple = math.r_multiple; s.profit_percent = math.profit_percent; }
+        }
       }
     }
     s.updated_at = Date.now();
