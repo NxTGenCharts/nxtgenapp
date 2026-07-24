@@ -1764,6 +1764,12 @@
       if (closeInfo) label = closeInfo.label;
       s.status = chosen.status;
       if (chosen.status === 'active' && !s.entered_at) s.entered_at = Date.now();
+      // Hitting TP1 or TP2 already means the trade is a winner — reflect
+      // that in the stats/badges right away instead of making the user
+      // wait until they explicitly Close the signal to see it counted as
+      // a win. (Closing later can still override this, e.g. if the
+      // remainder gets stopped out at breakeven.)
+      if (chosen.status === 'tp1_hit' || chosen.status === 'tp2_hit') s.result = 'win';
       // Only Cancelled and Close are terminal — that's the moment a signal
       // actually leaves "Ongoing" and gets a final win/loss/breakeven result.
       if (chosen.terminal) {
