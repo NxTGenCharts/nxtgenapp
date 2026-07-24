@@ -60,6 +60,47 @@
     return `<svg class="icn ${cls || ''}" aria-hidden="true"><use href="#${id}"></use></svg>`;
   }
 
+  // ── Popover positioning helper ───────────────────────────────────
+  // Every dropdown/menu on this page (`position:fixed`) is anchored to a
+  // trigger button's rect. `getBoundingClientRect()` is already relative to
+  // the viewport, so a `fixed` element must use it as-is — adding
+  // `window.scrollY/scrollX` double-counts the scroll offset and pushes the
+  // panel further down/right the more the page is scrolled, which is what
+  // was cutting the filter dropdown off. This helper also clamps the panel
+  // so it never renders past the edges of the viewport, and flips it above
+  // the trigger when there isn't enough room below.
+  function _sigPositionPopover(panel, anchorRect, opts) {
+    opts = opts || {};
+    const gap = opts.gap != null ? opts.gap : 8;
+    const align = opts.align || 'left'; // 'left' | 'right'
+    const margin = 8;
+    // Measure the panel off-screen at its natural size before placing it.
+    panel.style.visibility = 'hidden';
+    panel.style.top = '0px';
+    panel.style.left = '0px';
+    panel.style.right = '';
+    const w = panel.offsetWidth;
+    const h = panel.offsetHeight;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    let left = align === 'right' ? (anchorRect.right - w) : anchorRect.left;
+    left = Math.max(margin, Math.min(left, vw - w - margin));
+
+    let top = anchorRect.bottom + gap;
+    const fitsBelow = top + h <= vh - margin;
+    if (!fitsBelow) {
+      const above = anchorRect.top - gap - h;
+      // Prefer flipping above the trigger if there's more room there;
+      // otherwise keep it below but clamp so it stays on-screen (the
+      // panel's own max-height/overflow-y handles the rest).
+      top = above >= margin ? above : Math.max(margin, vh - margin - h);
+    }
+    panel.style.left = left + 'px';
+    panel.style.top = top + 'px';
+    panel.style.visibility = '';
+  }
+
   // ══════════════════════════════════════════════════════════════
   // DEMO DATA
   // ══════════════════════════════════════════════════════════════
@@ -419,9 +460,8 @@
     panel.className = 'sig-actions-menu sig-notif-panel';
     panel.innerHTML = `<div class="sig-notif-panel-head">Notifications <button class="sig-notif-markall" onclick="_sigMarkAllNotifsRead()">Mark all read</button></div><div id="sig-notif-list" class="sig-notif-list">Loading…</div>`;
     document.body.appendChild(panel);
-    const rect = document.getElementById('sig-notif-bell').getBoundingClientRect();
-    panel.style.right = (window.innerWidth - rect.right) + 'px';
-    panel.style.top = (rect.bottom + 8 + window.scrollY) + 'px';
+    const bell = document.getElementById('sig-notif-bell');
+    _sigPositionPopover(panel, bell.getBoundingClientRect(), { align: 'right' });
     setTimeout(() => document.addEventListener('click', _sigCloseNotifPanelOnce), 0);
 
     const list = document.getElementById('sig-notif-list');
@@ -582,7 +622,7 @@
   window._sigToggleFilterPanel = function (ev) {
     if (ev) ev.stopPropagation();
     const existing = document.getElementById('sig-filter-panel');
-    if (existing) { existing.remove(); document.removeEventListener('click', _sigCloseFilterPanelOnce); return; }
+    if (existing) { existing._sigCleanupReposition?.(); existing.remove(); document.removeEventListener('click', _sigCloseFilterPanelOnce); return; }
     const panel = document.createElement('div');
     panel.id = 'sig-filter-panel';
     panel.className = 'sig-actions-menu sig-filter-panel';
@@ -595,14 +635,18 @@
     panel.addEventListener('click', e => e.stopPropagation());
     document.body.appendChild(panel);
     const btn = document.getElementById('sig-filter-btn');
-    const rect = btn.getBoundingClientRect();
-    panel.style.left = Math.max(8, rect.left) + 'px';
-    panel.style.top = (rect.bottom + 8 + window.scrollY) + 'px';
+    _sigPositionPopover(panel, btn.getBoundingClientRect(), { align: 'left' });
+    // Re-clamp on resize/orientation change while the panel is open, so
+    // rotating a phone or resizing the window never leaves it stranded
+    // off-screen.
+    const reposition = () => { if (document.body.contains(panel)) _sigPositionPopover(panel, btn.getBoundingClientRect(), { align: 'left' }); };
+    window.addEventListener('resize', reposition);
+    panel._sigCleanupReposition = () => window.removeEventListener('resize', reposition);
     setTimeout(() => document.addEventListener('click', _sigCloseFilterPanelOnce), 0);
   };
   function _sigCloseFilterPanelOnce(e) {
     const panel = document.getElementById('sig-filter-panel');
-    if (panel) { panel.remove(); }
+    if (panel) { panel._sigCleanupReposition?.(); panel.remove(); }
     document.removeEventListener('click', _sigCloseFilterPanelOnce);
   }
 
@@ -1646,6 +1690,7 @@
           ${s.archived ? '<span class="sig-badge sig-badge-archived"><span class="dot"></span>Archived</span>' : ''}
           <span class="sig-market-badge">${icn(MARKET_ICON[s.market])}${MARKET_LABEL[s.market]}</span>
           ${_sigOrderTypeBadge(s)}
+          ${s.result && s.result !== 'pending' ? _sigResultBadge(s) : ''}
         </div>
       </div>
       <button class="sig-drawer-close" onclick="_sigCloseDrawer()">${icn('ic-close')}</button>
@@ -1772,11 +1817,7 @@
     menu.innerHTML = items.map(it => `<button class="${it.danger ? 'danger' : ''}" onclick="document.getElementById('sig-actions-menu')?.remove();${it.fn}">${icn(it.icon)}${it.label}</button>`).join('');
     document.body.appendChild(menu);
     const rect = (ev?.currentTarget || ev?.target).getBoundingClientRect();
-    const menuW = 200;
-    let left = rect.right - menuW + window.scrollX;
-    left = Math.max(8, Math.min(left, window.innerWidth - menuW - 8));
-    menu.style.left = left + 'px';
-    menu.style.top = (rect.bottom + 6 + window.scrollY) + 'px';
+    _sigPositionPopover(menu, rect, { align: 'right', gap: 6 });
     setTimeout(() => document.addEventListener('click', _sigCloseActionsMenuOnce), 0);
   };
   function _sigCloseActionsMenuOnce(e) {
@@ -2391,9 +2432,7 @@
     document.body.appendChild(menu);
     window._sigTemplateCache = data;
     const rect = ev.target.closest('button').getBoundingClientRect();
-    menu.style.position = 'fixed';
-    menu.style.left = rect.left + 'px';
-    menu.style.top = (rect.bottom + 6) + 'px';
+    _sigPositionPopover(menu, rect, { align: 'left', gap: 6 });
     setTimeout(() => document.addEventListener('click', function once(e) {
       if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', once); }
     }), 0);

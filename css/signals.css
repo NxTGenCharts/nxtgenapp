@@ -179,14 +179,18 @@
 
 /* ── Result badge (Win / Breakeven / Loss / Pending) ─────────────── */
 .sig-result-badge{
-  display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:var(--r-full);
-  font-size:10px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;
+  display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:var(--r-full);
+  font-size:10px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;
 }
 .sig-result-badge .icn{width:10px;height:10px}
-.sig-result-badge.win{background:var(--green-dim);color:var(--green);border:1px solid rgba(52,211,153,0.35)}
-.sig-result-badge.loss{background:var(--red-dim);color:var(--red);border:1px solid rgba(248,113,113,0.35)}
-.sig-result-badge.breakeven{background:rgba(251,191,36,0.14);color:var(--gold);border:1px solid rgba(251,191,36,0.35)}
+.sig-result-badge.win{background:var(--green-dim);color:var(--green);border:1px solid rgba(52,211,153,0.35);box-shadow:var(--glow-green)}
+.sig-result-badge.loss{background:var(--red-dim);color:var(--red);border:1px solid rgba(248,113,113,0.35);box-shadow:var(--glow-red)}
+.sig-result-badge.breakeven{background:rgba(251,191,36,0.14);color:var(--gold);border:1px solid rgba(251,191,36,0.35);box-shadow:0 0 10px rgba(251,191,36,0.12)}
 .sig-result-badge.pending{background:var(--glass-1);color:var(--text3);border:1px solid var(--glass-border)}
+
+/* Slightly larger, standalone treatment when the badge sits in the drawer
+   header next to the pair/direction badges rather than packed into a card row. */
+.sig-drawer-head .sig-result-badge{padding:5px 11px;font-size:10.5px}
 
 
 /* ── Badges: status / direction / market / confidence ────────── */
