@@ -358,12 +358,12 @@
         <div class="sig-header-sub">Share and manage professional trading signals.</div>
       </div>
       <div class="sig-header-actions">
-        <div class="sig-view-toggle">
-          <button class="active" data-view="table" onclick="_sigSetView('table')">${icn('ic-menu')} Table</button>
-          <button data-view="cards" onclick="_sigSetView('cards')">${icn('ic-folder')} Cards</button>
-          <button data-view="calendar" onclick="_sigSetView('calendar')">${icn('ic-calendar')} Calendar</button>
-          <button data-view="analytics" onclick="_sigSetView('analytics')">${icn('ic-chart-pie')} Analytics</button>
-          <button data-view="drafts" onclick="_sigSetView('drafts')">${icn('ic-notebook')} Drafts <span id="sig-drafts-tab-count" class="sig-drafts-count"></span></button>
+        <div class="sig-view-toggle" role="tablist">
+          <button class="active" data-view="table" onclick="_sigSetView('table')" title="Table">${icn('ic-menu')} <span class="lbl-full">Table</span></button>
+          <button data-view="cards" onclick="_sigSetView('cards')" title="Cards">${icn('ic-folder')} <span class="lbl-full">Cards</span></button>
+          <button data-view="calendar" onclick="_sigSetView('calendar')" title="Calendar">${icn('ic-calendar')} <span class="lbl-full">Calendar</span></button>
+          <button data-view="analytics" onclick="_sigSetView('analytics')" title="Analytics">${icn('ic-chart-pie')} <span class="lbl-full">Analytics</span></button>
+          <button data-view="drafts" onclick="_sigSetView('drafts')" title="Drafts">${icn('ic-notebook')} <span class="lbl-full">Drafts</span> <span id="sig-drafts-tab-count" class="sig-drafts-count"></span></button>
         </div>
         <button id="sig-notif-bell" class="sig-notif-bell" title="Notifications" onclick="_sigToggleNotifPanel(event)">
           ${icn('ic-bell')}<span id="sig-notif-badge" class="sig-notif-badge" style="display:none">0</span>
@@ -1217,6 +1217,8 @@
     const first = new Date(y, m, 1);
     const startDow = first.getDay();
     const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const isCurrentMonth = today.getFullYear() === y && today.getMonth() === m;
     const byDay = {};
     rows.forEach(s => {
       const d = new Date(s.created_at);
@@ -1225,32 +1227,70 @@
         (byDay[key] = byDay[key] || []).push(s);
       }
     });
+
+    // Month summary strip — gives the grid context even on a mostly-quiet month.
+    const monthList = Object.values(byDay).flat();
+    const monthClosed = monthList.filter(s => s.result === 'win' || s.result === 'loss');
+    const monthWins = monthClosed.filter(s => s.result === 'win').length;
+    const monthWr = monthClosed.length ? Math.round(monthWins / monthClosed.length * 100) : null;
+    const activeDays = Object.keys(byDay).length;
+    let bestDayNum = null, bestDayPips = -Infinity;
+    Object.entries(byDay).forEach(([d, list]) => { const p = list.reduce((a, s) => a + (+s.pips || 0), 0); if (p > bestDayPips) { bestDayPips = p; bestDayNum = d; } });
+
     let cells = '';
-    for (let i = 0; i < startDow; i++) cells += `<div class="sig-cal-cell empty"></div>`;
+    // Leading days from the previous month, shown muted for continuity
+    // instead of stark empty tiles, so the grid never looks unfinished.
+    const prevMonthDays = new Date(y, m, 0).getDate();
+    for (let i = 0; i < startDow; i++) {
+      const dNum = prevMonthDays - startDow + i + 1;
+      cells += `<div class="sig-cal-cell outside"><span class="sig-cal-date">${dNum}</span></div>`;
+    }
     for (let d = 1; d <= daysInMonth; d++) {
       const list = byDay[d] || [];
       const wins = list.filter(s => s.result === 'win').length;
       const losses = list.filter(s => s.result === 'loss').length;
       const avgRR = list.length ? (list.reduce((a, s) => a + (+s.risk_reward || 0), 0) / list.length).toFixed(1) : null;
-      cells += `<div class="sig-cal-cell" onclick='_sigCalDrill(${JSON.stringify(list.map(s => s.id))})'>
-        <span class="sig-cal-date">${d}</span>
-        ${list.length ? `<span class="sig-cal-stat">${list.length} signal${list.length > 1 ? 's' : ''}</span>
-        <span class="sig-cal-stat green">${wins}W</span><span class="sig-cal-stat red">${losses}L</span>
-        <span class="sig-cal-stat">RR ${avgRR}</span>` : ''}
+      const dow = (startDow + d - 1) % 7;
+      const isWeekend = dow === 0 || dow === 6;
+      const isToday = isCurrentMonth && today.getDate() === d;
+      const hasSignals = list.length > 0;
+      const heat = hasSignals ? (wins > losses ? 'heat-win' : losses > wins ? 'heat-loss' : 'heat-flat') : '';
+      cells += `<div class="sig-cal-cell${isWeekend ? ' weekend' : ''}${isToday ? ' today' : ''}${hasSignals ? ' has-signals ' + heat : ' quiet'}"
+        onclick='_sigCalDrill(${JSON.stringify(list.map(s => s.id))})' title="${hasSignals ? list.length + ' signal(s) on this day' : 'No signals'}">
+        <div class="sig-cal-top"><span class="sig-cal-date">${d}</span>${isToday ? '<span class="sig-cal-today-dot"></span>' : ''}</div>
+        ${hasSignals ? `
+        <div class="sig-cal-wl">${wins ? `<span class="sig-cal-pip green">${wins}W</span>` : ''}${losses ? `<span class="sig-cal-pip red">${losses}L</span>` : ''}${!wins && !losses ? `<span class="sig-cal-pip">${list.length} sig${list.length > 1 ? 's' : ''}</span>` : ''}</div>
+        <div class="sig-cal-wl-bar"><span class="w" style="width:${wins + losses ? (wins / (wins + losses) * 100) : 50}%"></span></div>
+        <span class="sig-cal-stat">RR ${avgRR}</span>` : `<span class="sig-cal-empty-hint">—</span>`}
       </div>`;
     }
+    // Trailing days from next month
+    const totalCells = startDow + daysInMonth;
+    const trailing = (7 - (totalCells % 7)) % 7;
+    for (let i = 1; i <= trailing; i++) cells += `<div class="sig-cal-cell outside"><span class="sig-cal-date">${i}</span></div>`;
+
     const dows = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     return `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <button class="btn" onclick="_sigCalNav(-1)">${icn('ic-arrow-left')}</button>
-      <div style="font-family:var(--font-head);font-weight:800;font-size:15px">${month.toLocaleString('default', { month: 'long', year: 'numeric' })}</div>
-      <button class="btn" onclick="_sigCalNav(1)">${icn('ic-arrow-right')}</button>
+    <div class="sig-cal-toolbar">
+      <button class="btn" onclick="_sigCalNav(-1)" title="Previous month">${icn('ic-arrow-left')}</button>
+      <div class="sig-cal-title">
+        <span class="sig-cal-title-main">${month.toLocaleString('default', { month: 'long', year: 'numeric' })}</span>
+        <button class="sig-cal-today-btn" onclick="_sigCalToday()">Today</button>
+      </div>
+      <button class="btn" onclick="_sigCalNav(1)" title="Next month">${icn('ic-arrow-right')}</button>
+    </div>
+    <div class="sig-cal-summary">
+      <div class="sig-cal-summary-item"><span class="v">${monthList.length}</span><span class="l">Signals this month</span></div>
+      <div class="sig-cal-summary-item"><span class="v">${activeDays}</span><span class="l">Active day${activeDays === 1 ? '' : 's'}</span></div>
+      <div class="sig-cal-summary-item"><span class="v ${monthWr === null ? '' : monthWr >= 50 ? 'green' : 'red'}">${monthWr === null ? '—' : monthWr + '%'}</span><span class="l">Win rate</span></div>
+      <div class="sig-cal-summary-item"><span class="v">${bestDayNum ? month.toLocaleString('default', { month: 'short' }) + ' ' + bestDayNum : '—'}</span><span class="l">Best day</span></div>
     </div>
     <div class="sig-cal-grid">
       ${dows.map(d => `<div class="sig-cal-dow">${d}</div>`).join('')}
       ${cells}
     </div>`;
   }
+  window._sigCalToday = function () { _sigCalMonth = new Date(); _sigRenderActiveView(); };
   window._sigCalNav = function (dir) {
     _sigCalMonth = new Date(_sigCalMonth.getFullYear(), _sigCalMonth.getMonth() + dir, 1);
     _sigRenderActiveView();
@@ -1271,60 +1311,131 @@
   // ══════════════════════════════════════════════════════════════
   // ANALYTICS VIEW
   // ══════════════════════════════════════════════════════════════
+  // Analytics is the "deep dive" tab: it deliberately avoids repeating
+  // numbers already visible in the always-on stats grid above (Win Rate,
+  // Average RR, Avg Hold Time, Total Pips, Total R, Weekly Accuracy…).
+  // Everything here is a breakdown you can't get from the overview cards —
+  // by pair, by session, by weekday, by RR bucket — plus a small strip of
+  // genuinely unique figures (Profit Factor, Expectancy, extremes).
   function _sigRenderAnalytics(rows) {
+    if (!rows.length) return `<div class="sig-table-card"><div class="sig-table-empty">${icn('ic-chart-pie')}<div style="margin-top:8px">No signals to analyze yet.</div><div class="sig-body-text" style="margin-top:4px">Publish a few signals and the breakdowns below will fill in.</div></div></div>`;
+
     const closed = rows.filter(s => s.result === 'win' || s.result === 'loss');
     const wins = closed.filter(s => s.result === 'win');
-    const winRate = closed.length ? (wins.length / closed.length * 100).toFixed(1) : '0';
-    const avgRR = rows.length ? (rows.reduce((a, s) => a + (+s.risk_reward || 0), 0) / rows.length).toFixed(2) : '0';
-    const totalPips = closed.reduce((a, s) => a + (+s.pips || 0), 0);
-    const totalR = closed.reduce((a, s) => a + (+s.r_multiple || 0), 0);
     const grossWin = wins.reduce((a, s) => a + Math.max(0, +s.pips || 0), 0);
     const grossLoss = Math.abs(closed.filter(s => s.result === 'loss').reduce((a, s) => a + Math.min(0, +s.pips || 0), 0));
-    const profitFactor = grossLoss ? (grossWin / grossLoss).toFixed(2) : '∞';
-    const expectancy = closed.length ? (totalR / closed.length).toFixed(2) : '0';
+    const profitFactor = grossLoss ? (grossWin / grossLoss).toFixed(2) : (grossWin ? '∞' : '—');
+    const totalR = closed.reduce((a, s) => a + (+s.r_multiple || 0), 0);
+    const expectancy = closed.length ? (totalR / closed.length).toFixed(2) : '0.00';
 
-    const bySession = {};
-    rows.forEach(s => { bySession[s.session] = bySession[s.session] || { win: 0, total: 0 }; if (s.result === 'win') bySession[s.session].win++; if (s.result === 'win' || s.result === 'loss') bySession[s.session].total++; });
-    let bestSession = '—', bestSessionRate = -1;
-    Object.entries(bySession).forEach(([k, v]) => { if (v.total && v.win / v.total > bestSessionRate) { bestSessionRate = v.win / v.total; bestSession = k; } });
+    const SESSION_LABEL = { london: 'London', new_york: 'New York', tokyo: 'Tokyo', sydney: 'Sydney', london_ny_overlap: 'London/NY Overlap' };
 
+    // ── Performance by pair ──
     const byPair = {};
-    rows.forEach(s => { byPair[s.pair] = byPair[s.pair] || { win: 0, total: 0, pips: 0 }; if (s.result === 'win' || s.result === 'loss') { byPair[s.pair].total++; byPair[s.pair].pips += (+s.pips || 0); } if (s.result === 'win') byPair[s.pair].win++; });
-    let bestPair = '—', bestPips = -Infinity, worstPair = '—', worstPips = Infinity;
-    Object.entries(byPair).forEach(([k, v]) => { if (v.pips > bestPips) { bestPips = v.pips; bestPair = k; } if (v.pips < worstPips) { worstPips = v.pips; worstPair = k; } });
+    rows.forEach(s => {
+      const p = byPair[s.pair] = byPair[s.pair] || { win: 0, total: 0, pips: 0, n: 0 };
+      p.n++;
+      if (s.result === 'win' || s.result === 'loss') { p.total++; p.pips += (+s.pips || 0); if (s.result === 'win') p.win++; }
+    });
+    const pairRows = Object.entries(byPair).sort((a, b) => b[1].pips - a[1].pips);
+    const pairMaxAbs = Math.max(1, ...pairRows.map(([, v]) => Math.abs(v.pips)));
+    let bestPair = '—', worstPair = '—';
+    if (pairRows.length) { bestPair = pairRows[0][0]; worstPair = pairRows[pairRows.length - 1][0]; }
 
+    // ── Performance by session ──
+    const bySession = {};
+    rows.forEach(s => { const k = s.session || 'unknown'; const v = bySession[k] = bySession[k] || { win: 0, total: 0 }; if (s.result === 'win' || s.result === 'loss') { v.total++; if (s.result === 'win') v.win++; } });
+    const sessionRows = Object.entries(bySession).filter(([, v]) => v.total > 0).sort((a, b) => (b[1].win / b[1].total) - (a[1].win / a[1].total));
+    let bestSession = '—';
+    if (sessionRows.length) bestSession = SESSION_LABEL[sessionRows[0][0]] || sessionRows[0][0].replace(/_/g, ' ');
+
+    // ── Performance by weekday ──
     const dowNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const byDow = {};
-    rows.forEach(s => { const d = new Date(s.created_at).getDay(); byDow[d] = (byDow[d] || 0) + (+s.pips || 0); });
+    const byDow = dowNames.map(() => 0);
+    rows.forEach(s => { byDow[new Date(s.created_at).getDay()] += (+s.pips || 0); });
+    const dowMaxAbs = Math.max(1, ...byDow.map(v => Math.abs(v)));
     let bestDow = '—', bestDowVal = -Infinity;
-    Object.entries(byDow).forEach(([k, v]) => { if (v > bestDowVal) { bestDowVal = v; bestDow = dowNames[k]; } });
+    byDow.forEach((v, i) => { if (v > bestDowVal) { bestDowVal = v; bestDow = dowNames[i]; } });
 
+    // ── Most profitable month ──
     const monthAcc = {};
-    rows.forEach(s => { const key = new Date(s.created_at).toLocaleString('default', { month: 'short' }); if (s.result === 'win' || s.result === 'loss') { monthAcc[key] = monthAcc[key] || { win: 0, total: 0 }; monthAcc[key].total++; if (s.result === 'win') monthAcc[key].win++; } });
+    rows.forEach(s => { if (s.result !== 'win' && s.result !== 'loss') return; const key = new Date(s.created_at).toLocaleString('default', { month: 'short' }); const v = monthAcc[key] = monthAcc[key] || { win: 0, total: 0 }; v.total++; if (s.result === 'win') v.win++; });
     let bestMonth = '—', bestMonthRate = -1;
     Object.entries(monthAcc).forEach(([k, v]) => { if (v.win / v.total > bestMonthRate) { bestMonthRate = v.win / v.total; bestMonth = k; } });
 
-    const tiles = [
-      ['ic-target', 'Win Rate', winRate + '%'],
-      ['ic-ruler', 'Average RR', '1:' + avgRR],
-      ['ic-clock', 'Avg Hold Time', ((closed.reduce((a, s) => a + ((s.closed_at && s.entered_at) ? (s.closed_at - s.entered_at) : 14400000), 0) / (closed.length || 1)) / 3600000).toFixed(1) + 'h'],
-      ['ic-chart-pie', 'Monthly Accuracy', bestMonthRate >= 0 ? (bestMonthRate * 100).toFixed(0) + '%' : '—'],
-      ['ic-scale', 'Profit Factor', profitFactor],
-      ['ic-trend-up', 'Expectancy', expectancy + 'R'],
-      ['ic-zap', 'Total Pips', (totalPips >= 0 ? '+' : '') + totalPips.toFixed(0)],
-      ['ic-trophy', 'Total R', (totalR >= 0 ? '+' : '') + totalR.toFixed(1) + 'R'],
-      ['ic-fire', 'Best Session', (bestSession || '—').replace('_', '/')],
-      ['ic-star', 'Best Pair', bestPair],
-      ['ic-frown', 'Worst Pair', worstPair],
-      ['ic-calendar', 'Most Profitable Weekday', bestDow],
-      ['ic-trophy', 'Most Profitable Month', bestMonth]
+    // ── RR distribution ──
+    const rrBuckets = { '<1': 0, '1-2': 0, '2-3': 0, '3+': 0 };
+    rows.forEach(s => { const rr = +s.risk_reward || 0; if (rr < 1) rrBuckets['<1']++; else if (rr < 2) rrBuckets['1-2']++; else if (rr < 3) rrBuckets['2-3']++; else rrBuckets['3+']++; });
+    const rrMax = Math.max(1, ...Object.values(rrBuckets));
+
+    const uniqueTiles = [
+      ['ic-scale', 'Profit Factor', profitFactor, null],
+      ['ic-trend-up', 'Expectancy', expectancy + 'R', +expectancy >= 0 ? 'green' : 'red'],
+      ['ic-star', 'Best Pair', bestPair, 'green'],
+      ['ic-frown', 'Weakest Pair', worstPair, 'red'],
+      ['ic-fire', 'Best Session', bestSession, 'gold'],
+      ['ic-calendar', 'Best Weekday', bestDow, null],
     ];
 
-    return `<div class="sig-analytics-grid">${tiles.map(t => `
+    const pairBars = pairRows.map(([pair, v]) => {
+      const wr = v.total ? Math.round(v.win / v.total * 100) : null;
+      const pct = Math.max(4, Math.abs(v.pips) / pairMaxAbs * 100);
+      const tone = v.pips >= 0 ? 'green' : 'red';
+      return `<div class="sig-perf-row">
+        <span class="sig-perf-label">${pair}</span>
+        <div class="sig-perf-track"><div class="sig-perf-fill ${tone}" style="width:${pct}%"></div></div>
+        <span class="sig-perf-val ${tone}">${v.pips >= 0 ? '+' : ''}${v.pips.toFixed(0)}p</span>
+        <span class="sig-perf-sub">${wr !== null ? wr + '% WR' : '— WR'} · ${v.n} sig${v.n === 1 ? '' : 's'}</span>
+      </div>`;
+    }).join('') || `<div class="sig-body-text">No pair data yet.</div>`;
+
+    const sessionBars = sessionRows.length ? sessionRows.map(([k, v]) => {
+      const wr = Math.round(v.win / v.total * 100);
+      return `<div class="sig-perf-row">
+        <span class="sig-perf-label" style="text-transform:capitalize">${(SESSION_LABEL[k] || k.replace(/_/g, ' '))}</span>
+        <div class="sig-perf-track"><div class="sig-perf-fill ${wr >= 50 ? 'green' : 'red'}" style="width:${Math.max(4, wr)}%"></div></div>
+        <span class="sig-perf-val ${wr >= 50 ? 'green' : 'red'}">${wr}%</span>
+        <span class="sig-perf-sub">${v.win}/${v.total} closed</span>
+      </div>`;
+    }).join('') : `<div class="sig-body-text">No closed signals yet — session win rates will appear once results come in.</div>`;
+
+    const dowBars = `<div class="sig-dist-bars sig-dist-bars-wide">${byDow.map((v, i) => `
+      <div class="sig-dist-bar-wrap">
+        <div class="sig-dist-bar ${v >= 0 ? 'green' : 'red'}" style="height:${Math.max(3, Math.abs(v) / dowMaxAbs * 60)}px"></div>
+        <span>${dowNames[i]}</span>
+      </div>`).join('')}</div>`;
+
+    const rrBars = `<div class="sig-dist-bars">${Object.entries(rrBuckets).map(([k, v]) => `
+      <div class="sig-dist-bar-wrap">
+        <div class="sig-dist-bar" style="height:${Math.max(2, v / rrMax * 60)}px"></div>
+        <span>${k} <b>${v}</b></span>
+      </div>`).join('')}</div>`;
+
+    return `
+    <div class="sig-analytics-grid sig-analytics-grid-compact">${uniqueTiles.map(t => `
       <div class="sig-analytics-card">
         <div class="sig-analytics-title">${icn(t[0])}${t[1]}</div>
-        <div class="sig-stat-value">${t[2]}</div>
-      </div>`).join('')}</div>`;
+        <div class="sig-stat-value ${t[3] || ''}">${t[2]}</div>
+      </div>`).join('')}</div>
+
+    <div class="sig-analytics-panels">
+      <div class="sig-analytics-panel">
+        <div class="sig-section-title" style="margin-top:0">${icn('ic-star')} Performance by Pair</div>
+        <div class="sig-perf-list">${pairBars}</div>
+      </div>
+      <div class="sig-analytics-panel">
+        <div class="sig-section-title" style="margin-top:0">${icn('ic-fire')} Performance by Session</div>
+        <div class="sig-perf-list">${sessionRows.length ? sessionBars : sessionBars}</div>
+      </div>
+      <div class="sig-analytics-panel">
+        <div class="sig-section-title" style="margin-top:0">${icn('ic-calendar')} Pips by Weekday</div>
+        ${dowBars}
+      </div>
+      <div class="sig-analytics-panel">
+        <div class="sig-section-title" style="margin-top:0">${icn('ic-ruler')} Risk:Reward Distribution</div>
+        ${rrBars}
+      </div>
+    </div>`;
   }
 
   // ══════════════════════════════════════════════════════════════
