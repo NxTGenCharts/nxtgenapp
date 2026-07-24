@@ -739,7 +739,7 @@
       email_enabled: document.getElementById('np-email-enabled').checked,
       email: document.getElementById('np-email').value.trim(),
       whatsapp_enabled: document.getElementById('np-whatsapp-enabled').checked,
-      whatsapp_number: document.getElementById('np-whatsapp').value.trim()
+      whatsapp_number: document.getElementById('np-whatsapp').value.trim().replace(/(?!^\+)[^\d]/g, '')
     };
     if (prefs.email_enabled && !prefs.email) { showToast('Add an email address first', 'error'); return; }
     if (prefs.whatsapp_enabled && !prefs.whatsapp_number) { showToast('Add a WhatsApp number first', 'error'); return; }

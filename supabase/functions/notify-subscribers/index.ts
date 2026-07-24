@@ -41,7 +41,21 @@ if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
 
 const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
+// Browser calls via supabase-js (`sb.functions.invoke`) send an automatic
+// CORS preflight OPTIONS request before the real POST — it has no body.
+// Every response also needs these headers or the browser will block the
+// real response from ever reaching the caller, even if the function
+// itself succeeded.
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS'
+};
+
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: CORS_HEADERS });
+  }
   try {
     const { signal_id, pair, direction, event_type, message } = await req.json();
 
@@ -66,13 +80,18 @@ Deno.serve(async (req) => {
     }));
 
     const failed = results.filter((r) => r.status === 'rejected').length;
+    // Log individual failures — Promise.allSettled swallows them otherwise,
+    // and "1 failed" alone doesn't tell you whether it was push, email, or
+    // WhatsApp that broke.
+    results.forEach((r) => { if (r.status === 'rejected') console.error('notify job failed:', r.reason); });
+
     return new Response(JSON.stringify({ ok: true, sent: results.length - failed, failed }), {
-      headers: { 'Content-Type': 'application/json' }
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });
   } catch (e) {
     console.error('notify-subscribers error:', e);
     return new Response(JSON.stringify({ ok: false, error: String(e) }), {
-      status: 500, headers: { 'Content-Type': 'application/json' }
+      status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
     });
   }
 });
