@@ -235,7 +235,73 @@
     try {
       await sb.from('journal_signal_notifications').insert({ signal_id: _sigIsDbId(signalId) ? signalId : null, owner_id: _currentUser.id, type, message });
       _sigRefreshNotifBadge();
+      _sigPlayNotifSound();
     } catch (e) { console.error('signal notify failed:', e); }
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // NOTIFICATION SOUND — a short two-tone chime synthesized with the Web
+  // Audio API, so there's no external audio asset to fetch or license.
+  // Respects the user's Sound toggle in Notification Settings.
+  // ══════════════════════════════════════════════════════════════
+  const SIG_SOUND_KEY = 'sig_sound_enabled';
+  let _sigAudioCtx = null;
+  function _sigSoundEnabled() {
+    const v = localStorage.getItem(SIG_SOUND_KEY);
+    return v === null ? true : v === '1';
+  }
+  function _sigPlayNotifSound() {
+    if (!_sigSoundEnabled()) return;
+    try {
+      _sigAudioCtx = _sigAudioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      if (_sigAudioCtx.state === 'suspended') _sigAudioCtx.resume();
+      const now = _sigAudioCtx.currentTime;
+      [880, 1318.5].forEach((freq, i) => {
+        const osc = _sigAudioCtx.createOscillator();
+        const gain = _sigAudioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const start = now + i * 0.09;
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(0.16, start + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.24);
+        osc.connect(gain); gain.connect(_sigAudioCtx.destination);
+        osc.start(start); osc.stop(start + 0.26);
+      });
+    } catch (e) { /* audio unsupported/blocked — fail silently */ }
+  }
+  // A quiet desktop notification when the tab is backgrounded and the user
+  // has already granted permission — separate from the real push pipeline
+  // (below), which also works while the tab/browser is closed.
+  function _sigMaybeShowLocalNotification(title, body) {
+    try {
+      if (document.visibilityState === 'visible') return;
+      if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+      new Notification(title, { body, icon: '/favicon.ico', tag: 'nxt-signal' });
+    } catch (e) { /* ignore */ }
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // BROADCAST TO SUBSCRIBERS — fans a "signal published/edited/updated"
+  // event out to every user who opted into push, email, or WhatsApp
+  // alerts (see NOTIFICATION PREFERENCES below). The actual sending of
+  // push payloads, emails, and WhatsApp messages has to happen server-
+  // side — a browser can't hold the provider secret keys (VAPID private
+  // key, Resend/SendGrid key, WhatsApp Cloud API token) safely — so this
+  // just invokes a Supabase Edge Function ("notify-subscribers") that
+  // does the real fan-out. See notify-subscribers-edge-function.ts for
+  // that function's implementation and setup notes.
+  // ══════════════════════════════════════════════════════════════
+  async function _sigBroadcastSignalEvent(signal, eventType, message) {
+    if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb)) return; // demo mode — no real subscriber base
+    try {
+      await sb.functions.invoke('notify-subscribers', {
+        body: {
+          signal_id: signal.id, pair: signal.pair, direction: signal.direction,
+          event_type: eventType, message
+        }
+      });
+    } catch (e) { console.error('broadcast to subscribers failed:', e); }
   }
 
   function _generateDemoSignals() {
@@ -385,11 +451,32 @@
     _sigUpdateKpiVisibility();
     _sigRenderActiveView();
     _sigRefreshNotifBadge();
+    _sigWatchNotifications();
     if (!_sigUsingSupabase) {
       const badge = document.getElementById('sig-demo-badge');
       if (badge) badge.style.display = 'inline-flex';
     }
   };
+
+  // Keep the notification badge (and its sound/desktop-alert side effects
+  // in _sigRefreshNotifBadge) live without a manual refresh: try Supabase
+  // Realtime first for near-instant updates, and always keep a 20s poll
+  // running underneath as a fallback in case Realtime isn't enabled on
+  // the table.
+  let _sigNotifWatchStarted = false;
+  function _sigWatchNotifications() {
+    if (_sigNotifWatchStarted) return;
+    _sigNotifWatchStarted = true;
+    if (_sigUsingSupabase && typeof sb !== 'undefined' && sb && _currentUser) {
+      try {
+        sb.channel('sig-notif-' + _currentUser.id)
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'journal_signal_notifications', filter: `owner_id=eq.${_currentUser.id}` },
+            () => _sigRefreshNotifBadge())
+          .subscribe();
+      } catch (e) { console.error('notif realtime subscribe failed:', e); }
+    }
+    setInterval(_sigRefreshNotifBadge, 20000);
+  }
 
   // ══════════════════════════════════════════════════════════════
   // PAGE SHELL
@@ -413,6 +500,9 @@
         </div>
         <button id="sig-notif-bell" class="sig-notif-bell" title="Notifications" onclick="_sigToggleNotifPanel(event)">
           ${icn('ic-bell')}<span id="sig-notif-badge" class="sig-notif-badge" style="display:none">0</span>
+        </button>
+        <button id="sig-notif-settings-btn" class="sig-notif-bell" title="Notification settings" onclick="_sigOpenNotifPrefs(event)">
+          <svg class="icn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
         </button>
         <button class="btn btn-primary btn-ripple" onclick="_sigOpenModal()">${icn('ic-plus')} <span class="lbl-full">New Signal</span></button>
       </div>
@@ -445,12 +535,21 @@
   // ══════════════════════════════════════════════════════════════
   // NOTIFICATION CENTER
   // ══════════════════════════════════════════════════════════════
+  let _sigLastUnreadCount = -1;
   async function _sigRefreshNotifBadge() {
     const badge = document.getElementById('sig-notif-badge');
     if (!badge || !(_sigUsingSupabase && typeof sb !== 'undefined' && sb) || !_currentUser) return;
     const { count, error } = await sb.from('journal_signal_notifications')
       .select('id', { count: 'exact', head: true }).eq('owner_id', _currentUser.id).eq('read', false);
     if (error) { console.error('notif badge error:', error.message); return; }
+    // A new unread notification landed since we last checked (could be from
+    // another device, or from someone we're subscribed to) — chime + a
+    // background desktop alert, same as a self-triggered one.
+    if (_sigLastUnreadCount >= 0 && count > _sigLastUnreadCount) {
+      _sigPlayNotifSound();
+      _sigMaybeShowLocalNotification('NxTGen Signals', 'You have a new signal notification');
+    }
+    _sigLastUnreadCount = count;
     if (count > 0) { badge.textContent = count > 99 ? '99+' : String(count); badge.style.display = 'inline-flex'; }
     else { badge.style.display = 'none'; }
   }
@@ -502,6 +601,154 @@
     _sigRefreshNotifBadge();
     document.getElementById('sig-notif-panel')?.remove();
     showToast('All notifications marked read', 'info');
+  };
+
+  // ══════════════════════════════════════════════════════════════
+  // NOTIFICATION PREFERENCES — sound, browser push, email, WhatsApp.
+  // Saved per-user to `journal_notification_prefs` (falls back to
+  // localStorage in demo mode, same pattern as everything else on this
+  // page). Real delivery of push/email/WhatsApp is handled server-side —
+  // see notify-subscribers-edge-function.ts and notification_prefs_schema.sql.
+  //
+  // Set this to the VAPID public key your push server generates (see the
+  // edge function's setup notes) to turn on the "Enable push" button.
+  // ══════════════════════════════════════════════════════════════
+  const SIG_VAPID_PUBLIC_KEY = '';
+  const SIG_NOTIF_PREFS_KEY = 'sig_notif_prefs_v1';
+  let _sigNotifPrefsState = null;
+
+  function _sigUrlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const raw = atob(base64);
+    const arr = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+    return arr;
+  }
+
+  async function _sigLoadNotifPrefsFromStore() {
+    if (_sigUsingSupabase && typeof sb !== 'undefined' && sb && _currentUser) {
+      const { data, error } = await sb.from('journal_notification_prefs').select('*').eq('owner_id', _currentUser.id).maybeSingle();
+      if (!error && data) return data;
+      if (error) console.error('notif prefs load failed:', error.message);
+    }
+    try {
+      const raw = localStorage.getItem(SIG_NOTIF_PREFS_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) { /* ignore corrupt storage */ }
+    return {
+      sound_enabled: _sigSoundEnabled(), push_enabled: false, push_subscription: null,
+      email_enabled: false, email: (_currentUser && _currentUser.email) || '',
+      whatsapp_enabled: false, whatsapp_number: ''
+    };
+  }
+
+  async function _sigPersistNotifPrefs(prefs) {
+    if (_sigUsingSupabase && typeof sb !== 'undefined' && sb && _currentUser) {
+      const { error } = await sb.from('journal_notification_prefs')
+        .upsert({ owner_id: _currentUser.id, ...prefs, updated_at: new Date().toISOString() }, { onConflict: 'owner_id' });
+      if (error) { console.error('notif prefs save failed:', error.message); showToast('Save failed: ' + error.message, 'error'); return false; }
+      return true;
+    }
+    try { localStorage.setItem(SIG_NOTIF_PREFS_KEY, JSON.stringify(prefs)); return true; }
+    catch (e) { showToast('Save failed', 'error'); return false; }
+  }
+
+  window._sigOpenNotifPrefs = async function (ev) {
+    if (ev) ev.stopPropagation();
+    document.getElementById('sig-notif-panel')?.remove();
+    _sigNotifPrefsState = await _sigLoadNotifPrefsFromStore();
+    let overlay = document.getElementById('sig-prefs-modal-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.id = 'sig-prefs-modal-overlay';
+      overlay.onclick = (e) => { if (e.target === overlay) window._sigCloseNotifPrefs(); };
+      document.body.appendChild(overlay);
+    }
+    _sigRenderNotifPrefsModal();
+    overlay.classList.add('open');
+  };
+
+  window._sigCloseNotifPrefs = function () {
+    document.getElementById('sig-prefs-modal-overlay')?.classList.remove('open');
+  };
+
+  function _sigRenderNotifPrefsModal() {
+    const overlay = document.getElementById('sig-prefs-modal-overlay');
+    if (!overlay) return;
+    const p = _sigNotifPrefsState;
+    const pushSupported = ('serviceWorker' in navigator) && ('PushManager' in window);
+    overlay.innerHTML = `
+    <div class="modal-body sig-prefs-body">
+      <h3 class="modal-title">Notification settings</h3>
+      <p class="sig-body-text">Choose how you hear about new signals, edits, and status changes.</p>
+
+      <div class="sig-pref-row">
+        <div class="sig-pref-row-text"><strong>Sound</strong><span>Play a chime in this tab for new notifications</span></div>
+        <label class="sig-toggle-switch"><input type="checkbox" id="np-sound" ${p.sound_enabled ? 'checked' : ''}><span class="sig-toggle-slider"></span></label>
+      </div>
+
+      <div class="sig-pref-row">
+        <div class="sig-pref-row-text"><strong>Push notifications</strong><span>Alerts on this device, even when the tab is closed</span></div>
+        ${p.push_enabled
+          ? `<span class="sig-pref-enabled-tag">${icn('ic-check')} Enabled</span>`
+          : `<button class="glass-btn glass-btn-cancel" style="padding:6px 12px" onclick="_sigRequestPush()" ${pushSupported ? '' : 'disabled'}>Enable</button>`}
+      </div>
+      ${pushSupported ? '' : '<div class="sig-pref-hint">Push isn\'t supported in this browser.</div>'}
+
+      <div class="sig-pref-row">
+        <div class="sig-pref-row-text"><strong>Email</strong><span>Emailed for every publish and update</span></div>
+        <label class="sig-toggle-switch"><input type="checkbox" id="np-email-enabled" ${p.email_enabled ? 'checked' : ''}><span class="sig-toggle-slider"></span></label>
+      </div>
+      <input class="form-input" id="np-email" type="email" placeholder="you@example.com" value="${p.email || ''}">
+
+      <div class="sig-pref-row">
+        <div class="sig-pref-row-text"><strong>WhatsApp</strong><span>Messaged for every publish and update</span></div>
+        <label class="sig-toggle-switch"><input type="checkbox" id="np-whatsapp-enabled" ${p.whatsapp_enabled ? 'checked' : ''}><span class="sig-toggle-slider"></span></label>
+      </div>
+      <input class="form-input" id="np-whatsapp" type="tel" placeholder="+1 555 123 4567" value="${p.whatsapp_number || ''}">
+
+      <div class="form-actions">
+        <button class="glass-btn glass-btn-cancel" onclick="_sigCloseNotifPrefs()">Cancel</button>
+        <button class="btn btn-primary" onclick="_sigSaveNotifPrefsClick()">Save preferences</button>
+      </div>
+    </div>`;
+  }
+
+  window._sigRequestPush = async function () {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) { showToast("Push notifications aren't supported in this browser", 'error'); return; }
+    if (!SIG_VAPID_PUBLIC_KEY) { showToast('Push is not configured yet — add a VAPID key first (see notify-subscribers-edge-function.ts)', 'error'); return; }
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') { showToast('Push permission was not granted', 'error'); return; }
+      const reg = await navigator.serviceWorker.register('/sw-signals.js');
+      const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: _sigUrlBase64ToUint8Array(SIG_VAPID_PUBLIC_KEY) });
+      _sigNotifPrefsState.push_enabled = true;
+      _sigNotifPrefsState.push_subscription = sub.toJSON();
+      _sigRenderNotifPrefsModal();
+      showToast('Push enabled on this device', 'success');
+    } catch (e) { console.error('push subscribe failed:', e); showToast("Couldn't enable push notifications", 'error'); }
+  };
+
+  window._sigSaveNotifPrefsClick = async function () {
+    const prefs = {
+      sound_enabled: document.getElementById('np-sound').checked,
+      push_enabled: !!_sigNotifPrefsState.push_enabled,
+      push_subscription: _sigNotifPrefsState.push_subscription || null,
+      email_enabled: document.getElementById('np-email-enabled').checked,
+      email: document.getElementById('np-email').value.trim(),
+      whatsapp_enabled: document.getElementById('np-whatsapp-enabled').checked,
+      whatsapp_number: document.getElementById('np-whatsapp').value.trim()
+    };
+    if (prefs.email_enabled && !prefs.email) { showToast('Add an email address first', 'error'); return; }
+    if (prefs.whatsapp_enabled && !prefs.whatsapp_number) { showToast('Add a WhatsApp number first', 'error'); return; }
+    localStorage.setItem(SIG_SOUND_KEY, prefs.sound_enabled ? '1' : '0');
+    const ok = await _sigPersistNotifPrefs(prefs);
+    if (!ok) return;
+    _sigNotifPrefsState = prefs;
+    window._sigCloseNotifPrefs();
+    showToast('Notification preferences saved', 'success');
   };
 
   // ── Combinable multi-select filters ─────────────────────────────
@@ -2191,6 +2438,7 @@
     _sigLogUpdate(id, s.status, logNote, price);
     _sigLogActivity(id, chosen ? 'status_changed' : 'update_added', logNote);
     _sigNotify(id, s.status, `${s.pair}: ${logNote}`);
+    _sigBroadcastSignalEvent(s, 'status_changed', `${s.pair}: ${logNote}`);
     _sigRenderStats();
     _sigRenderActiveView();
     showToast(chosen ? label : 'Update added', chosen && s.result === 'loss' ? 'error' : 'success');
@@ -2603,6 +2851,7 @@
     _sigLogUpdate(s.id, s.status, 'Signal edited');
     _sigLogActivity(s.id, 'edited', 'Signal updated & republished');
     _sigNotify(s.id, 'edited', `${s.pair} signal was edited`);
+    _sigBroadcastSignalEvent(s, 'edited', `${s.pair} signal was edited`);
     _sigCloseModal();
     _sigRenderStats();
     _sigRenderActiveView();
@@ -2720,6 +2969,7 @@
     _sigLogUpdate(id, final.status, final.status === 'active' ? 'Signal published — entry triggered (market execution)' : 'Signal published — waiting for entry');
     _sigLogActivity(id, pending.draftId ? 'published' : 'created', 'Published live');
     _sigNotify(id, 'published', `${final.pair} ${final.direction === 'buy' ? 'BUY' : 'SELL'} signal published`);
+    _sigBroadcastSignalEvent({ ...final, id }, 'published', `${final.pair} ${final.direction === 'buy' ? 'BUY' : 'SELL'} signal published`);
     // Requirement: never trust local state alone — reload the live list
     // straight from the database so what's on screen matches what's saved.
     _sigAll = await _loadSignals();
