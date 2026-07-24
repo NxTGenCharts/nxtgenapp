@@ -264,7 +264,7 @@
   border:1px solid var(--glass-border);border-radius:var(--r-lg);
   box-shadow:var(--shadow-sm);overflow:hidden;margin-bottom:18px;
 }
-.sig-table-scroll{overflow-x:auto}
+.sig-table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .sig-table-scroll table{width:100%;border-collapse:collapse;min-width:1240px}
 .sig-table-scroll th{
   padding:10px 14px;text-align:left;font-size:9.5px;font-weight:700;color:var(--text3);
@@ -518,9 +518,20 @@
   .sig-filter-bar{flex-direction:column;align-items:stretch}
   .sig-filter-dropdown-wrap{width:100%}
   .sig-search-wrap{width:100%;min-width:0;margin-left:0}
+  .sig-table-scroll th:nth-child(4),.sig-table-scroll td:nth-child(4),
+  .sig-table-scroll th:nth-child(10),.sig-table-scroll td:nth-child(10),
+  .sig-table-scroll th:nth-child(13),.sig-table-scroll td:nth-child(13){display:none}
+  .sig-table-scroll table{min-width:680px}
 }
 @media (max-width:768px){
-  .sig-table-card{display:none}
+  .sig-table-card{position:relative;border-radius:var(--r-md);margin-left:-4px;margin-right:-4px;width:calc(100% + 8px)}
+  .sig-table-card::after{
+    content:'';position:absolute;top:0;right:0;bottom:0;width:22px;pointer-events:none;
+    background:linear-gradient(90deg,transparent,var(--glass-1) 85%);
+  }
+  .sig-table-scroll th{padding:9px 10px;font-size:9px}
+  .sig-table-scroll td{padding:9px 10px;font-size:11.5px}
+  .sig-table-scroll table{min-width:920px}
   .sig-cards-grid{grid-template-columns:1fr}
   .sig-header-actions .btn span.lbl-full{display:none}
   #sig-fab-new{
