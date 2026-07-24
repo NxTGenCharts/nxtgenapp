@@ -834,12 +834,12 @@
     const lossPct = closed.length ? (losses.length / closed.length * 100) : 0;
 
     const avgRR = all.length ? (all.reduce((a, s) => a + (+s.risk_reward || 0), 0) / all.length) : 0;
-    const totalPips = closed.reduce((a, s) => a + (+s.pips || 0), 0);
-    const totalR = closed.reduce((a, s) => a + (+s.r_multiple || 0), 0);
+    const totalPips = closed.reduce((a, s) => a + _sigEffectiveMath(s).pips, 0);
+    const totalR = closed.reduce((a, s) => a + _sigEffectiveMath(s).r_multiple, 0);
     const openPositions = all.filter(s => ENTERED_STATUSES.includes(s.status)).length;
     const closedPositions = closed.length;
     const monthClosed = closed.filter(s => s.created_at >= monthAgo);
-    const monthProfit = monthClosed.reduce((a, s) => a + (+s.profit_percent || 0), 0);
+    const monthProfit = monthClosed.reduce((a, s) => a + _sigEffectiveMath(s).profit_percent, 0);
     const avgHold = closed.length ? (closed.reduce((a, s) => a + ((s.closed_at && s.entered_at) ? (s.closed_at - s.entered_at) : 3600000 * 4), 0) / closed.length) : 0;
     const avgHoldHrs = avgHold / 3600000;
 
@@ -851,11 +851,11 @@
     const lossTrend = _sigDaySeries(s => s.result === 'loss');
 
     const pipsTrend = []; let cumP = 0;
-    [...closed].sort((a, b) => a.created_at - b.created_at).slice(-20).forEach(s => { cumP += (+s.pips || 0); pipsTrend.push(cumP); });
+    [...closed].sort((a, b) => a.created_at - b.created_at).slice(-20).forEach(s => { cumP += _sigEffectiveMath(s).pips; pipsTrend.push(cumP); });
     if (!pipsTrend.length) pipsTrend.push(0);
 
     const profitTrend = []; let cumM = 0;
-    [...monthClosed].sort((a, b) => a.created_at - b.created_at).forEach(s => { cumM += (+s.profit_percent || 0); profitTrend.push(cumM); });
+    [...monthClosed].sort((a, b) => a.created_at - b.created_at).forEach(s => { cumM += _sigEffectiveMath(s).profit_percent; profitTrend.push(cumM); });
     if (!profitTrend.length) profitTrend.push(0);
 
     const winsThisWeek = thisWeek.filter(s => s.result === 'win').length;
@@ -1142,6 +1142,7 @@
     const body = rows.map(s => {
       const expanded = _sigExpandedRows.has(s.id);
       const statusTone = s.result === 'win' ? 'green' : s.result === 'loss' ? 'red' : ENTERED_STATUSES.includes(s.status) ? 'blue' : '';
+      const em = _sigEffectiveMath(s);
       const expandRow = expanded ? `
       <tr class="sig-row-expand-tr">
         <td colspan="18">
@@ -1177,8 +1178,8 @@
         <td style="text-transform:capitalize">${(s.session || '').replace('_', '/')}</td>
         <td>${_timeAgo(s.created_at)}</td>
         <td>${_sigResultBadge(s)}</td>
-        <td class="${s.pips > 0 ? 'sig-pips-pos' : s.pips < 0 ? 'sig-pips-neg' : ''}">${s.pips != null ? (s.pips > 0 ? '+' : '') + s.pips.toFixed(1) : '—'}</td>
-        <td class="${s.profit_percent > 0 ? 'sig-pips-pos' : s.profit_percent < 0 ? 'sig-pips-neg' : ''}">${s.profit_percent != null ? (s.profit_percent > 0 ? '+' : '') + s.profit_percent + '%' : '—'}</td>
+        <td class="${em.pips > 0 ? 'sig-pips-pos' : em.pips < 0 ? 'sig-pips-neg' : ''}">${_sigHasOutcome(s) ? (em.pips > 0 ? '+' : '') + em.pips.toFixed(1) : '—'}</td>
+        <td class="${em.profit_percent > 0 ? 'sig-pips-pos' : em.profit_percent < 0 ? 'sig-pips-neg' : ''}">${_sigHasOutcome(s) ? (em.profit_percent > 0 ? '+' : '') + em.profit_percent + '%' : '—'}</td>
         <td onclick="event.stopPropagation()">
           <div class="sig-row-actions">
             <button title="Bookmark" onclick="_sigToggleBookmark('${s.id}')">${icn('ic-bookmark')}</button>
@@ -1389,7 +1390,7 @@
     const activeDays = Object.keys(byDay).length;
     let bestDayNum = null, bestDayR = -Infinity;
     Object.entries(byDay).forEach(([d, list]) => {
-      const r = list.reduce((a, s) => a + (+s.r_multiple || 0), 0);
+      const r = list.reduce((a, s) => a + _sigEffectiveMath(s).r_multiple, 0);
       if (r > bestDayR) { bestDayR = r; bestDayNum = d; }
     });
 
@@ -1406,7 +1407,7 @@
       const wins = list.filter(s => s.result === 'win').length;
       const losses = list.filter(s => s.result === 'loss').length;
       const closedCount = list.filter(s => s.result === 'win' || s.result === 'loss' || s.result === 'breakeven').length;
-      const totalR = list.reduce((a, s) => a + (+s.r_multiple || 0), 0);
+      const totalR = list.reduce((a, s) => a + _sigEffectiveMath(s).r_multiple, 0);
       const pairs = [...new Set(list.map(s => s.pair))];
       const sessionCounts = {};
       list.forEach(s => { if (s.session) sessionCounts[s.session] = (sessionCounts[s.session] || 0) + 1; });
@@ -1448,7 +1449,7 @@
     const weekRail = weeks.map((week, idx) => {
       const inMonth = week.filter(c => !c.outside && c.hasSignals);
       const allSignals = inMonth.flatMap(c => c.list);
-      const totalR = allSignals.reduce((a, s) => a + (+s.r_multiple || 0), 0);
+      const totalR = allSignals.reduce((a, s) => a + _sigEffectiveMath(s).r_multiple, 0);
       const closed = allSignals.filter(s => s.result === 'win' || s.result === 'loss');
       const wins = closed.filter(s => s.result === 'win').length;
       const wr = closed.length ? wins / closed.length : null;
@@ -1526,10 +1527,10 @@
 
     const closed = rows.filter(s => s.result === 'win' || s.result === 'loss');
     const wins = closed.filter(s => s.result === 'win');
-    const grossWin = wins.reduce((a, s) => a + Math.max(0, +s.pips || 0), 0);
-    const grossLoss = Math.abs(closed.filter(s => s.result === 'loss').reduce((a, s) => a + Math.min(0, +s.pips || 0), 0));
+    const grossWin = wins.reduce((a, s) => a + Math.max(0, _sigEffectiveMath(s).pips), 0);
+    const grossLoss = Math.abs(closed.filter(s => s.result === 'loss').reduce((a, s) => a + Math.min(0, _sigEffectiveMath(s).pips), 0));
     const profitFactor = grossLoss ? (grossWin / grossLoss).toFixed(2) : (grossWin ? '∞' : '—');
-    const totalR = closed.reduce((a, s) => a + (+s.r_multiple || 0), 0);
+    const totalR = closed.reduce((a, s) => a + _sigEffectiveMath(s).r_multiple, 0);
     const expectancy = closed.length ? (totalR / closed.length).toFixed(2) : '0.00';
 
     const SESSION_LABEL = { london: 'London', new_york: 'New York', tokyo: 'Tokyo', sydney: 'Sydney', london_ny_overlap: 'London/NY Overlap' };
@@ -1539,7 +1540,7 @@
     rows.forEach(s => {
       const p = byPair[s.pair] = byPair[s.pair] || { win: 0, total: 0, pips: 0, n: 0 };
       p.n++;
-      if (s.result === 'win' || s.result === 'loss') { p.total++; p.pips += (+s.pips || 0); if (s.result === 'win') p.win++; }
+      if (s.result === 'win' || s.result === 'loss') { p.total++; p.pips += _sigEffectiveMath(s).pips; if (s.result === 'win') p.win++; }
     });
     const pairRows = Object.entries(byPair).sort((a, b) => b[1].pips - a[1].pips);
     const pairMaxAbs = Math.max(1, ...pairRows.map(([, v]) => Math.abs(v.pips)));
@@ -1556,7 +1557,7 @@
     // ── Performance by weekday ──
     const dowNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const byDow = dowNames.map(() => 0);
-    rows.forEach(s => { byDow[new Date(s.created_at).getDay()] += (+s.pips || 0); });
+    rows.forEach(s => { byDow[new Date(s.created_at).getDay()] += _sigEffectiveMath(s).pips; });
     const dowMaxAbs = Math.max(1, ...byDow.map(v => Math.abs(v)));
     let bestDow = '—', bestDowVal = -Infinity;
     byDow.forEach((v, i) => { if (v > bestDowVal) { bestDowVal = v; bestDow = dowNames[i]; } });
@@ -1972,6 +1973,39 @@
     let pipMult = 1;
     if (s.market === 'forex') pipMult = /JPY/i.test(s.pair || '') ? 100 : 10000;
     const pips = +(rewardDist * pipMult).toFixed(1);
+    return { pips, r_multiple: rMultiple, profit_percent: profitPercent };
+  }
+
+  // Some signals — especially ones closed by an older version of this flow,
+  // before pips/r_multiple/profit_percent were reliably written on close —
+  // ended up persisted with those fields null (or stuck at 0) even though
+  // they carry a final win/loss result. Left as-is, that silently zeroes
+  // out Total Pips, Total R, and Monthly Profit forever on a trade that
+  // actually won or lost. This derives a real number from what the signal
+  // does have (its planned risk:reward and risk-per-trade) whenever the
+  // stored figure is missing, so every counted win/loss actually counts.
+  // A genuine win or loss should never legitimately land on exactly 0, so
+  // 0 is treated the same as missing for those two results; breakeven
+  // really is 0 and is left alone.
+  function _sigHasOutcome(s) { return s.result === 'win' || s.result === 'loss' || s.result === 'breakeven'; }
+
+  function _sigEffectiveMath(s) {
+    const stored = { pips: +s.pips || 0, r_multiple: +s.r_multiple || 0, profit_percent: +s.profit_percent || 0 };
+    if (s.result !== 'win' && s.result !== 'loss') return stored;
+    if (s.profit_percent != null && +s.profit_percent !== 0) return stored;
+    const rr = +s.risk_reward || 1;
+    const riskPct = +s.risk_percent || 1;
+    const rMultiple = s.result === 'win' ? rr : -1;
+    const profitPercent = +(rMultiple * riskPct).toFixed(2);
+    let pips = stored.pips;
+    if (!pips) {
+      const entry = +s.entry, sl = +s.stop_loss;
+      if (entry && sl && entry !== sl) {
+        let pipMult = 1;
+        if (s.market === 'forex') pipMult = /JPY/i.test(s.pair || '') ? 100 : 10000;
+        pips = +(Math.abs(entry - sl) * pipMult * rMultiple).toFixed(1);
+      }
+    }
     return { pips, r_multiple: rMultiple, profit_percent: profitPercent };
   }
 
