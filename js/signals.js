@@ -1366,10 +1366,12 @@
     const month = _sigCalMonth;
     const y = month.getFullYear(), m = month.getMonth();
     const first = new Date(y, m, 1);
-    const startDow = first.getDay();
+    const startDow = (first.getDay() + 6) % 7; // Monday-first index (0 = Mon)
     const daysInMonth = new Date(y, m + 1, 0).getDate();
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const isCurrentMonth = today.getFullYear() === y && today.getMonth() === m;
+    const SESSION_ABBR = { london: 'LDN', new_york: 'NY', tokyo: 'TOK', sydney: 'SYD', london_ny_overlap: 'LDN/NY' };
+
     const byDay = {};
     rows.forEach(s => {
       const d = new Date(s.created_at);
@@ -1385,42 +1387,88 @@
     const monthWins = monthClosed.filter(s => s.result === 'win').length;
     const monthWr = monthClosed.length ? Math.round(monthWins / monthClosed.length * 100) : null;
     const activeDays = Object.keys(byDay).length;
-    let bestDayNum = null, bestDayPips = -Infinity;
-    Object.entries(byDay).forEach(([d, list]) => { const p = list.reduce((a, s) => a + (+s.pips || 0), 0); if (p > bestDayPips) { bestDayPips = p; bestDayNum = d; } });
+    let bestDayNum = null, bestDayR = -Infinity;
+    Object.entries(byDay).forEach(([d, list]) => {
+      const r = list.reduce((a, s) => a + (+s.r_multiple || 0), 0);
+      if (r > bestDayR) { bestDayR = r; bestDayNum = d; }
+    });
 
-    let cells = '';
-    // Leading days from the previous month, shown muted for continuity
-    // instead of stark empty tiles, so the grid never looks unfinished.
+    // Build every cell (including the muted leading/trailing days from
+    // neighbouring months) as a plain descriptor first, so the same data
+    // can drive both the 7-wide grid and the week-by-week rail beside it —
+    // exactly how the main journal calendar pairs its grid with a weekly
+    // summary instead of leaving days to speak for themselves.
     const prevMonthDays = new Date(y, m, 0).getDate();
-    for (let i = 0; i < startDow; i++) {
-      const dNum = prevMonthDays - startDow + i + 1;
-      cells += `<div class="sig-cal-cell outside"><span class="sig-cal-date">${dNum}</span></div>`;
-    }
+    const cellDescs = [];
+    for (let i = 0; i < startDow; i++) cellDescs.push({ outside: true, dNum: prevMonthDays - startDow + i + 1 });
     for (let d = 1; d <= daysInMonth; d++) {
       const list = byDay[d] || [];
       const wins = list.filter(s => s.result === 'win').length;
       const losses = list.filter(s => s.result === 'loss').length;
-      const avgRR = list.length ? (list.reduce((a, s) => a + (+s.risk_reward || 0), 0) / list.length).toFixed(1) : null;
+      const closedCount = list.filter(s => s.result === 'win' || s.result === 'loss' || s.result === 'breakeven').length;
+      const totalR = list.reduce((a, s) => a + (+s.r_multiple || 0), 0);
+      const pairs = [...new Set(list.map(s => s.pair))];
+      const sessionCounts = {};
+      list.forEach(s => { if (s.session) sessionCounts[s.session] = (sessionCounts[s.session] || 0) + 1; });
+      const topSession = Object.entries(sessionCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
       const dow = (startDow + d - 1) % 7;
-      const isWeekend = dow === 0 || dow === 6;
+      const isWeekend = dow >= 5; // Sat/Sun at the tail of a Monday-first row
       const isToday = isCurrentMonth && today.getDate() === d;
       const hasSignals = list.length > 0;
-      const heat = hasSignals ? (wins > losses ? 'heat-win' : losses > wins ? 'heat-loss' : 'heat-flat') : '';
-      cells += `<div class="sig-cal-cell${isWeekend ? ' weekend' : ''}${isToday ? ' today' : ''}${hasSignals ? ' has-signals ' + heat : ' quiet'}"
-        onclick='_sigCalDrill(${JSON.stringify(list.map(s => s.id))})' title="${hasSignals ? list.length + ' signal(s) on this day' : 'No signals'}">
-        <div class="sig-cal-top"><span class="sig-cal-date">${d}</span>${isToday ? '<span class="sig-cal-today-dot"></span>' : ''}</div>
-        ${hasSignals ? `
-        <div class="sig-cal-wl">${wins ? `<span class="sig-cal-pip green">${wins}W</span>` : ''}${losses ? `<span class="sig-cal-pip red">${losses}L</span>` : ''}${!wins && !losses ? `<span class="sig-cal-pip">${list.length} sig${list.length > 1 ? 's' : ''}</span>` : ''}</div>
-        <div class="sig-cal-wl-bar"><span class="w" style="width:${wins + losses ? (wins / (wins + losses) * 100) : 50}%"></span></div>
-        <span class="sig-cal-stat">RR ${avgRR}</span>` : `<span class="sig-cal-empty-hint">—</span>`}
-      </div>`;
+      const heat = !hasSignals ? '' : totalR > 0 ? 'heat-win' : totalR < 0 ? 'heat-loss' : 'heat-flat';
+      cellDescs.push({ outside: false, dNum: d, list, wins, losses, closedCount, totalR, pairs, topSession, isWeekend, isToday, hasSignals, heat });
     }
-    // Trailing days from next month
     const totalCells = startDow + daysInMonth;
     const trailing = (7 - (totalCells % 7)) % 7;
-    for (let i = 1; i <= trailing; i++) cells += `<div class="sig-cal-cell outside"><span class="sig-cal-date">${i}</span></div>`;
+    for (let i = 1; i <= trailing; i++) cellDescs.push({ outside: true, dNum: i });
 
-    const dows = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const cellHtml = cellDescs.map(c => {
+      if (c.outside) return `<div class="sig-cal-cell outside"><span class="sig-cal-date">${c.dNum}</span></div>`;
+      const rTxt = (c.totalR > 0 ? '+' : '') + c.totalR.toFixed(1) + 'R';
+      const rClass = c.totalR > 0 ? 'green' : c.totalR < 0 ? 'red' : '';
+      return `<div class="sig-cal-cell${c.isWeekend ? ' weekend' : ''}${c.isToday ? ' today' : ''}${c.hasSignals ? ' has-signals ' + c.heat : ' quiet'}"
+        onclick='_sigCalDrill(${JSON.stringify(c.list.map(s => s.id))})' title="${c.hasSignals ? c.list.length + ' signal(s) on this day' : 'No signals'}">
+        <div class="sig-cal-top"><span class="sig-cal-date">${c.dNum}</span>${c.isToday ? '<span class="sig-cal-today-dot"></span>' : ''}</div>
+        ${c.hasSignals ? `
+        <div class="sig-cal-r ${rClass}">${rTxt}</div>
+        <div class="sig-cal-meta">${c.list.length} signal${c.list.length > 1 ? 's' : ''}</div>
+        <div class="sig-cal-pairs">${c.pairs.slice(0, 2).join(', ')}${c.pairs.length > 2 ? ' +' + (c.pairs.length - 2) : ''}</div>
+        <div class="sig-cal-tagrow">
+          ${c.topSession ? `<span class="sig-cal-session-tag">${SESSION_ABBR[c.topSession] || c.topSession}</span>` : '<span></span>'}
+          ${c.closedCount ? icn('ic-check') : ''}
+        </div>` : `<span class="sig-cal-empty-hint">—</span>`}
+      </div>`;
+    }).join('');
+
+    // Weekly rail — one card per 7-cell row of the grid, mirroring the
+    // journal's main calendar (Week 1 / Week 2 … with a letter grade),
+    // instead of leaving the grid as the only source of context.
+    const weeks = [];
+    for (let i = 0; i < cellDescs.length; i += 7) weeks.push(cellDescs.slice(i, i + 7));
+    const weekRail = weeks.map((week, idx) => {
+      const inMonth = week.filter(c => !c.outside && c.hasSignals);
+      const allSignals = inMonth.flatMap(c => c.list);
+      const totalR = allSignals.reduce((a, s) => a + (+s.r_multiple || 0), 0);
+      const closed = allSignals.filter(s => s.result === 'win' || s.result === 'loss');
+      const wins = closed.filter(s => s.result === 'win').length;
+      const wr = closed.length ? wins / closed.length : null;
+      let grade = null;
+      if (closed.length) grade = (wr >= 0.8 && totalR > 0) ? 'A+' : wr >= 0.5 ? 'B' : 'F';
+      const ids = allSignals.map(s => s.id);
+      return `
+      <div class="sig-cal-week-card${!allSignals.length ? ' empty' : ''}" ${ids.length ? `onclick='_sigCalDrill(${JSON.stringify(ids)})'` : ''}>
+        <div class="sig-cal-week-head">
+          <span>Week ${idx + 1}</span>
+          ${grade ? `<span class="sig-cal-week-grade ${grade === 'F' ? 'f' : grade === 'B' ? 'b' : 'a'}">${grade}</span>` : ''}
+        </div>
+        ${allSignals.length ? `
+        <div class="sig-cal-week-r ${totalR > 0 ? 'green' : totalR < 0 ? 'red' : ''}">${totalR > 0 ? '+' : ''}${totalR.toFixed(1)}R</div>
+        <div class="sig-cal-week-sub">${inMonth.length} day${inMonth.length === 1 ? '' : 's'} · ${allSignals.length} signal${allSignals.length === 1 ? '' : 's'}</div>
+        <div class="sig-cal-week-tap">Tap for details</div>` : `<div class="sig-cal-week-sub">No signals</div>`}
+      </div>`;
+    }).join('');
+
+    const dows = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return `
     <div class="sig-cal-toolbar">
       <button class="btn" onclick="_sigCalNav(-1)" title="Previous month">${icn('ic-arrow-left')}</button>
@@ -1436,9 +1484,14 @@
       <div class="sig-cal-summary-item"><span class="v ${monthWr === null ? '' : monthWr >= 50 ? 'green' : 'red'}">${monthWr === null ? '—' : monthWr + '%'}</span><span class="l">Win rate</span></div>
       <div class="sig-cal-summary-item"><span class="v">${bestDayNum ? month.toLocaleString('default', { month: 'short' }) + ' ' + bestDayNum : '—'}</span><span class="l">Best day</span></div>
     </div>
-    <div class="sig-cal-grid">
-      ${dows.map(d => `<div class="sig-cal-dow">${d}</div>`).join('')}
-      ${cells}
+    <div class="sig-cal-layout">
+      <div class="sig-cal-main">
+        <div class="sig-cal-grid">
+          ${dows.map(d => `<div class="sig-cal-dow">${d}</div>`).join('')}
+          ${cellHtml}
+        </div>
+      </div>
+      <div class="sig-cal-week-rail">${weekRail}</div>
     </div>`;
   }
   window._sigCalToday = function () { _sigCalMonth = new Date(); _sigRenderActiveView(); };
