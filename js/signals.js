@@ -337,6 +337,7 @@
       _sigPersistSignal(s, true);
     });
     _sigRenderStats();
+    _sigUpdateKpiVisibility();
     _sigRenderActiveView();
     _sigRefreshNotifBadge();
     if (!_sigUsingSupabase) {
@@ -372,10 +373,18 @@
       </div>
     </div>
 
-    <div class="sig-stats-grid" id="sig-stats-grid"></div>
+    <div id="sig-kpi-wrap">
+      <div class="sig-stats-grid" id="sig-stats-grid"></div>
+    </div>
+    <button id="sig-kpi-expand-btn" class="sig-kpi-expand-btn" style="display:none" onclick="_sigToggleKpiOnDrafts()">${icn('ic-chart-bar')} Show performance stats</button>
 
     <div class="sig-filter-bar">
-      <div class="sig-filter-scroll" id="sig-filter-chips"></div>
+      <div class="sig-filter-dropdown-wrap">
+        <button id="sig-filter-btn" class="sig-filter-btn" onclick="_sigToggleFilterPanel(event)">
+          ${icn('ic-tag')} <span class="lbl-full">Filters</span> <span id="sig-filter-count" class="sig-filter-count" style="display:none">0</span> ${icn('ic-chevron-right', 'sig-filter-chevron')}
+        </button>
+        <div id="sig-filter-pills" class="sig-filter-pills"></div>
+      </div>
       <div class="sig-search-wrap">
         ${icn('ic-search')}
         <input type="text" id="sig-search-input" placeholder="Search pair or market…" oninput="_sigOnSearch(this.value)">
@@ -529,31 +538,121 @@
     _sigRenderFilterChips();
   };
 
+  const FILTER_GROUP_LABELS = {
+    status: 'Status', result: 'Result', market: 'Market', timeframe: 'Timeframe',
+    confidence: 'Confidence', rr: 'Risk : Reward', session: 'Session'
+  };
+
+  function _sigFilterPanelContent() {
+    const groupsHtml = Object.entries(FILTER_GROUPS).map(([g, chips]) => `
+      <div class="sig-filter-group">
+        <div class="sig-filter-group-label">${FILTER_GROUP_LABELS[g] || g}</div>
+        <div class="sig-filter-group-chips">
+          ${chips.map(c => `<div class="sig-chip ${_sigChipSet(g).has(c.id) ? 'active' : ''}" onclick="_sigToggleChip('${g}','${c.id}')">${c.label}</div>`).join('')}
+        </div>
+      </div>`).join('');
+    const savedList = _sigLoadSavedFilters();
+    const savedHtml = savedList.length ? `
+      <div class="sig-filter-group">
+        <div class="sig-filter-group-label">Saved</div>
+        <div class="sig-filter-group-chips">
+          ${savedList.map(f => `<div class="sig-chip sig-chip-saved" onclick="_sigApplySavedFilter('${f.id}')">${icn('ic-star')}${f.name}<span class="sig-chip-x" onclick="_sigDeleteSavedFilter('${f.id}',event)">${icn('ic-close')}</span></div>`).join('')}
+        </div>
+      </div>` : '';
+    return `
+      <div class="sig-filter-panel-head">
+        <span>Filters</span>
+        ${_sigActiveChipCount() ? `<button class="sig-filter-clear" onclick="_sigResetFilters()">${icn('ic-refresh')} Clear all</button>` : ''}
+      </div>
+      <div class="sig-filter-panel-body">
+        <div class="sig-filter-group">
+          <div class="sig-filter-group-label">Quick Presets</div>
+          <div class="sig-filter-group-chips">
+            ${QUICK_PRESETS.map((p, i) => `<div class="sig-chip sig-chip-preset" onclick="_sigApplyPreset(${i})">${icn('ic-sparkle')}${p.label}</div>`).join('')}
+          </div>
+        </div>
+        ${groupsHtml}
+        ${savedHtml}
+      </div>
+      <div class="sig-filter-panel-foot">
+        <button class="sig-chip sig-chip-action" onclick="_sigSaveCurrentFilter()">${icn('ic-save')} Save current filter</button>
+      </div>`;
+  }
+
+  window._sigToggleFilterPanel = function (ev) {
+    if (ev) ev.stopPropagation();
+    const existing = document.getElementById('sig-filter-panel');
+    if (existing) { existing.remove(); document.removeEventListener('click', _sigCloseFilterPanelOnce); return; }
+    const panel = document.createElement('div');
+    panel.id = 'sig-filter-panel';
+    panel.className = 'sig-actions-menu sig-filter-panel';
+    panel.innerHTML = _sigFilterPanelContent();
+    // Clicks inside the panel re-render its innerHTML (chip toggles), which
+    // would otherwise detach the original event target from the DOM before
+    // the click bubbles to the document-level "close on outside click"
+    // listener — making every toggle look like an outside click. Stopping
+    // propagation at the panel node (which itself is never replaced) fixes it.
+    panel.addEventListener('click', e => e.stopPropagation());
+    document.body.appendChild(panel);
+    const btn = document.getElementById('sig-filter-btn');
+    const rect = btn.getBoundingClientRect();
+    panel.style.left = Math.max(8, rect.left) + 'px';
+    panel.style.top = (rect.bottom + 8 + window.scrollY) + 'px';
+    setTimeout(() => document.addEventListener('click', _sigCloseFilterPanelOnce), 0);
+  };
+  function _sigCloseFilterPanelOnce(e) {
+    const panel = document.getElementById('sig-filter-panel');
+    if (panel) { panel.remove(); }
+    document.removeEventListener('click', _sigCloseFilterPanelOnce);
+  }
+
+  function _sigRenderActivePills() {
+    const host = document.getElementById('sig-filter-pills');
+    const countEl = document.getElementById('sig-filter-count');
+    if (!host || !countEl) return;
+    const pills = [];
+    Object.entries(_sigActiveFilters).forEach(([g, set]) => {
+      set.forEach(id => {
+        const chip = (FILTER_GROUPS[g] || []).find(c => c.id === id);
+        if (chip) pills.push({ g, id, label: chip.label });
+      });
+    });
+    const count = pills.length;
+    countEl.textContent = count;
+    countEl.style.display = count ? 'inline-flex' : 'none';
+    host.innerHTML = pills.map(p => `<span class="sig-filter-pill">${p.label}<button title="Remove filter" onclick="_sigToggleChip('${p.g}','${p.id}')">${icn('ic-close')}</button></span>`).join('')
+      + (count ? `<button class="sig-filter-pill sig-filter-pill-clear" onclick="_sigResetFilters()">${icn('ic-refresh')} Clear</button>` : '');
+  }
+
   function _sigRenderFilterChips() {
-    const el = document.getElementById('sig-filter-chips');
-    if (!el) return;
-    const groupsHtml = Object.entries(FILTER_GROUPS).map(([g, chips]) => chips.map(c =>
-      `<div class="sig-chip ${_sigChipSet(g).has(c.id) ? 'active' : ''}" onclick="_sigToggleChip('${g}','${c.id}')">${c.label}</div>`
-    ).join('')).join('');
-    const savedHtml = _sigLoadSavedFilters().map(f =>
-      `<div class="sig-chip sig-chip-saved" onclick="_sigApplySavedFilter('${f.id}')">${icn('ic-star')}${f.name}<span class="sig-chip-x" onclick="_sigDeleteSavedFilter('${f.id}',event)">${icn('ic-close')}</span></div>`
-    ).join('');
-    el.innerHTML = `
-      <div class="sig-chip ${!_sigActiveChipCount() ? 'active' : ''}" onclick="_sigResetFilters()">All</div>
-      ${groupsHtml}
-      <div class="sig-filter-divider"></div>
-      ${QUICK_PRESETS.map((p, i) => `<div class="sig-chip sig-chip-preset" onclick="_sigApplyPreset(${i})">${icn('ic-sparkle')}${p.label}</div>`).join('')}
-      ${savedHtml ? `<div class="sig-filter-divider"></div>${savedHtml}` : ''}
-      <div class="sig-filter-divider"></div>
-      <div class="sig-chip sig-chip-action" onclick="_sigSaveCurrentFilter()">${icn('ic-save')} Save filter</div>
-      ${_sigActiveChipCount() ? `<div class="sig-chip sig-chip-action" onclick="_sigResetFilters()">${icn('ic-refresh')} Reset</div>` : ''}
-    `;
+    _sigRenderActivePills();
+    // Keep an already-open dropdown in sync with the latest toggle state
+    // instead of forcing the person to reopen it after every click.
+    const panel = document.getElementById('sig-filter-panel');
+    if (panel) panel.innerHTML = _sigFilterPanelContent();
   }
 
   window._sigOnSearch = function (v) { _sigSearch = v.trim().toLowerCase(); _sigRenderActiveView(); };
+  let _sigKpiExpandedOnDrafts = false;
+  function _sigUpdateKpiVisibility() {
+    const wrap = document.getElementById('sig-kpi-wrap');
+    const btn = document.getElementById('sig-kpi-expand-btn');
+    if (!wrap || !btn) return;
+    const onDrafts = _sigView === 'drafts';
+    const collapsed = onDrafts && !_sigKpiExpandedOnDrafts;
+    wrap.style.display = collapsed ? 'none' : '';
+    btn.style.display = onDrafts ? 'inline-flex' : 'none';
+    btn.innerHTML = `${icn(_sigKpiExpandedOnDrafts ? 'ic-minus' : 'ic-chart-bar')} ${_sigKpiExpandedOnDrafts ? 'Hide' : 'Show'} performance stats`;
+  }
+  window._sigToggleKpiOnDrafts = function () {
+    _sigKpiExpandedOnDrafts = !_sigKpiExpandedOnDrafts;
+    _sigUpdateKpiVisibility();
+  };
+
   window._sigSetView = function (v) {
     _sigView = v;
     document.querySelectorAll('.sig-view-toggle button').forEach(b => b.classList.toggle('active', b.dataset.view === v));
+    _sigUpdateKpiVisibility();
     _sigRenderActiveView();
   };
 
@@ -960,6 +1059,13 @@
     </div>`;
   }
 
+  function _sigResultBadge(s) {
+    if (s.result === 'win') return `<span class="sig-result-badge win">${icn('ic-check')}Win</span>`;
+    if (s.result === 'loss') return `<span class="sig-result-badge loss">${icn('ic-trend-down')}Loss</span>`;
+    if (s.result === 'breakeven') return `<span class="sig-result-badge breakeven">${icn('ic-scale')}Breakeven</span>`;
+    return `<span class="sig-result-badge pending">${icn('ic-clock')}Pending</span>`;
+  }
+
   function _sigOrderTypeBadge(s) {
     const type = s.order_type || 'market';
     const isPending = PENDING_ORDER_TYPES.includes(type);
@@ -1026,7 +1132,7 @@
         <td>${_sigConfBadge(s)}</td>
         <td style="text-transform:capitalize">${(s.session || '').replace('_', '/')}</td>
         <td>${_timeAgo(s.created_at)}</td>
-        <td>${s.result === 'win' ? '<span class="sig-badge sig-badge-tp1_hit">Win</span>' : s.result === 'loss' ? '<span class="sig-badge sig-badge-stopped_out">Loss</span>' : '<span class="sig-badge sig-badge-neutral">Pending</span>'}</td>
+        <td>${_sigResultBadge(s)}</td>
         <td class="${s.pips > 0 ? 'sig-pips-pos' : s.pips < 0 ? 'sig-pips-neg' : ''}">${s.pips != null ? (s.pips > 0 ? '+' : '') + s.pips.toFixed(1) : '—'}</td>
         <td class="${s.profit_percent > 0 ? 'sig-pips-pos' : s.profit_percent < 0 ? 'sig-pips-neg' : ''}">${s.profit_percent != null ? (s.profit_percent > 0 ? '+' : '') + s.profit_percent + '%' : '—'}</td>
         <td onclick="event.stopPropagation()">
@@ -1182,6 +1288,7 @@
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
           <span class="sig-badge sig-badge-${s.status}"><span class="dot"></span>${STATUS_LABEL[s.status]}</span>
           <span class="sig-market-badge">${icn(MARKET_ICON[s.market])}${MARKET_LABEL[s.market]}</span>
+          ${_sigResultBadge(s)}
         </div>
         <div class="sig-card-levels">
           <div class="sig-card-level"><span class="lbl">Entry</span><span class="val">${_fmtNum(s.entry)}</span></div>

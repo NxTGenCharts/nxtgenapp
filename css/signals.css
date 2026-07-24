@@ -87,11 +87,61 @@
   display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;
   margin-bottom:14px;padding-bottom:2px;
 }
-.sig-filter-scroll{display:flex;gap:6px;flex-wrap:wrap;flex:1;align-items:flex-start}
+.sig-filter-dropdown-wrap{display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:1;min-width:0}
+.sig-filter-btn{
+  display:flex;align-items:center;gap:6px;flex-shrink:0;
+  padding:7px 12px;border-radius:var(--r-full);font-size:12px;font-weight:600;
+  background:var(--glass-1);border:1px solid var(--glass-border);color:var(--text2);
+  cursor:pointer;transition:var(--t-fast);
+}
+.sig-filter-btn:hover{background:var(--glass-2);color:var(--text);border-color:var(--glass-border-h)}
+.sig-filter-btn .icn{width:13px;height:13px}
+.sig-filter-chevron{transform:rotate(90deg);width:10px !important;height:10px !important;opacity:.6}
+.sig-filter-count{
+  min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--blue);color:#04101f;
+  font-size:9.5px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;
+}
+.sig-filter-pills{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.sig-filter-pill{
+  display:inline-flex;align-items:center;gap:6px;padding:5px 6px 5px 12px;border-radius:var(--r-full);
+  background:rgba(96,165,250,0.14);border:1px solid rgba(96,165,250,0.32);color:var(--blue);
+  font-size:11px;font-weight:600;white-space:nowrap;
+}
+.sig-filter-pill button{
+  display:flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;
+  border:none;background:rgba(96,165,250,0.18);color:var(--blue);cursor:pointer;padding:0;
+}
+.sig-filter-pill button .icn{width:8px;height:8px}
+.sig-filter-pill button:hover{background:rgba(96,165,250,0.32)}
+.sig-filter-pill-clear{
+  background:var(--glass-2);border-color:var(--glass-border-h);color:var(--text2);padding:5px 12px;cursor:pointer;
+}
+.sig-filter-pill-clear .icn{width:11px;height:11px}
+.sig-filter-pill-clear:hover{color:var(--text)}
+
+/* Filter dropdown panel — extends the shared .sig-actions-menu popover */
+.sig-filter-panel{width:320px;max-width:calc(100vw - 24px);max-height:74vh;overflow:hidden;display:flex;flex-direction:column;padding:0}
+.sig-filter-panel-head{
+  display:flex;align-items:center;justify-content:space-between;padding:12px 14px;
+  font-size:12.5px;font-weight:700;color:var(--text);border-bottom:1px solid var(--glass-border);flex-shrink:0;
+}
+.sig-filter-clear{
+  display:flex;align-items:center;gap:5px;background:none;border:none;color:var(--blue);font-size:11px;
+  font-weight:600;cursor:pointer;padding:0;
+}
+.sig-filter-clear .icn{width:11px;height:11px}
+.sig-filter-panel-body{overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:14px}
+.sig-filter-group-label{font-size:9.5px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:7px}
+.sig-filter-group-chips{display:flex;gap:6px;flex-wrap:wrap}
+.sig-filter-group-chips .sig-chip{padding:5px 11px;font-size:11px}
+.sig-filter-panel-foot{padding:10px 14px;border-top:1px solid var(--glass-border);flex-shrink:0}
+.sig-filter-panel-foot .sig-chip-action{width:100%;justify-content:center;display:flex;align-items:center;gap:6px}
+
 .sig-chip{
   padding:6px 13px;border-radius:var(--r-full);font-size:11.5px;font-weight:500;
   background:var(--glass-1);border:1px solid var(--glass-border);color:var(--text2);
   cursor:pointer;transition:var(--t-fast);white-space:nowrap;user-select:none;
+  display:inline-flex;align-items:center;gap:5px;
 }
 .sig-chip:hover{background:var(--glass-2);color:var(--text);border-color:var(--glass-border-h);transform:translateY(-1px)}
 .sig-chip.active{
@@ -99,7 +149,10 @@
   border-color:rgba(96,165,250,0.4);color:var(--blue);font-weight:700;
   box-shadow:var(--glow-blue);
 }
-.sig-search-wrap{position:relative;flex-shrink:0;min-width:180px;align-self:flex-start}
+.sig-chip .icn{width:11px;height:11px}
+.sig-chip-x{display:inline-flex;margin-left:2px;opacity:.7}
+.sig-chip-x:hover{opacity:1}
+.sig-search-wrap{position:relative;flex-shrink:0;min-width:180px;align-self:flex-start;margin-left:auto}
 .sig-search-wrap .icn{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:13px;height:13px;color:var(--text3)}
 .sig-search-wrap input{
   width:100%;padding:7px 12px 7px 30px;border-radius:var(--r-full);
@@ -114,6 +167,27 @@
 }
 .sig-view-toggle button .icn{width:13px;height:13px}
 .sig-view-toggle button.active{background:var(--glass-3);color:var(--text);box-shadow:var(--shadow-xs)}
+
+/* ── KPI grid collapse toggle (used on the Drafts tab) ──────────── */
+.sig-kpi-expand-btn{
+  display:inline-flex;align-items:center;gap:6px;margin-bottom:14px;
+  padding:7px 13px;border-radius:var(--r-full);font-size:11.5px;font-weight:600;
+  background:var(--glass-1);border:1px dashed var(--glass-border-h);color:var(--text2);cursor:pointer;transition:var(--t-fast);
+}
+.sig-kpi-expand-btn:hover{background:var(--glass-2);color:var(--text)}
+.sig-kpi-expand-btn .icn{width:12px;height:12px}
+
+/* ── Result badge (Win / Breakeven / Loss / Pending) ─────────────── */
+.sig-result-badge{
+  display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:var(--r-full);
+  font-size:10px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;
+}
+.sig-result-badge .icn{width:10px;height:10px}
+.sig-result-badge.win{background:var(--green-dim);color:var(--green);border:1px solid rgba(52,211,153,0.35)}
+.sig-result-badge.loss{background:var(--red-dim);color:var(--red);border:1px solid rgba(248,113,113,0.35)}
+.sig-result-badge.breakeven{background:rgba(251,191,36,0.14);color:var(--gold);border:1px solid rgba(251,191,36,0.35)}
+.sig-result-badge.pending{background:var(--glass-1);color:var(--text3);border:1px solid var(--glass-border)}
+
 
 /* ── Badges: status / direction / market / confidence ────────── */
 .sig-badge{
@@ -438,6 +512,12 @@
 @media (max-width:480px){
   .sig-view-toggle button span.lbl-full{display:none}
   .sig-view-toggle button{padding:7px 9px}
+  .sig-filter-btn span.lbl-full{display:none}
+}
+@media (max-width:640px){
+  .sig-filter-bar{flex-direction:column;align-items:stretch}
+  .sig-filter-dropdown-wrap{width:100%}
+  .sig-search-wrap{width:100%;min-width:0;margin-left:0}
 }
 @media (max-width:768px){
   .sig-table-card{display:none}
@@ -535,7 +615,6 @@
 .sig-dist-bar-wrap span{font-size:9px;color:var(--text3)}
 
 /* ── Combinable filter chips ─────────────────────────────────── */
-.sig-filter-divider{width:1px;align-self:stretch;background:var(--glass-border);margin:2px 2px;flex-shrink:0}
 .sig-chip-preset{background:rgba(167,139,250,0.10);border-color:rgba(167,139,250,0.25);color:var(--purple);display:flex;align-items:center;gap:4px}
 .sig-chip-preset .icn{width:11px;height:11px}
 .sig-chip-preset:hover{background:rgba(167,139,250,0.18)}
