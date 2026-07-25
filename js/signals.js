@@ -613,7 +613,7 @@
   // Set this to the VAPID public key your push server generates (see the
   // edge function's setup notes) to turn on the "Enable push" button.
   // ══════════════════════════════════════════════════════════════
-  const SIG_VAPID_PUBLIC_KEY = 'BNe5pt5yDES5VzZewR9g13lpyRg46rZN8Cz8pXkHmu1hYCuA8Pc2zWVmXn4a4O6YiPndC_8OXFjQDP___gcdhGU';
+  const SIG_VAPID_PUBLIC_KEY = 'BNaPommo_uPQrNci_nyyQZ2lAu3nuGcULCWfwXCLlRcoxlfZRKs_WqDzZOpUbv0B5zsnmEFNbw0GpOzlKVU3ztk';
   const SIG_NOTIF_PREFS_KEY = 'sig_notif_prefs_v1';
   let _sigNotifPrefsState = null;
 
