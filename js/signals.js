@@ -639,8 +639,21 @@
     return {
       sound_enabled: _sigSoundEnabled(), push_enabled: false, push_subscription: null,
       email_enabled: false, email: (_currentUser && _currentUser.email) || '',
-      whatsapp_enabled: false, whatsapp_number: ''
+      whatsapp_enabled: false, whatsapp_number: '',
+      timezone: _sigDetectTimeZone()
     };
+  }
+
+  // Best-effort IANA time zone name (e.g. "America/New_York") so the
+  // notify-subscribers edge function can render email timestamps in the
+  // recipient's local time instead of UTC. Falls back to null (server
+  // renders UTC) if the browser can't resolve one for some reason.
+  function _sigDetectTimeZone() {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+    } catch (e) {
+      return null;
+    }
   }
 
   async function _sigPersistNotifPrefs(prefs) {
@@ -759,7 +772,8 @@
       email_enabled: document.getElementById('np-email-enabled').checked,
       email: document.getElementById('np-email').value.trim(),
       whatsapp_enabled: document.getElementById('np-whatsapp-enabled').checked,
-      whatsapp_number: document.getElementById('np-whatsapp').value.trim().replace(/(?!^\+)[^\d]/g, '')
+      whatsapp_number: document.getElementById('np-whatsapp').value.trim().replace(/(?!^\+)[^\d]/g, ''),
+      timezone: _sigDetectTimeZone()
     };
     if (prefs.email_enabled && !prefs.email) { showToast('Add an email address first', 'error'); return; }
     if (prefs.whatsapp_enabled && !prefs.whatsapp_number) { showToast('Add a WhatsApp number first', 'error'); return; }
