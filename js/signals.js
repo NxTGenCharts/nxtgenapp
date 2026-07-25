@@ -656,70 +656,125 @@
     }
   }
 
-  // Curated city picker — mirrors the "(UTC±N) City" style used on the
-  // Profile page's time zone select, instead of dumping every raw IANA
-  // zone name. Each entry is still a real IANA zone under the hood; only
-  // the label is friendlier. Actual display order is re-sorted live by
-  // each zone's current UTC offset in _sigTimeZoneOptions below.
+  // Exact same list (values + labels, verbatim) as the Profile page's
+  // #pf-timezone select in index.html — kept as a single static source
+  // of truth here rather than re-derived from Intl, so the two pickers
+  // can never drift out of sync with each other.
   const _SIG_TZ_CITIES = [
-    ['Pacific/Honolulu', 'Honolulu'], ['America/Anchorage', 'Anchorage'], ['America/Juneau', 'Juneau'],
-    ['America/Los_Angeles', 'Los Angeles'], ['America/Phoenix', 'Phoenix'], ['America/Vancouver', 'Vancouver'],
-    ['America/Denver', 'Denver'], ['America/Mexico_City', 'Mexico City'], ['America/El_Salvador', 'San Salvador'],
-    ['America/Bogota', 'Bogota'], ['America/Chicago', 'Chicago'], ['America/Lima', 'Lima'],
-    ['America/Caracas', 'Caracas'], ['America/New_York', 'New York'], ['America/Santiago', 'Santiago'],
-    ['America/Toronto', 'Toronto'], ['America/Argentina/Buenos_Aires', 'Buenos Aires'], ['America/Halifax', 'Halifax'],
-    ['America/Sao_Paulo', 'Sao Paulo'], ['America/St_Johns', "St. John's"], ['Atlantic/Azores', 'Azores'],
-    ['Atlantic/Cape_Verde', 'Cape Verde'], ['Europe/London', 'London'], ['Europe/Dublin', 'Dublin'],
-    ['Africa/Casablanca', 'Casablanca'], ['Europe/Paris', 'Paris'], ['Europe/Berlin', 'Berlin'],
-    ['Europe/Madrid', 'Madrid'], ['Europe/Rome', 'Rome'], ['Africa/Lagos', 'Lagos'],
-    ['Africa/Algiers', 'Algiers'], ['Europe/Athens', 'Athens'], ['Europe/Istanbul', 'Istanbul'],
-    ['Africa/Cairo', 'Cairo'], ['Africa/Johannesburg', 'Johannesburg'], ['Europe/Moscow', 'Moscow'],
-    ['Asia/Dubai', 'Dubai'], ['Asia/Baku', 'Baku'], ['Asia/Karachi', 'Karachi'],
-    ['Asia/Kolkata', 'Mumbai / Kolkata'], ['Asia/Kathmandu', 'Kathmandu'], ['Asia/Dhaka', 'Dhaka'],
-    ['Asia/Yangon', 'Yangon'], ['Asia/Bangkok', 'Bangkok'], ['Asia/Jakarta', 'Jakarta'],
-    ['Asia/Shanghai', 'Shanghai / Singapore'], ['Asia/Hong_Kong', 'Hong Kong'], ['Asia/Tokyo', 'Tokyo'],
-    ['Asia/Seoul', 'Seoul'], ['Australia/Perth', 'Perth'], ['Australia/Adelaide', 'Adelaide'],
-    ['Australia/Sydney', 'Sydney'], ['Pacific/Guadalcanal', 'Solomon Islands'], ['Pacific/Auckland', 'Auckland'],
-    ['Pacific/Tongatapu', 'Tonga']
+    ['Pacific/Honolulu', '(UTC-10) Honolulu'],
+    ['America/Anchorage', '(UTC-8) Anchorage'],
+    ['America/Juneau', '(UTC-8) Juneau'],
+    ['America/Los_Angeles', '(UTC-7) Los Angeles'],
+    ['America/Phoenix', '(UTC-7) Phoenix'],
+    ['America/Vancouver', '(UTC-7) Vancouver'],
+    ['America/Denver', '(UTC-6) Denver'],
+    ['America/Mexico_City', '(UTC-6) Mexico City'],
+    ['America/El_Salvador', '(UTC-6) San Salvador'],
+    ['America/Bogota', '(UTC-5) Bogota'],
+    ['America/Chicago', '(UTC-5) Chicago'],
+    ['America/Lima', '(UTC-5) Lima'],
+    ['America/Caracas', '(UTC-4) Caracas'],
+    ['America/New_York', '(UTC-4) New York'],
+    ['America/Santiago', '(UTC-4) Santiago'],
+    ['America/Toronto', '(UTC-4) Toronto'],
+    ['America/Argentina/Buenos_Aires', '(UTC-3) Buenos Aires'],
+    ['America/Halifax', '(UTC-3) Halifax'],
+    ['America/Sao_Paulo', '(UTC-3) Sao Paulo'],
+    ['America/Godthab', '(UTC-2) Godthab'],
+    ['Atlantic/Azores', '(UTC-1) Azores'],
+    ['Atlantic/Cape_Verde', '(UTC-1) Cape Verde'],
+    ['Africa/Casablanca', '(UTC+0) Casablanca'],
+    ['Europe/Dublin', '(UTC+0) Dublin'],
+    ['Europe/Lisbon', '(UTC+0) Lisbon'],
+    ['Europe/London', '(UTC+0) London'],
+    ['Atlantic/Reykjavik', '(UTC+0) Reykjavik'],
+    ['Africa/Algiers', '(UTC+1) Algiers'],
+    ['Africa/Lagos', '(UTC+1) Lagos'],
+    ['Africa/Tunis', '(UTC+1) Tunis'],
+    ['Europe/Amsterdam', '(UTC+2) Amsterdam'],
+    ['Europe/Belgrade', '(UTC+2) Belgrade'],
+    ['Europe/Berlin', '(UTC+2) Berlin'],
+    ['Europe/Bratislava', '(UTC+2) Bratislava'],
+    ['Europe/Brussels', '(UTC+2) Brussels'],
+    ['Europe/Budapest', '(UTC+2) Budapest'],
+    ['Europe/Copenhagen', '(UTC+2) Copenhagen'],
+    ['Africa/Johannesburg', '(UTC+2) Johannesburg'],
+    ['Europe/Ljubljana', '(UTC+2) Ljubljana'],
+    ['Europe/Luxembourg', '(UTC+2) Luxembourg'],
+    ['Europe/Madrid', '(UTC+2) Madrid'],
+    ['Europe/Malta', '(UTC+2) Malta'],
+    ['Europe/Oslo', '(UTC+2) Oslo'],
+    ['Europe/Paris', '(UTC+2) Paris'],
+    ['Europe/Prague', '(UTC+2) Prague'],
+    ['Europe/Rome', '(UTC+2) Rome'],
+    ['Europe/Stockholm', '(UTC+2) Stockholm'],
+    ['Europe/Vienna', '(UTC+2) Vienna'],
+    ['Europe/Warsaw', '(UTC+2) Warsaw'],
+    ['Europe/Zagreb', '(UTC+2) Zagreb'],
+    ['Europe/Zurich', '(UTC+2) Zurich'],
+    ['Europe/Riga', '(UTC+3) Riga'],
+    ['Asia/Riyadh', '(UTC+3) Riyadh'],
+    ['Europe/Sofia', '(UTC+3) Sofia'],
+    ['Europe/Tallinn', '(UTC+3) Tallinn'],
+    ['Europe/Vilnius', '(UTC+3) Vilnius'],
+    ['Asia/Tehran', '(UTC+3:30) Tehran'],
+    ['Asia/Dubai', '(UTC+4) Dubai'],
+    ['Asia/Muscat', '(UTC+4) Muscat'],
+    ['Asia/Kabul', '(UTC+4:30) Kabul'],
+    ['Asia/Ashgabat', '(UTC+5) Ashgabat'],
+    ['Asia/Almaty', '(UTC+5) Astana'],
+    ['Asia/Karachi', '(UTC+5) Karachi'],
+    ['Asia/Colombo', '(UTC+5:30) Colombo'],
+    ['Asia/Kolkata', '(UTC+5:30) Kolkata'],
+    ['Asia/Kathmandu', '(UTC+5:45) Kathmandu'],
+    ['Asia/Dhaka', '(UTC+6) Dhaka'],
+    ['Asia/Yangon', '(UTC+6:30) Yangon'],
+    ['Asia/Bangkok', '(UTC+7) Bangkok'],
+    ['Asia/Ho_Chi_Minh', '(UTC+7) Ho Chi Minh'],
+    ['Asia/Jakarta', '(UTC+7) Jakarta'],
+    ['Asia/Chongqing', '(UTC+8) Chongqing'],
+    ['Asia/Hong_Kong', '(UTC+8) Hong Kong'],
+    ['Asia/Kuala_Lumpur', '(UTC+8) Kuala Lumpur'],
+    ['Asia/Manila', '(UTC+8) Manila'],
+    ['Australia/Perth', '(UTC+8) Perth'],
+    ['Asia/Shanghai', '(UTC+8) Shanghai'],
+    ['Asia/Singapore', '(UTC+8) Singapore'],
+    ['Asia/Taipei', '(UTC+8) Taipei'],
+    ['Asia/Seoul', '(UTC+9) Seoul'],
+    ['Asia/Tokyo', '(UTC+9) Tokyo'],
+    ['Australia/Adelaide', '(UTC+9:30) Adelaide'],
+    ['Australia/Brisbane', '(UTC+10) Brisbane'],
+    ['Australia/Sydney', '(UTC+10) Sydney'],
+    ['Pacific/Norfolk', '(UTC+11) Norfolk Island'],
+    ['Pacific/Auckland', '(UTC+12) New Zealand'],
+    ['Pacific/Chatham', '(UTC+12:45) Chatham Islands'],
+    ['Pacific/Fakaofo', '(UTC+13) Tokelau']
   ];
 
-  // Resolves a zone's *current* UTC offset (accounts for DST on the day
-  // it's rendered) as both a sortable minute value and a "UTC±N" label.
-  function _sigTzOffsetInfo(tz) {
-    try {
-      const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'shortOffset' }).formatToParts(new Date());
-      const raw = (parts.find(p => p.type === 'timeZoneName') || {}).value || 'GMT+0';
-      const m = raw.match(/GMT([+-])(\d+)(?::(\d+))?/);
-      const minutes = m ? (m[1] === '-' ? -1 : 1) * (parseInt(m[2], 10) * 60 + (m[3] ? parseInt(m[3], 10) : 0)) : 0;
-      return { label: raw === 'GMT' ? 'UTC+0' : raw.replace('GMT', 'UTC'), minutes };
-    } catch (e) {
-      return { label: 'UTC+0', minutes: 0 };
-    }
-  }
-
   // Builds the <option> list for the time zone <select>, matching the
-  // Profile page's convention: a plain "UTC" entry, an "Exchange (your
-  // local device time)" entry (saved as '' — resolved to the browser's
-  // detected zone at use time, same as an unset preference already is),
-  // then curated cities labeled "(UTC±N) City" and sorted by live offset.
+  // Profile page's #pf-timezone select exactly: a plain "UTC" entry, an
+  // "exchange" entry (Exchange / your local device time — resolves to
+  // the browser's detected zone wherever it's actually read, same as
+  // core-utils-ai.js's getUserTz() does for the Profile page), then the
+  // same curated "(UTC±N) City" list in the same order.
   function _sigTimeZoneOptions(current) {
     const selectedValue = current || '';
-    const cities = _SIG_TZ_CITIES.map(([tz, name]) => {
-      const { label, minutes } = _sigTzOffsetInfo(tz);
-      return { value: tz, label: `(${label}) ${name}`, minutes };
-    }).sort((a, b) => a.minutes - b.minutes);
-    // Keep a saved zone selectable even if it's outside the curated list.
-    if (selectedValue && selectedValue !== 'UTC' && !cities.some(c => c.value === selectedValue)) {
-      const { label, minutes } = _sigTzOffsetInfo(selectedValue);
-      const name = selectedValue.split('/').pop().replace(/_/g, ' ');
-      cities.push({ value: selectedValue, label: `(${label}) ${name}`, minutes });
-      cities.sort((a, b) => a.minutes - b.minutes);
-    }
     const options = [
       { value: 'UTC', label: 'UTC' },
-      { value: '', label: 'Exchange (your local device time)' },
-      ...cities
+      { value: 'exchange', label: 'Exchange (your local device time)' },
+      ..._SIG_TZ_CITIES.map(([tz, label]) => ({ value: tz, label }))
     ];
+    // Keep a saved zone selectable even if it's outside this list (e.g.
+    // legacy prefs saved before this list existed).
+    if (selectedValue && !options.some(o => o.value === selectedValue)) {
+      let label = selectedValue;
+      try {
+        const parts = new Intl.DateTimeFormat('en-US', { timeZone: selectedValue, timeZoneName: 'shortOffset' }).formatToParts(new Date());
+        const off = (parts.find(p => p.type === 'timeZoneName') || {}).value || '';
+        label = `(${off.replace('GMT', 'UTC')}) ${selectedValue.split('/').pop().replace(/_/g, ' ')}`;
+      } catch (e) { /* fall back to the raw zone id as the label */ }
+      options.push({ value: selectedValue, label });
+    }
     return options.map(o => ({ ...o, selected: o.value === selectedValue }));
   }
 

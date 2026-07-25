@@ -830,13 +830,12 @@
 /* Native <select> dropdowns (time zone picker, market/session/confidence
    filters, etc.) are painted by the OS/browser, not this stylesheet —
    the closed control picks up var(--text) fine, but the open option
-   list ignores the app's dark glass background while still inheriting
-   its near-white text color, so entries were showing up as light text
-   on the browser's own light popup background (effectively invisible)
-   in both light and dark theme. Pinning explicit colors on the options
-   keeps every entry readable regardless of theme. */
-select.form-input,select.form-select{color-scheme:light dark}
-select.form-input option,select.form-select option{color:#0f172a;background:#ffffff}
+   list doesn't inherit the app's --bg2/--text theme tokens by default,
+   so entries were showing up low-contrast or invisible in both light
+   and dark theme. Same fix already used for .acc-mgr-input option in
+   backtesting-lab.css — pin the real theme tokens so the options flip
+   with [data-theme="light"] instead of a hardcoded color pair. */
+select.form-input option,select.form-select option{background:var(--bg2, #1a2035);color:var(--text, #e2e8f0)}
 .sig-pref-enabled-tag{
   display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:var(--r-full);
   background:rgba(52,211,153,0.14);border:1px solid rgba(52,211,153,0.32);color:var(--green);
