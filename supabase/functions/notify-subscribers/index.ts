@@ -35,8 +35,17 @@ const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? '';
 const WHATSAPP_TOKEN = Deno.env.get('WHATSAPP_TOKEN') ?? '';
 const WHATSAPP_PHONE_ID = Deno.env.get('WHATSAPP_PHONE_ID') ?? '';
 
+let _vapidReady = false;
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails('mailto:alerts@nxtgencharts.site', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+  try {
+    webpush.setVapidDetails('mailto:alerts@nxtgencharts.site', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+    _vapidReady = true;
+  } catch (e) {
+    // A malformed VAPID key must never take down email/WhatsApp with it —
+    // log it and just skip push for this invocation instead of crashing
+    // the whole module at boot.
+    console.error('VAPID setup failed — push disabled for this deployment:', e);
+  }
 }
 
 const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
@@ -97,7 +106,7 @@ Deno.serve(async (req) => {
 });
 
 async function sendPush(subscription: unknown, title: string, body: string, signalId: string) {
-  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return;
+  if (!_vapidReady) return;
   await webpush.sendNotification(
     subscription as never,
     JSON.stringify({ title, body, data: { signal_id: signalId } })
