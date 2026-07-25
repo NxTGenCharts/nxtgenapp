@@ -882,3 +882,72 @@ select.form-input option,select.form-select option{background:var(--bg2, #1a2035
 .sig-review-stat strong{font-family:var(--font-head);font-size:14px;color:var(--text)}
 .sig-schedule-row{display:none;gap:8px;margin-top:12px;align-items:center}
 .sig-existing-shot{font-size:10.5px;color:var(--green);margin-top:4px}
+
+/* ══════════════════════════════════════════════════════════════
+   MOBILE GRID DENSITY — force 3–4 columns on phones instead of
+   1–2. Overrides the earlier .sig-stats-grid / .sig-more-grid /
+   .sig-analytics-grid breakpoints (source order wins at equal
+   specificity). Card internals are shrunk to match so nothing
+   clips, wraps badly, or overflows at ~320–430px widths.
+   ══════════════════════════════════════════════════════════════ */
+@media (max-width:640px){
+  .sig-stats-grid{grid-template-columns:repeat(4,1fr);gap:8px}
+  .sig-more-grid{grid-template-columns:repeat(4,1fr);gap:8px}
+  .sig-analytics-grid,.sig-analytics-grid-compact{grid-template-columns:repeat(4,1fr)}
+  .sig-cal-summary{grid-template-columns:repeat(4,1fr)}
+}
+@media (max-width:380px){
+  .sig-stats-grid{grid-template-columns:repeat(3,1fr);gap:6px}
+  .sig-more-grid{grid-template-columns:repeat(3,1fr);gap:6px}
+  .sig-analytics-grid,.sig-analytics-grid-compact{grid-template-columns:repeat(3,1fr)}
+  .sig-cal-summary{grid-template-columns:repeat(2,1fr)}
+}
+
+/* Compact the stat / widget card internals so 3–4 fit per row
+   without text collision, overflow, or oversized charts. */
+@media (max-width:640px){
+  .sig-widget{padding:9px 8px;min-height:88px;border-radius:var(--r-md)}
+  .sig-stat-top{margin-bottom:6px;gap:4px}
+  .sig-stat-label{
+    font-size:8px;letter-spacing:.03em;line-height:1.15;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .sig-stat-icon{width:20px;height:20px;border-radius:6px;flex-shrink:0}
+  .sig-stat-icon .icn{width:11px;height:11px}
+  .sig-widget-value{font-size:15px;gap:4px;flex-wrap:wrap}
+  .sig-live-dot{width:6px;height:6px}
+  .sig-widget-apex{height:24px}
+  .sig-widget-foot{
+    font-size:8px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;gap:3px;
+  }
+  .sig-widget-ring{width:34px;height:34px}
+  .sig-widget-ring-solo{width:40px;height:40px;margin:2px auto 0}
+  .sig-widget-ring-row{gap:6px}
+  .sig-widget-ring-meta{gap:0}
+  .sig-widget-ring-meta .big{font-size:12px}
+  .sig-widget-ring-meta .lbl{font-size:7.5px}
+  .sig-widget-ring-meta .delta{font-size:8.5px;white-space:nowrap}
+  .sig-clock-svg{width:30px;height:30px}
+  .sig-counting{font-size:inherit}
+
+  /* Analytics mini-tiles (win-rate-by-session etc.) */
+  .sig-analytics-card{padding:9px 8px}
+  .sig-analytics-title{font-size:8.5px;gap:4px;margin-bottom:6px;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  .sig-analytics-title .icn{width:10px;height:10px;flex-shrink:0}
+  .sig-analytics-card .sig-stat-value{font-size:14px}
+
+  /* "More analytics" tiles */
+  .sig-mini-tile{padding:7px 8px}
+  .sig-mini-top{font-size:8.5px;margin-bottom:4px}
+  .sig-mini-val{font-size:10.5px}
+  .sig-mini-label{font-size:8px}
+
+  /* Calendar month summary */
+  .sig-cal-summary-item{padding:7px 8px}
+  .sig-cal-summary-item .v{font-size:13px}
+  .sig-cal-summary-item .l{font-size:8px}
+}
+@media (max-width:380px){
+  .sig-mini-tile-dist{grid-column:1/-1}
+}
