@@ -29,7 +29,7 @@
 //                                                    # in signals.js
 //   supabase secrets set VAPID_PRIVATE_KEY=...
 //   supabase secrets set RESEND_API_KEY=...         # https://resend.com
-//   supabase secrets set RESEND_FROM_ADDRESS=alerts@alerts.nxtgencharts.site
+//   supabase secrets set RESEND_FROM_ADDRESS=alerts@nxtgencharts.site
 //   supabase secrets set RESEND_FROM_NAME="NxTGen Signals"
 //   supabase secrets set WHATSAPP_TOKEN=...         # Meta WhatsApp Cloud API
 //   supabase secrets set WHATSAPP_PHONE_ID=...
@@ -136,12 +136,13 @@ const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? '';
 const WHATSAPP_TOKEN = Deno.env.get('WHATSAPP_TOKEN') ?? '';
 const WHATSAPP_PHONE_ID = Deno.env.get('WHATSAPP_PHONE_ID') ?? '';
 
-// Send strictly from a subdomain of the sending domain
-// (alerts.nxtgencharts.site), not the bare apex — see DELIVERABILITY.md.
-// Reputation is tracked per sending domain, so isolating transactional
-// signal alerts here means a future marketing send can never drag this down.
+// Send from the verified domain in Resend: nxtgencharts.site (apex), via
+// its alerts@ address. The alerts.nxtgencharts.site *subdomain* is NOT
+// verified in Resend — sending from it fails with a 403 "domain is not
+// verified" error (see AUDIT.md). If a subdomain is verified in Resend
+// later for reputation isolation, this can be switched back.
 const RESEND_FROM_NAME = Deno.env.get('RESEND_FROM_NAME') || 'NxTGen Signals';
-const RESEND_FROM_ADDRESS = Deno.env.get('RESEND_FROM_ADDRESS') || 'alerts@alerts.nxtgencharts.site';
+const RESEND_FROM_ADDRESS = Deno.env.get('RESEND_FROM_ADDRESS') || 'alerts@nxtgencharts.site';
 
 const APP_URL = 'https://app.nxtgencharts.site';
 const MARKETING_URL = 'https://nxtgencharts.site';
