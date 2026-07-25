@@ -656,6 +656,43 @@
     }
   }
 
+  // Common fallback list for browsers without Intl.supportedValuesOf
+  // (older Safari/Firefox). Covers one representative zone per major
+  // offset/region — not exhaustive, but the detected zone is always
+  // added on top of this if it's missing from the list.
+  const _SIG_TZ_FALLBACK = [
+    'UTC', 'America/Los_Angeles', 'America/Denver', 'America/Chicago', 'America/New_York',
+    'America/Sao_Paulo', 'Europe/London', 'Europe/Paris', 'Europe/Moscow', 'Africa/Lagos',
+    'Africa/Cairo', 'Africa/Johannesburg', 'Asia/Dubai', 'Asia/Karachi', 'Asia/Kolkata',
+    'Asia/Dhaka', 'Asia/Bangkok', 'Asia/Shanghai', 'Asia/Tokyo', 'Australia/Sydney',
+    'Pacific/Auckland'
+  ];
+
+  // Builds the <option> list for the time zone <select>: every IANA zone
+  // the browser knows about (via Intl.supportedValuesOf when supported),
+  // each one selected against the saved/detected value and labeled with
+  // its current UTC offset so users can tell them apart at a glance.
+  function _sigTimeZoneOptions(current) {
+    const detected = _sigDetectTimeZone();
+    const selectedValue = current || detected || 'UTC';
+    let zones;
+    try {
+      zones = (typeof Intl.supportedValuesOf === 'function') ? Intl.supportedValuesOf('timeZone') : _SIG_TZ_FALLBACK.slice();
+    } catch (e) {
+      zones = _SIG_TZ_FALLBACK.slice();
+    }
+    if (!zones.includes(selectedValue)) zones = [selectedValue, ...zones];
+    return zones.map(tz => {
+      let offsetLabel = '';
+      try {
+        const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'shortOffset' }).formatToParts(new Date());
+        const off = parts.find(p => p.type === 'timeZoneName');
+        if (off) offsetLabel = ` (${off.value})`;
+      } catch (e) { /* zone without a resolvable offset label — just show the name */ }
+      return { value: tz, selected: tz === selectedValue, label: `${tz}${offsetLabel}` };
+    });
+  }
+
   async function _sigPersistNotifPrefs(prefs) {
     if (_sigUsingSupabase && typeof sb !== 'undefined' && sb && _currentUser) {
       const { error } = await sb.from('journal_notification_prefs')
@@ -722,6 +759,16 @@
       </div>
       <input class="form-input" id="np-whatsapp" type="tel" placeholder="+1 555 123 4567" value="${p.whatsapp_number || ''}">
 
+      <div class="sig-pref-row">
+        <div class="sig-pref-row-text"><strong>Time zone</strong><span>Used for Published/Last Updated times in your emails</span></div>
+      </div>
+      <select class="form-input" id="np-timezone">
+        ${_sigTimeZoneOptions(p.timezone).map(tz =>
+          `<option value="${tz.value}" ${tz.selected ? 'selected' : ''}>${tz.label}</option>`
+        ).join('')}
+      </select>
+      <div class="sig-pref-hint">Detected automatically from this browser — change it if it's wrong.</div>
+
       <div class="form-actions">
         <button class="glass-btn glass-btn-cancel" onclick="_sigCloseNotifPrefs()">Cancel</button>
         <button class="btn btn-primary" onclick="_sigSaveNotifPrefsClick()">Save preferences</button>
@@ -773,7 +820,7 @@
       email: document.getElementById('np-email').value.trim(),
       whatsapp_enabled: document.getElementById('np-whatsapp-enabled').checked,
       whatsapp_number: document.getElementById('np-whatsapp').value.trim().replace(/(?!^\+)[^\d]/g, ''),
-      timezone: _sigDetectTimeZone()
+      timezone: document.getElementById('np-timezone').value || _sigDetectTimeZone()
     };
     if (prefs.email_enabled && !prefs.email) { showToast('Add an email address first', 'error'); return; }
     if (prefs.whatsapp_enabled && !prefs.whatsapp_number) { showToast('Add a WhatsApp number first', 'error'); return; }
