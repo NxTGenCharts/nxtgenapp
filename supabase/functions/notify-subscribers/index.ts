@@ -36,7 +36,7 @@ const WHATSAPP_TOKEN = Deno.env.get('WHATSAPP_TOKEN') ?? '';
 const WHATSAPP_PHONE_ID = Deno.env.get('WHATSAPP_PHONE_ID') ?? '';
 
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails('mailto:alerts@yourdomain.com', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+  webpush.setVapidDetails('mailto:alerts@nxtgencharts.site', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 }
 
 const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
