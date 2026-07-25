@@ -100,6 +100,7 @@ interface NotificationPrefRow {
   email: string | null;
   whatsapp_enabled: boolean;
   whatsapp_number: string | null;
+  timezone: string | null;
 }
 
 // The single branch point every downstream color/subject/template decision
@@ -116,6 +117,7 @@ interface EmailContext {
   signal: SignalRow;
   message: string;
   recipientName: string | null; // null -> template falls back to a generic greeting
+  timezone: string; // resolved IANA zone — see resolveTimeZone()
 }
 
 interface RenderedEmail {
@@ -290,14 +292,39 @@ function formatSignedR(r: number | null | undefined): string {
   return `${sign}${r.toFixed(2)}R`;
 }
 
-function formatDateTime(v: number | string | null | undefined): string {
+function formatDateTime(v: number | string | null | undefined, tz: string): string {
   if (!v) return '—';
   const d = typeof v === 'number' ? new Date(v) : new Date(v);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric',
-    hour: 'numeric', minute: '2-digit', timeZoneName: 'short'
-  });
+  try {
+    return d.toLocaleString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric',
+      hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
+      timeZone: tz
+    });
+  } catch (e) {
+    // Unknown/invalid zone string slipped through — fall back to UTC
+    // rather than letting the whole email render throw.
+    return d.toLocaleString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric',
+      hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
+      timeZone: 'UTC'
+    });
+  }
+}
+
+// journal_notification_prefs.timezone mirrors the #pf-timezone picker on
+// the Profile page and the notification-settings picker on the Signals
+// page: either a real IANA zone, or the sentinel 'exchange' meaning "the
+// visitor's own device timezone" (resolved client-side, per
+// core-utils-ai.js's getUserTz()). There's no device to resolve that
+// against here — this runs server-side, once, for every recipient of a
+// given email — so 'exchange' (and null/unset) fall back to the same
+// default the rest of the app uses when nothing's been chosen yet:
+// Africa/Lagos (see profile.js: `d.timezone || 'Africa/Lagos'`).
+function resolveTimeZone(raw: string | null | undefined): string {
+  if (!raw || raw === 'exchange') return 'Africa/Lagos';
+  return raw;
 }
 
 function shortId(id: string): string {
@@ -524,7 +551,7 @@ function buildCalloutForKind(ctx: EmailContext): string | null {
   }
 }
 
-function buildSummaryCard(signal: SignalRow): string {
+function buildSummaryCard(signal: SignalRow, timezone: string): string {
   const rows = [
     statRow('Entry', formatPrice(signal.entry)),
     statRow('Stop Loss', formatPrice(signal.stop_loss), '#dc2626'),
@@ -533,8 +560,8 @@ function buildSummaryCard(signal: SignalRow): string {
     statRow('Risk / Reward', formatRR(signal.risk_reward)),
     statRow('Timeframe', signal.session ? (SESSION_LABEL[signal.session] || signal.session) : '—'),
     statRow('Status', STATUS_LABEL[signal.status] || signal.status),
-    statRow('Published', formatDateTime(signal.published_at)),
-    statRow('Last Updated', formatDateTime(signal.updated_at)),
+    statRow('Published', formatDateTime(signal.published_at, timezone)),
+    statRow('Last Updated', formatDateTime(signal.updated_at, timezone)),
     statRow('Signal ID', shortId(signal.id))
   ].join('');
 
@@ -661,7 +688,7 @@ ${preheader(preheaderText)}
 // ──────────────────────────────────────────────────────────────
 
 function renderEmail(ctx: EmailContext): RenderedEmail {
-  const { kind, signal, message, recipientName } = ctx;
+  const { kind, signal, message, recipientName, timezone } = ctx;
   const theme = KIND_THEME[kind];
   const subject = buildSubject(kind, signal);
   const greeting = recipientName ? `Hi ${escapeHtml(recipientName)},` : 'Hi there,';
@@ -687,7 +714,7 @@ function renderEmail(ctx: EmailContext): RenderedEmail {
         ${callout ? `<tr><td style="padding:16px 28px 0;">${callout}</td></tr>` : ''}
         <tr><td style="padding:18px 28px 0;">
           <div class="text-muted" style="margin-bottom:8px;color:#9ca3af;font-size:11px;font-weight:700;letter-spacing:0.4px;text-transform:uppercase;">Signal Summary</div>
-          ${buildSummaryCard(signal)}
+          ${buildSummaryCard(signal, timezone)}
         </td></tr>
         <tr><td style="padding:22px 28px 6px;">
           ${button(viewUrl, 'View Signal', 'primary')}
@@ -832,7 +859,8 @@ Deno.serve(async (req) => {
       if (s.email_enabled && s.email && RESEND_API_KEY) {
         jobs.push((async () => {
           const recipientName = await resolveDisplayName(sb, s.owner_id, s.email);
-          const rendered = renderEmail({ kind, signal, message: fallbackMessage, recipientName });
+          const timezone = resolveTimeZone(s.timezone);
+          const rendered = renderEmail({ kind, signal, message: fallbackMessage, recipientName, timezone });
           await sendEmailViaResend(s.email as string, rendered, settingsUrl);
         })());
       }
