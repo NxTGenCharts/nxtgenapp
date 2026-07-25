@@ -692,7 +692,7 @@
       <div class="sig-pref-row">
         <div class="sig-pref-row-text"><strong>Push notifications</strong><span>Alerts on this device, even when the tab is closed</span></div>
         ${p.push_enabled
-          ? `<span class="sig-pref-enabled-tag">${icn('ic-check')} Enabled</span>`
+          ? `<button class="glass-btn glass-btn-cancel" style="padding:6px 12px" onclick="_sigDisablePush()">${icn('ic-check')} Enabled — click to disable</button>`
           : `<button class="glass-btn glass-btn-cancel" style="padding:6px 12px" onclick="_sigRequestPush()" ${pushSupported ? '' : 'disabled'}>Enable</button>`}
       </div>
       ${pushSupported ? '' : '<div class="sig-pref-hint">Push isn\'t supported in this browser.</div>'}
@@ -723,12 +723,32 @@
       const perm = await Notification.requestPermission();
       if (perm !== 'granted') { showToast('Push permission was not granted', 'error'); return; }
       const reg = await navigator.serviceWorker.register('/sw-signals.js');
+      // Clear any existing subscription first — browsers reject subscribing
+      // with a new applicationServerKey while an old one (e.g. from a
+      // previous VAPID key) is still active, which is exactly what silently
+      // broke this earlier when the VAPID key was regenerated.
+      const existing = await reg.pushManager.getSubscription();
+      if (existing) await existing.unsubscribe();
       const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: _sigUrlBase64ToUint8Array(SIG_VAPID_PUBLIC_KEY) });
       _sigNotifPrefsState.push_enabled = true;
       _sigNotifPrefsState.push_subscription = sub.toJSON();
       _sigRenderNotifPrefsModal();
-      showToast('Push enabled on this device', 'success');
+      showToast('Push enabled on this device — click Save to finish', 'success');
     } catch (e) { console.error('push subscribe failed:', e); showToast("Couldn't enable push notifications", 'error'); }
+  };
+
+  window._sigDisablePush = async function () {
+    try {
+      if ('serviceWorker' in navigator) {
+        const reg = await navigator.serviceWorker.getRegistration('/sw-signals.js');
+        const sub = reg && await reg.pushManager.getSubscription();
+        if (sub) await sub.unsubscribe();
+      }
+    } catch (e) { console.error('push unsubscribe failed:', e); /* still clear local state below regardless */ }
+    _sigNotifPrefsState.push_enabled = false;
+    _sigNotifPrefsState.push_subscription = null;
+    _sigRenderNotifPrefsModal();
+    showToast('Push disabled on this device — click Save to finish', 'info');
   };
 
   window._sigSaveNotifPrefsClick = async function () {
