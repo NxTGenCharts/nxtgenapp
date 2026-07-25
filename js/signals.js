@@ -815,7 +815,8 @@
     const p = _sigNotifPrefsState;
     const pushSupported = ('serviceWorker' in navigator) && ('PushManager' in window);
     overlay.innerHTML = `
-    <div class="modal-body sig-prefs-body">
+    <div class="modal modal-box" style="width:480px">
+    <div class="modal-body sig-prefs-body" style="padding-top:20px">
       <h3 class="modal-title">Notification settings</h3>
       <p class="sig-body-text">Choose how you hear about new signals, edits, and status changes.</p>
 
@@ -858,6 +859,7 @@
         <button class="glass-btn glass-btn-cancel" onclick="_sigCloseNotifPrefs()">Cancel</button>
         <button class="btn btn-primary" onclick="_sigSaveNotifPrefsClick()">Save preferences</button>
       </div>
+    </div>
     </div>`;
   }
 
