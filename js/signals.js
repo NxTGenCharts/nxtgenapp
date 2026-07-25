@@ -656,41 +656,71 @@
     }
   }
 
-  // Common fallback list for browsers without Intl.supportedValuesOf
-  // (older Safari/Firefox). Covers one representative zone per major
-  // offset/region — not exhaustive, but the detected zone is always
-  // added on top of this if it's missing from the list.
-  const _SIG_TZ_FALLBACK = [
-    'UTC', 'America/Los_Angeles', 'America/Denver', 'America/Chicago', 'America/New_York',
-    'America/Sao_Paulo', 'Europe/London', 'Europe/Paris', 'Europe/Moscow', 'Africa/Lagos',
-    'Africa/Cairo', 'Africa/Johannesburg', 'Asia/Dubai', 'Asia/Karachi', 'Asia/Kolkata',
-    'Asia/Dhaka', 'Asia/Bangkok', 'Asia/Shanghai', 'Asia/Tokyo', 'Australia/Sydney',
-    'Pacific/Auckland'
+  // Curated city picker — mirrors the "(UTC±N) City" style used on the
+  // Profile page's time zone select, instead of dumping every raw IANA
+  // zone name. Each entry is still a real IANA zone under the hood; only
+  // the label is friendlier. Actual display order is re-sorted live by
+  // each zone's current UTC offset in _sigTimeZoneOptions below.
+  const _SIG_TZ_CITIES = [
+    ['Pacific/Honolulu', 'Honolulu'], ['America/Anchorage', 'Anchorage'], ['America/Juneau', 'Juneau'],
+    ['America/Los_Angeles', 'Los Angeles'], ['America/Phoenix', 'Phoenix'], ['America/Vancouver', 'Vancouver'],
+    ['America/Denver', 'Denver'], ['America/Mexico_City', 'Mexico City'], ['America/El_Salvador', 'San Salvador'],
+    ['America/Bogota', 'Bogota'], ['America/Chicago', 'Chicago'], ['America/Lima', 'Lima'],
+    ['America/Caracas', 'Caracas'], ['America/New_York', 'New York'], ['America/Santiago', 'Santiago'],
+    ['America/Toronto', 'Toronto'], ['America/Argentina/Buenos_Aires', 'Buenos Aires'], ['America/Halifax', 'Halifax'],
+    ['America/Sao_Paulo', 'Sao Paulo'], ['America/St_Johns', "St. John's"], ['Atlantic/Azores', 'Azores'],
+    ['Atlantic/Cape_Verde', 'Cape Verde'], ['Europe/London', 'London'], ['Europe/Dublin', 'Dublin'],
+    ['Africa/Casablanca', 'Casablanca'], ['Europe/Paris', 'Paris'], ['Europe/Berlin', 'Berlin'],
+    ['Europe/Madrid', 'Madrid'], ['Europe/Rome', 'Rome'], ['Africa/Lagos', 'Lagos'],
+    ['Africa/Algiers', 'Algiers'], ['Europe/Athens', 'Athens'], ['Europe/Istanbul', 'Istanbul'],
+    ['Africa/Cairo', 'Cairo'], ['Africa/Johannesburg', 'Johannesburg'], ['Europe/Moscow', 'Moscow'],
+    ['Asia/Dubai', 'Dubai'], ['Asia/Baku', 'Baku'], ['Asia/Karachi', 'Karachi'],
+    ['Asia/Kolkata', 'Mumbai / Kolkata'], ['Asia/Kathmandu', 'Kathmandu'], ['Asia/Dhaka', 'Dhaka'],
+    ['Asia/Yangon', 'Yangon'], ['Asia/Bangkok', 'Bangkok'], ['Asia/Jakarta', 'Jakarta'],
+    ['Asia/Shanghai', 'Shanghai / Singapore'], ['Asia/Hong_Kong', 'Hong Kong'], ['Asia/Tokyo', 'Tokyo'],
+    ['Asia/Seoul', 'Seoul'], ['Australia/Perth', 'Perth'], ['Australia/Adelaide', 'Adelaide'],
+    ['Australia/Sydney', 'Sydney'], ['Pacific/Guadalcanal', 'Solomon Islands'], ['Pacific/Auckland', 'Auckland'],
+    ['Pacific/Tongatapu', 'Tonga']
   ];
 
-  // Builds the <option> list for the time zone <select>: every IANA zone
-  // the browser knows about (via Intl.supportedValuesOf when supported),
-  // each one selected against the saved/detected value and labeled with
-  // its current UTC offset so users can tell them apart at a glance.
-  function _sigTimeZoneOptions(current) {
-    const detected = _sigDetectTimeZone();
-    const selectedValue = current || detected || 'UTC';
-    let zones;
+  // Resolves a zone's *current* UTC offset (accounts for DST on the day
+  // it's rendered) as both a sortable minute value and a "UTC±N" label.
+  function _sigTzOffsetInfo(tz) {
     try {
-      zones = (typeof Intl.supportedValuesOf === 'function') ? Intl.supportedValuesOf('timeZone') : _SIG_TZ_FALLBACK.slice();
+      const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'shortOffset' }).formatToParts(new Date());
+      const raw = (parts.find(p => p.type === 'timeZoneName') || {}).value || 'GMT+0';
+      const m = raw.match(/GMT([+-])(\d+)(?::(\d+))?/);
+      const minutes = m ? (m[1] === '-' ? -1 : 1) * (parseInt(m[2], 10) * 60 + (m[3] ? parseInt(m[3], 10) : 0)) : 0;
+      return { label: raw === 'GMT' ? 'UTC+0' : raw.replace('GMT', 'UTC'), minutes };
     } catch (e) {
-      zones = _SIG_TZ_FALLBACK.slice();
+      return { label: 'UTC+0', minutes: 0 };
     }
-    if (!zones.includes(selectedValue)) zones = [selectedValue, ...zones];
-    return zones.map(tz => {
-      let offsetLabel = '';
-      try {
-        const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'shortOffset' }).formatToParts(new Date());
-        const off = parts.find(p => p.type === 'timeZoneName');
-        if (off) offsetLabel = ` (${off.value})`;
-      } catch (e) { /* zone without a resolvable offset label — just show the name */ }
-      return { value: tz, selected: tz === selectedValue, label: `${tz}${offsetLabel}` };
-    });
+  }
+
+  // Builds the <option> list for the time zone <select>, matching the
+  // Profile page's convention: a plain "UTC" entry, an "Exchange (your
+  // local device time)" entry (saved as '' — resolved to the browser's
+  // detected zone at use time, same as an unset preference already is),
+  // then curated cities labeled "(UTC±N) City" and sorted by live offset.
+  function _sigTimeZoneOptions(current) {
+    const selectedValue = current || '';
+    const cities = _SIG_TZ_CITIES.map(([tz, name]) => {
+      const { label, minutes } = _sigTzOffsetInfo(tz);
+      return { value: tz, label: `(${label}) ${name}`, minutes };
+    }).sort((a, b) => a.minutes - b.minutes);
+    // Keep a saved zone selectable even if it's outside the curated list.
+    if (selectedValue && selectedValue !== 'UTC' && !cities.some(c => c.value === selectedValue)) {
+      const { label, minutes } = _sigTzOffsetInfo(selectedValue);
+      const name = selectedValue.split('/').pop().replace(/_/g, ' ');
+      cities.push({ value: selectedValue, label: `(${label}) ${name}`, minutes });
+      cities.sort((a, b) => a.minutes - b.minutes);
+    }
+    const options = [
+      { value: 'UTC', label: 'UTC' },
+      { value: '', label: 'Exchange (your local device time)' },
+      ...cities
+    ];
+    return options.map(o => ({ ...o, selected: o.value === selectedValue }));
   }
 
   async function _sigPersistNotifPrefs(prefs) {
