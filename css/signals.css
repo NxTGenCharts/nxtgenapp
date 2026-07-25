@@ -826,6 +826,17 @@
 .sig-pref-row-text strong{font-size:13px;color:var(--text);font-weight:700}
 .sig-pref-row-text span{font-size:11.5px;color:var(--text3)}
 .sig-pref-hint{font-size:11px;color:var(--text3);margin-top:-6px}
+
+/* Native <select> dropdowns (time zone picker, market/session/confidence
+   filters, etc.) are painted by the OS/browser, not this stylesheet —
+   the closed control picks up var(--text) fine, but the open option
+   list ignores the app's dark glass background while still inheriting
+   its near-white text color, so entries were showing up as light text
+   on the browser's own light popup background (effectively invisible)
+   in both light and dark theme. Pinning explicit colors on the options
+   keeps every entry readable regardless of theme. */
+select.form-input,select.form-select{color-scheme:light dark}
+select.form-input option,select.form-select option{color:#0f172a;background:#ffffff}
 .sig-pref-enabled-tag{
   display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:var(--r-full);
   background:rgba(52,211,153,0.14);border:1px solid rgba(52,211,153,0.32);color:var(--green);
