@@ -122,6 +122,16 @@
   }
   const _SIG_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   function _sigIsDbId(id) { return typeof id === 'string' && _SIG_UUID_RE.test(id); }
+
+  // ── Admin gate (UI only — the real enforcement is the RLS policies on
+  // journal_signals: signals_write/signals_update/signals_delete, which key
+  // off auth.uid() against this same UUID). This just hides Edit/Duplicate/
+  // Publish/Add Update/Unpublish/Archive/Delete for everyone else so a
+  // non-admin isn't shown controls that would fail server-side anyway.
+  const SIG_ADMIN_OWNER_ID = 'acc49a9d-b664-481f-9e07-746fd8ab10ec';
+  function _sigIsAdmin() {
+    return !!(typeof _currentUser !== 'undefined' && _currentUser && _currentUser.id === SIG_ADMIN_OWNER_ID);
+  }
   function _sigIso(v) { if (v === undefined || v === null) return null; return typeof v === 'number' ? new Date(v).toISOString() : v; }
   function _sigMs(v) { if (v === undefined || v === null) return null; return typeof v === 'number' ? v : new Date(v).getTime(); }
 
@@ -508,7 +518,7 @@
         <button id="sig-notif-settings-btn" class="sig-notif-bell" title="Notification settings" onclick="_sigOpenNotifPrefs(event)">
           <svg class="icn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
         </button>
-        <button class="btn btn-primary btn-ripple" onclick="_sigOpenModal()">${icn('ic-plus')} <span class="lbl-full">New Signal</span></button>
+        ${_sigIsAdmin() ? `<button class="btn btn-primary btn-ripple" onclick="_sigOpenModal()">${icn('ic-plus')} <span class="lbl-full">New Signal</span></button>` : ''}
       </div>
     </div>
 
@@ -532,7 +542,7 @@
 
     <div id="sig-view-root"></div>
 
-    <button id="sig-fab-new" onclick="_sigOpenModal()">${icn('ic-plus')}</button>
+    ${_sigIsAdmin() ? `<button id="sig-fab-new" onclick="_sigOpenModal()">${icn('ic-plus')}</button>` : ''}
     `;
   }
 
@@ -1609,7 +1619,7 @@
         <td onclick="event.stopPropagation()">
           <div class="sig-row-actions">
             <button title="Bookmark" onclick="_sigToggleBookmark('${s.id}')">${icn('ic-bookmark')}</button>
-            <button title="Edit" onclick="_sigOpenModal('edit','${s.id}')">${icn('ic-edit')}</button>
+            ${_sigIsAdmin() ? `<button title="Edit" onclick="_sigOpenModal('edit','${s.id}')">${icn('ic-edit')}</button>` : ''}
             <button class="sig-dots-btn" title="More actions" onclick="_sigOpenActionsMenu('${s.id}', event)">${icn('ic-dot')}${icn('ic-dot')}${icn('ic-dot')}</button>
           </div>
         </td>
@@ -1638,7 +1648,7 @@
         <div class="sig-empty-illustration">${icn('ic-zap')}</div>
         <div class="sig-empty-title">No signals yet</div>
         <div class="sig-empty-sub">Publish your first signal to start tracking win rate, RR and pips like a pro desk.</div>
-        <button class="btn btn-primary btn-ripple" onclick="_sigOpenModal()">${icn('ic-plus')} Create New Signal</button>
+        ${_sigIsAdmin() ? `<button class="btn btn-primary btn-ripple" onclick="_sigOpenModal()">${icn('ic-plus')} Create New Signal</button>` : ''}
       </div></div>`;
     }
     return `<div class="sig-table-card"><div class="sig-table-empty">${icn('ic-search')}<div style="margin-top:8px">No signals match these filters.</div><button class="btn" style="margin-top:10px" onclick="_sigResetFilters()">${icn('ic-refresh')} Reset filters</button></div></div>`;
@@ -1678,7 +1688,7 @@
         <div class="sig-empty-illustration">${icn('ic-notebook')}</div>
         <div class="sig-empty-title">No drafts</div>
         <div class="sig-empty-sub">Start a new signal and it'll autosave here as you work — nothing gets lost.</div>
-        <button class="btn btn-primary btn-ripple" onclick="_sigOpenModal()">${icn('ic-plus')} Start a Draft</button>
+        ${_sigIsAdmin() ? `<button class="btn btn-primary btn-ripple" onclick="_sigOpenModal()">${icn('ic-plus')} Start a Draft</button>` : ''}
       </div></div>`;
     }
 
@@ -1777,7 +1787,7 @@
           <div class="sig-card-social">
             <button class="sig-social-btn ${liked ? 'active' : ''}" onclick="event.stopPropagation();_sigToggleLike('${s.id}')">${icn('ic-thumbs-up')} <span id="sig-like-count-${s.id}">${(s._likeCount || 0) + (liked ? 1 : 0)}</span></button>
             <button class="sig-social-btn ${marked ? 'active' : ''}" onclick="event.stopPropagation();_sigToggleBookmark('${s.id}')">${icn('ic-bookmark')}</button>
-            <button class="sig-social-btn" onclick="event.stopPropagation();_sigOpenModal('edit','${s.id}')">${icn('ic-edit')}</button>
+            ${_sigIsAdmin() ? `<button class="sig-social-btn" onclick="event.stopPropagation();_sigOpenModal('edit','${s.id}')">${icn('ic-edit')}</button>` : ''}
             <button class="sig-social-btn sig-dots-btn" onclick="event.stopPropagation();_sigOpenActionsMenu('${s.id}', event)">${icn('ic-dot')}${icn('ic-dot')}${icn('ic-dot')}</button>
           </div>
           <span class="sig-market-badge" style="text-transform:capitalize">${s.visibility}</span>
@@ -2231,15 +2241,16 @@
     <div style="display:flex;gap:8px;margin-top:20px;flex-wrap:wrap">
       <button class="btn" onclick="_sigToggleLike('${s.id}')">${icn('ic-thumbs-up')} Like</button>
       <button class="btn" onclick="_sigToggleBookmark('${s.id}')">${icn('ic-bookmark')} Bookmark</button>
+      ${_sigIsAdmin() ? `
       <button class="btn" onclick="_sigOpenModal('edit','${s.id}')">${icn('ic-edit')} Edit</button>
       <button class="btn" onclick="_sigDuplicateSignal('${s.id}')">${icn('ic-copy')} Duplicate</button>
       ${s.is_draft ? `<button class="btn btn-primary" onclick="_sigOpenReviewModal('${s.id}')">${icn('ic-upload')} Publish</button>` : `
         <button class="btn btn-primary" onclick="_sigOpenUpdateModal('${s.id}')">${icn('ic-notebook')} Add Update</button>
         <button class="btn" onclick="_sigUnpublishSignal('${s.id}')">${icn('ic-cloud-off')} Unpublish</button>`}
-      <button class="btn" onclick="_sigArchiveSignal('${s.id}')">${icn('ic-archive')} ${s.archived ? 'Unarchive' : 'Archive'}</button>
+      <button class="btn" onclick="_sigArchiveSignal('${s.id}')">${icn('ic-archive')} ${s.archived ? 'Unarchive' : 'Archive'}</button>` : ''}
       <button class="btn" onclick="_sigCopyTvLink('${s.id}')">${icn('ic-link')} TradingView link</button>
       <button class="btn" onclick="_sigExportPdf('${s.id}')">${icn('ic-download')} Export summary</button>
-      <button class="btn glass-btn-danger" onclick="_sigDelete('${s.id}');_sigCloseDrawer()">${icn('ic-trash')} Delete</button>
+      ${_sigIsAdmin() ? `<button class="btn glass-btn-danger" onclick="_sigDelete('${s.id}');_sigCloseDrawer()">${icn('ic-trash')} Delete</button>` : ''}
     </div>
     `;
   }
@@ -2279,17 +2290,19 @@
     if (!s) return;
     const items = [
       { icon: 'ic-eye', label: 'View', fn: `_sigOpenDrawer('${id}')` },
-      { icon: 'ic-edit', label: 'Edit', fn: `_sigOpenModal('edit','${id}')` },
-      { icon: 'ic-copy', label: 'Duplicate', fn: `_sigDuplicateSignal('${id}')` },
       { icon: 'ic-clipboard', label: 'Copy Details', fn: `_sigCopyDetails('${id}')` },
     ];
-    if (s.is_draft) items.push({ icon: 'ic-upload', label: 'Publish', fn: `_sigOpenReviewModal('${id}')` });
-    else {
-      items.push({ icon: 'ic-notebook', label: 'Add Update', fn: `_sigOpenUpdateModal('${id}')` });
-      items.push({ icon: 'ic-cloud-off', label: 'Unpublish (to Draft)', fn: `_sigUnpublishSignal('${id}')` });
+    if (_sigIsAdmin()) {
+      items.splice(1, 0, { icon: 'ic-edit', label: 'Edit', fn: `_sigOpenModal('edit','${id}')` });
+      items.splice(2, 0, { icon: 'ic-copy', label: 'Duplicate', fn: `_sigDuplicateSignal('${id}')` });
+      if (s.is_draft) items.push({ icon: 'ic-upload', label: 'Publish', fn: `_sigOpenReviewModal('${id}')` });
+      else {
+        items.push({ icon: 'ic-notebook', label: 'Add Update', fn: `_sigOpenUpdateModal('${id}')` });
+        items.push({ icon: 'ic-cloud-off', label: 'Unpublish (to Draft)', fn: `_sigUnpublishSignal('${id}')` });
+      }
+      items.push({ icon: 'ic-archive', label: s.archived ? 'Unarchive' : 'Archive', fn: `_sigArchiveSignal('${id}')` });
+      items.push({ icon: 'ic-trash', label: 'Delete', fn: `_sigDelete('${id}')`, danger: true });
     }
-    items.push({ icon: 'ic-archive', label: s.archived ? 'Unarchive' : 'Archive', fn: `_sigArchiveSignal('${id}')` });
-    items.push({ icon: 'ic-trash', label: 'Delete', fn: `_sigDelete('${id}')`, danger: true });
 
     const menu = document.createElement('div');
     menu.id = 'sig-actions-menu';
