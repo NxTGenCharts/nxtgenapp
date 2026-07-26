@@ -263,7 +263,7 @@ function resolveEmailKind(eventType: string, status: string): EmailKind {
 }
 
 const SESSION_LABEL: Record<string, string> = {
-  asian: 'Asian Session', london: 'London Session', new_york: 'New York Session'
+  asian: 'Asian', london: 'London', new_york: 'New York'
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -558,7 +558,7 @@ function buildSummaryCard(signal: SignalRow, timezone: string): string {
     statRow('Take Profit 1', formatPrice(signal.tp1), '#059669'),
     signal.tp2 != null ? statRow('Take Profit 2', formatPrice(signal.tp2), '#059669') : '',
     statRow('Risk / Reward', formatRR(signal.risk_reward)),
-    statRow('Timeframe', signal.session ? (SESSION_LABEL[signal.session] || signal.session) : '—'),
+    statRow('Session', signal.session ? (SESSION_LABEL[signal.session] || signal.session) : '—'),
     statRow('Status', STATUS_LABEL[signal.status] || signal.status),
     statRow('Published', formatDateTime(signal.published_at, timezone)),
     statRow('Last Updated', formatDateTime(signal.updated_at, timezone)),
@@ -744,7 +744,7 @@ function buildPlainText(ctx: EmailContext, subject: string, viewUrl: string, set
     `Take Profit 1: ${formatPrice(signal.tp1)}`,
     signal.tp2 != null ? `Take Profit 2: ${formatPrice(signal.tp2)}` : '',
     `Risk/Reward: ${formatRR(signal.risk_reward)}`,
-    `Timeframe: ${signal.session ? (SESSION_LABEL[signal.session] || signal.session) : '—'}`,
+    `Session: ${signal.session ? (SESSION_LABEL[signal.session] || signal.session) : '—'}`,
     `Status: ${STATUS_LABEL[signal.status] || signal.status}`,
     `Signal ID: ${shortId(signal.id)}`,
     '',
