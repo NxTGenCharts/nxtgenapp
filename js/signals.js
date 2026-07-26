@@ -231,19 +231,16 @@
     catch (e) { console.error('signal activity log failed:', e); }
   }
   async function _sigNotify(signalId, type, message) {
-    if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb) || !_currentUser) return;
-    try {
-      // NOTE: this only logs the notification for YOU (the admin taking
-      // the action). It intentionally does not fan this out to other
-      // subscribers — that has to happen server-side, with one row per
-      // recipient, via the notify-subscribers edge function (see
-      // _sigBroadcastSignalEvent below), since only server-side code can
-      // safely see the full subscriber list and bypass RLS to write to
-      // their notification feeds.
-      await sb.from('journal_signal_notifications').insert({ signal_id: _sigIsDbId(signalId) ? signalId : null, owner_id: _currentUser.id, recipient_id: _currentUser.id, type, message });
-      _sigRefreshNotifBadge();
-      _sigPlayNotifSound();
-    } catch (e) { console.error('signal notify failed:', e); }
+    // Bell rows (admin included) are now written server-side, once, by the
+    // notify-subscribers edge function (see _sigBroadcastSignalEvent
+    // below) — it's the only place that can see the full recipient list
+    // and bypass RLS to write everyone's notification feed in one pass.
+    // This used to also insert a row here for the admin's own action;
+    // keeping that would double-write a bell row every time the admin
+    // published/edited a signal, since the edge function already includes
+    // the admin unconditionally. Just refresh the local UI optimistically.
+    _sigRefreshNotifBadge();
+    _sigPlayNotifSound();
   }
 
   // ══════════════════════════════════════════════════════════════
