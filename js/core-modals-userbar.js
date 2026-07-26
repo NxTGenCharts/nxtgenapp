@@ -325,16 +325,25 @@ function _applyCalToggle(visible) {
 }
 
 document.addEventListener('DOMContentLoaded', async function () {
+  // Global Loading Manager — keeps the branded splash (js/app-loader.js) up
+  // front until every startup task below has actually finished, so the
+  // dashboard never appears half-loaded. Wrapped in try/finally so any
+  // failure below still reaches the hide() call instead of stranding the
+  // user on the splash forever.
+  if (window.AppLoader) window.AppLoader.show();
+
+  try {
 
   // 1. Theme first (prevents flash)
   loadTheme();
 
   // 2. Auth guard — redirect to login if not signed in
+  if (window.AppLoader) window.AppLoader.setMessage('Preparing your dashboard...');
   const { data: { session } } = await sb.auth.getSession();
   if (!session) {
     const next = location.pathname !== '/' ? '?next=' + encodeURIComponent(location.pathname) : '';
     window.location.replace('./login.html' + next);
-    return;
+    return; // splash stays up through the redirect — nothing to hide
   }
   _currentUser = session.user;
 
@@ -358,6 +367,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   });
 
   // 5. Load data from Supabase - parallel for speed
+  if (window.AppLoader) window.AppLoader.setMessage('Loading your trading data...');
   loadTrashSettings();
   await Promise.all([
     loadTrades(),
@@ -378,6 +388,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   _pnlToggleMode = (_profileData.currency && _profileData.currency !== '% (Percentage)') ? '$' : '%';
 
   // 6. Render all UI
+  if (window.AppLoader) window.AppLoader.setMessage('Syncing your analytics...');
   updateKPIs();
   buildPairTable();
   buildKillzoneTable();
@@ -422,6 +433,16 @@ document.addEventListener('DOMContentLoaded', async function () {
   // 8. Mobile bottom nav + calendar toggle + route to the page matching the current URL
   _routeFromLocation();
   _initCalToggle();
+
+  } catch (err) {
+    console.error('[App init] startup failed:', err);
+    if (typeof showToast === 'function') showToast('Something went wrong while loading — please refresh.', 'danger');
+  } finally {
+    // Dashboard, Calendar, Watchlist, Signals data, and Analytics have all
+    // loaded and rendered by this point (or we hit an error above) — reveal
+    // the app and dismiss the splash.
+    if (window.AppLoader) window.AppLoader.hide();
+  }
 });
 
 // ── CUSTOM ACCOUNTS — Cloud-synced via journal_account_data ──────────────
