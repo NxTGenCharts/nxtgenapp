@@ -14,7 +14,12 @@ const SUPABASE_ANON = 'sb_publishable_t_Bu9PTxcykClDo-_hvO5w_avgOKCDt';
 const BASE_URL      = 'https://nxtgencharts.site';
 
 const { createClient } = supabase;
-const sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+// Cross-subdomain storage adapter (js/auth-storage.js, loaded before this
+// file in index.html) so a session started on app.nxtgencharts.site is
+// also visible on admin.nxtgencharts.site, and vice versa.
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON, {
+  auth: { storage: window._nxtgenCrossSubdomainAuthStorage, persistSession: true, autoRefreshToken: true }
+});
 
 // Declared here (instead of near _profileLoad further down) so that any
 // code which runs at script load — like getUserTz()/getPreweekChecks() —
