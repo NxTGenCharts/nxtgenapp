@@ -1066,39 +1066,34 @@ select.form-input option,select.form-select option{background:var(--bg2, #1a2035
 }
 
 /* ══════════════════════════════════════════════════════════════
-   HEADER TOOLBAR — ROBUST SINGLE ROW AT ANY CONTAINER WIDTH
+   HEADER TOOLBAR — SINGLE ROW, SHRINK-AND-SCROLL
 
-   Root cause of the earlier regressions:
-   1) Viewport media queries only see the WINDOW width, not the
-      actual space left for the toolbar once a sidebar (Zenbook
-      Fold, iPad Air, Surface Duo — images 1/2/4) eats into it.
-      A wide window with a narrow content column still rendered
-      the "desktop" toolbar, so the tab labels had no room and
-      the last one ("Drafts") got visually clipped.
-   2) The ≤860px "single row" fix used flex:1 on the view-toggle
-      so it would fill the row — but with nothing to fill (once
-      it's not fighting the old wrap rule), that just stretched
-      its own pill background into a big empty bar, and forced a
-      flex-wrap that pushed bell/gear/+ onto a second row with
-      wasted space (Galaxy S8+, Z Fold 5 — images 3/5).
+   A previous pass here used a CSS Container Query
+   (container-type:inline-size on .sig-header-actions) to detect
+   sidebar-squeezed layouts. That backfired badly: .sig-header-
+   actions has no explicit width of its own (it's sized by its
+   content inside a flex row), and turning on inline-size
+   containment makes an element's size get calculated AS IF it
+   had no children — so the box collapsed to ~0 width and the
+   entire view-toggle (tabs + bell + gear + New Signal) vanished
+   on Nest Hub, Nest Hub Max, iPad Pro, Surface Pro 7, and plain
+   desktop Chrome. That rule has been removed.
 
-   Fix:
-   - A CSS Container Query measures the actions row's own
-     rendered width (not the viewport), so tab labels collapse
-     to icons whenever THIS row is tight — sidebar or no sidebar.
-     Falls back safely to the existing ≤480px viewport rule in
-     browsers without container-query support.
-   - The view-toggle no longer flex-grows (flex:0 1 auto), so its
-     background always hugs its own content instead of stretching
-     into empty space.
-   - flex-wrap stays off at all sizes now that the toggle can both
-     shrink AND scroll internally — no more forced two-row layout.
+   What's left (and confirmed safe):
+   - flex-wrap stays off, so the toolbar is always one row.
+   - The view-toggle can shrink (flex:0 1 auto, min-width:0) and
+     scrolls internally if its 5 tabs don't fit, instead of
+     flex-growing into a stretched, empty-looking bar.
+   - bell / gear / New-Signal never shrink (flex-shrink:0), so
+     they stay fully visible regardless of how much room the tabs
+     get.
+   Sidebar-squeezed layouts (e.g. a wide window with a narrow
+   content column) may still show a scrollable, non-collapsing
+   tab row rather than auto-collapsing to icon-only — safe, if
+   not pixel-perfect. A container-query fix for that can be
+   revisited later, anchored to an element with a well-defined
+   width so it can't collapse the same way.
    ══════════════════════════════════════════════════════════════ */
-.sig-header-actions{
-  container-type:inline-size;
-  container-name:sig-actions;
-  min-width:0;
-}
 .sig-header .sig-header-actions.sig-header-actions{
   flex-wrap:nowrap !important;
 }
@@ -1114,14 +1109,6 @@ select.form-input option,select.form-select option{background:var(--bg2, #1a2035
 .sig-header .sig-header-actions > #sig-notif-settings-btn,
 .sig-header .sig-header-actions > .btn.btn-primary{
   flex-shrink:0 !important;
-}
-
-/* Container query: collapse tab labels to icon-only once the
-   actions row itself has less than ~700px to work with — this is
-   what saves the sidebar-squeezed desktop/tablet layouts. */
-@container sig-actions (max-width:700px){
-  .sig-view-toggle button span.lbl-full{display:none}
-  .sig-view-toggle button{padding:7px 9px}
 }
 
 @media (max-width:860px){
