@@ -348,9 +348,13 @@ function pf3RenderHeroWave() {
   if (!mount || !PF3_HAS_APEX) return;
   const pts = pf3EquitySeries(_getFilteredTrades(), 'pct');
   if (pts.length < 3) { mount.innerHTML = ''; return; }
-  const c = pf3Colors();
   const last = pts[pts.length - 1].y;
-  const col = last >= 0 ? c.green : c.red;
+  // This sparkline always sits on the hero card's dark/purple gradient,
+  // in both themes — so use fixed bright accents here instead of the
+  // theme-adaptive --green/--red tokens. Light Mode's versions of those
+  // tokens are tuned for readability on white KPI cards and are too
+  // dark/desaturated to read against the purple hero background.
+  const col = last >= 0 ? '#34d399' : '#f87171';
   pf3Mount('dash-hero-wave', {
     chart: { type: 'area', height: 32, width: 120, sparkline: { enabled: true }, animations: { enabled: !pf3ReducedMotion(), speed: 600 } },
     series: [{ data: pts.map(p => p.y) }],
