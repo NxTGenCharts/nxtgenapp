@@ -875,6 +875,7 @@ Deno.serve(async (req) => {
         || (kind === 'published' ? `New signal: ${signal.pair}` : `${signal.pair} signal update`);
       const bellRows = Array.from(bellRecipientIds).map((recipientId) => ({
         signal_id: signal.id,
+        owner_id: ADMIN_OWNER_ID, // every notify-triggering event is an admin action
         recipient_id: recipientId,
         type: kind,
         message: bellMessage,
