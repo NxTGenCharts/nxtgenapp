@@ -1064,3 +1064,51 @@ select.form-input option,select.form-select option{background:var(--bg2, #1a2035
   .sig-header .sig-header-actions > .btn.btn-primary{width:34px !important;height:34px !important}
   .sig-header .sig-header-actions > .btn.btn-primary .icn{width:14px !important;height:14px !important}
 }
+
+/* ══════════════════════════════════════════════════════════════
+   HEADER TOOLBAR — SINGLE ROW ON TABLET/PHONE
+   There's usually enough horizontal room for the view-toggle +
+   bell + gear + New-Signal button to share one row — the earlier
+   pass force-wrapped the view-toggle onto its own full-width row
+   even when space allowed better. This makes the whole toolbar
+   one row: the view-toggle becomes the flexible, scrollable
+   segment (so it still degrades gracefully if its 5 tabs don't
+   fit), while bell/gear/+ stay fixed-size on the right. Only on
+   genuinely tight phone widths does it fall back to wrapping.
+   Placed last so it wins the cascade over the earlier wrap rules.
+   ══════════════════════════════════════════════════════════════ */
+@media (max-width:860px){
+  .sig-header .sig-header-actions.sig-header-actions{
+    width:100% !important;
+    flex-wrap:nowrap !important;
+    justify-content:flex-start !important;
+    align-items:center !important;
+    gap:8px !important;
+  }
+  .sig-header .sig-header-actions .sig-view-toggle.sig-view-toggle{
+    order:1;
+    width:auto !important;
+    flex:1 1 auto;
+    min-width:0;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+  }
+  .sig-header .sig-header-actions .sig-view-toggle::-webkit-scrollbar{display:none}
+  .sig-header .sig-header-actions > #sig-notif-bell,
+  .sig-header .sig-header-actions > #sig-notif-settings-btn{
+    order:2;flex-shrink:0 !important;
+  }
+  .sig-header .sig-header-actions > .btn.btn-primary{
+    order:3;margin-left:auto !important;flex-shrink:0 !important;
+  }
+}
+/* Genuinely tight widths: let the toolbar wrap to two rows again
+   rather than crushing the view-toggle unreadably thin. */
+@media (max-width:360px){
+  .sig-header .sig-header-actions.sig-header-actions{flex-wrap:wrap !important}
+  .sig-header .sig-header-actions .sig-view-toggle.sig-view-toggle{
+    flex:1 1 100%;width:100% !important;
+  }
+  .sig-header .sig-header-actions > .btn.btn-primary{margin-left:auto !important}
+}
