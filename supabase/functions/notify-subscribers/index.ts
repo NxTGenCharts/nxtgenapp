@@ -848,6 +848,34 @@ Deno.serve(async (req) => {
       .or('push_enabled.eq.true,email_enabled.eq.true,whatsapp_enabled.eq.true');
     if (error) throw error;
 
+    // ── In-app bell feed — one row per subscriber ──────────────────
+    // This is the piece that was missing. Without it, journal_signal_
+    // notifications only ever gets rows from signals.js's _sigNotify(),
+    // which logs the ADMIN's own activity (owner_id = whoever performed
+    // the action) — never a row addressed to any other subscriber. Every
+    // other user's bell reads `.eq('recipient_id', <their own id>)` and
+    // finds nothing, no matter what they've enabled here, because nothing
+    // was ever written with their id in it. This is that missing write,
+    // scoped to the same opted-in list above (a user who's turned every
+    // channel off doesn't get a bell entry either — consistent with "off
+    // means off"). Requires the recipient_id column from
+    // fix-drafts-and-notifications.sql.
+    if (subs && subs.length) {
+      const bellMessage = fallbackMessage
+        || (kind === 'published' ? `New signal: ${signal.pair}` : `${signal.pair} signal update`);
+      const bellRows = (subs as NotificationPrefRow[]).map((s) => ({
+        signal_id: signal.id,
+        recipient_id: s.owner_id,
+        type: kind,
+        message: bellMessage,
+        read: false
+      }));
+      const { error: bellErr } = await sb.from('journal_signal_notifications').insert(bellRows);
+      // A bell-feed failure shouldn't take down push/email/WhatsApp sending
+      // below — log it and keep going.
+      if (bellErr) console.error('bell fan-out insert failed:', bellErr);
+    }
+
     const results = await Promise.allSettled((subs ?? []).flatMap((s: NotificationPrefRow) => {
       const jobs: Promise<unknown>[] = [];
 
