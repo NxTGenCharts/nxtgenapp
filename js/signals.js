@@ -233,7 +233,14 @@
   async function _sigNotify(signalId, type, message) {
     if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb) || !_currentUser) return;
     try {
-      await sb.from('journal_signal_notifications').insert({ signal_id: _sigIsDbId(signalId) ? signalId : null, owner_id: _currentUser.id, type, message });
+      // NOTE: this only logs the notification for YOU (the admin taking
+      // the action). It intentionally does not fan this out to other
+      // subscribers — that has to happen server-side, with one row per
+      // recipient, via the notify-subscribers edge function (see
+      // _sigBroadcastSignalEvent below), since only server-side code can
+      // safely see the full subscriber list and bypass RLS to write to
+      // their notification feeds.
+      await sb.from('journal_signal_notifications').insert({ signal_id: _sigIsDbId(signalId) ? signalId : null, owner_id: _currentUser.id, recipient_id: _currentUser.id, type, message });
       _sigRefreshNotifBadge();
       _sigPlayNotifSound();
     } catch (e) { console.error('signal notify failed:', e); }
@@ -470,7 +477,7 @@
     if (_sigUsingSupabase && typeof sb !== 'undefined' && sb && _currentUser) {
       try {
         sb.channel('sig-notif-' + _currentUser.id)
-          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'journal_signal_notifications', filter: `owner_id=eq.${_currentUser.id}` },
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'journal_signal_notifications', filter: `recipient_id=eq.${_currentUser.id}` },
             () => _sigRefreshNotifBadge())
           .subscribe();
       } catch (e) { console.error('notif realtime subscribe failed:', e); }
@@ -540,7 +547,7 @@
     const badge = document.getElementById('sig-notif-badge');
     if (!badge || !(_sigUsingSupabase && typeof sb !== 'undefined' && sb) || !_currentUser) return;
     const { count, error } = await sb.from('journal_signal_notifications')
-      .select('id', { count: 'exact', head: true }).eq('owner_id', _currentUser.id).eq('read', false);
+      .select('id', { count: 'exact', head: true }).eq('recipient_id', _currentUser.id).eq('read', false);
     if (error) { console.error('notif badge error:', error.message); return; }
     // A new unread notification landed since we last checked (could be from
     // another device, or from someone we're subscribed to) — chime + a
@@ -569,7 +576,7 @@
 
     const list = document.getElementById('sig-notif-list');
     if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb) || !_currentUser) { list.innerHTML = '<div class="sig-body-text" style="padding:12px">Connect Supabase to see live notifications.</div>'; return; }
-    const { data, error } = await sb.from('journal_signal_notifications').select('*').eq('owner_id', _currentUser.id).order('created_at', { ascending: false }).limit(30);
+    const { data, error } = await sb.from('journal_signal_notifications').select('*').eq('recipient_id', _currentUser.id).order('created_at', { ascending: false }).limit(30);
     if (error) { list.innerHTML = '<div class="sig-body-text" style="padding:12px">Couldn\'t load notifications.</div>'; return; }
     if (!data || !data.length) { list.innerHTML = '<div class="sig-body-text" style="padding:12px">No notifications yet.</div>'; return; }
     list.innerHTML = data.map(n => `
@@ -596,7 +603,7 @@
   };
   window._sigMarkAllNotifsRead = async function () {
     if (_sigUsingSupabase && typeof sb !== 'undefined' && sb && _currentUser) {
-      await sb.from('journal_signal_notifications').update({ read: true }).eq('owner_id', _currentUser.id).eq('read', false);
+      await sb.from('journal_signal_notifications').update({ read: true }).eq('recipient_id', _currentUser.id).eq('read', false);
     }
     _sigRefreshNotifBadge();
     document.getElementById('sig-notif-panel')?.remove();
