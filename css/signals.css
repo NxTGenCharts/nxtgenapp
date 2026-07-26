@@ -167,7 +167,13 @@
   cursor:pointer;font-size:12px;display:flex;align-items:center;gap:5px;transition:var(--t-fast);
 }
 .sig-view-toggle button .icn{width:13px;height:13px}
-.sig-view-toggle button.active{background:var(--glass-3);color:var(--text);box-shadow:var(--shadow-xs)}
+.sig-view-toggle button.active{
+  background:color-mix(in srgb, var(--purple) 16%, var(--glass-3));
+  color:var(--purple);
+  font-weight:600;
+  box-shadow:var(--shadow-xs), inset 0 0 0 1px color-mix(in srgb, var(--purple) 38%, transparent);
+}
+.sig-view-toggle button.active .icn{color:var(--purple)}
 
 /* ── KPI grid collapse toggle (used on the Drafts tab) ──────────── */
 .sig-kpi-expand-btn{
