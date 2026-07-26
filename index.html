@@ -84,6 +84,7 @@
 <link rel="stylesheet" href="css/profile.css?v=202607202045">
 <link rel="stylesheet" href="css/final-misc.css?v=202607202045">
 <link rel="stylesheet" href="css/signals.css?v=202607202045">
+<link rel="stylesheet" href="css/admin.css?v=202607260001">
 <link rel="stylesheet" href="css/premium-controls.css?v=202607202045">
 <link rel="stylesheet" href="css/profile-premium.css?v=202607211200">
 <link rel="stylesheet" href="css/dashboard-premium.css?v=202607211400">
@@ -204,15 +205,14 @@
         <span></span><span></span><span></span>
       </span>
     </button>
-    <span class="brand" onclick="nav('dashboard',null,'Dashboard')" style="cursor:pointer">
+    <span class="brand" onclick="nav('admin',null,'Admin')" style="cursor:pointer">
       <img class="brand-logo-img" src="logo.svg" alt="NxTGen Trading Journal" draggable="false">
     </span>
     <span class="sep">›</span>
-    <span class="page-name" id="topbar-page">Dashboard</span>
+    <span class="page-name" id="topbar-page">Admin</span>
   </div>
   <div class="topbar-right">
     <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme" id="theme-btn"><svg class="icn" aria-hidden="true"><use href="#ic-moon"></use></svg></button>
-    <button class="btn btn-primary" onclick="openModal()"><span class="btn-icon" aria-hidden="true">+</span><span class="btn-label">New Trade</span></button>
     <span class="topbar-clock" id="topbar-clock" role="status" aria-label="Current date and time"></span>
     <button class="topbar-avatar" id="topbar-avatar-btn" title="My Profile" aria-label="My Profile">
       <span id="topbar-avatar-initials">TJ</span>
@@ -232,48 +232,19 @@
     <div class="sb-logo-header">
       <img class="sb-logo-img" src="logo.svg" alt="NxTGen Trading Journal" draggable="false">
     </div>
-    <!-- Mobile-only New Trade button in sidebar -->
-    <div class="sb-new-trade-wrap" id="sb-new-trade-wrap">
-      <button class="btn btn-primary sb-new-trade-btn" onclick="openModal();closeSidebar()">＋ New Trade</button>
-    </div>
+    <!-- Admin-only console: journal/resources nav removed, only Admin reachable -->
     <div class="sb-section">
-      <div class="sb-section-label">Journal</div>
-      <div class="sb-item active" onclick="nav('dashboard',this,'Dashboard')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-chart-bar"></use></svg></span><span class="lbl">Dashboard</span></div>
-      <div class="sb-item" onclick="nav('tradelog',this,'Trade Log')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-menu"></use></svg></span><span class="lbl">Trade Log</span></div>
-      <div class="sb-item" onclick="nav('watchlist',this,'Weekly Watchlist')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-calendar"></use></svg></span><span class="lbl">Weekly Watchlist</span></div>
-      <div class="sb-item" onclick="nav('accounts',this,'Account Tracker')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-dollar-c"></use></svg></span><span class="lbl">Account Tracker</span></div>
-      <div class="sb-item" id="sb-calendar" onclick="nav('calendar',this,'Calendar')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-calendar"></use></svg></span><span class="lbl">Calendar</span></div>
+      <div class="sb-item active" id="sb-admin" onclick="nav('admin',this,'Admin')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-shield"></use></svg></span><span class="lbl">Admin</span></div>
     </div>
-    <div class="sb-sep"></div>
-    <div id="sb-years"></div>
-    <div class="sb-sep"></div>
-    <div class="sb-section">
-      <div class="sb-section-label">Resources</div>
-      <div class="sb-item ai-glow" onclick="nav('ai',this,'AI Coach')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-robot"></use></svg></span><span class="lbl">AI Coach</span></div>
-      <div class="sb-item" onclick="nav('backtesting',this,'Backtesting Lab')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-flask"></use></svg></span><span class="lbl">Backtesting Lab</span></div>
-      <div class="sb-item" onclick="nav('signals',this,'Signals')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-zap"></use></svg></span><span class="lbl">Signals</span></div>
-      <div class="sb-item" onclick="nav('playbook',this,'Trading Playbook')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-notebook"></use></svg></span><span class="lbl">Playbook</span></div>
-      <div class="sb-item" onclick="nav('goals',this,'Goals & Milestones')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-target"></use></svg></span><span class="lbl">Goals</span></div>
-      <div class="sb-item" onclick="nav('monthly',this,'Monthly Review')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-trend-up"></use></svg></span><span class="lbl">Monthly Review</span></div>
-      <div class="sb-item" onclick="nav('trash',this,'Trash')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-trash"></use></svg></span><span class="lbl">Trash</span><span class="sb-badge" id="trash-sb-badge" style="display:none">0</span></div>
-    </div>
-    <div class="sb-sep"></div>
-    <div class="sb-section">
-      <div class="sb-item" onclick="nav('profile',this,'My Profile')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-user"></use></svg></span><span class="lbl">My Profile</span></div>
-    </div>
+    <!-- Kept in DOM (hidden) — buildSidebarYears()/calMaximizeToPage() write/read
+         these elements unconditionally on load; removing them outright throws.
+         Not linked from anywhere, so it's never visible or reachable. -->
+    <div id="sb-years" style="display:none"></div>
   </div>
 
   <!-- ══ MAIN ══ -->
   <div class="main">
 
-    <!-- TABS -->
-    <div class="tabs">
-      <div class="tab active" id="tab-dashboard" onclick="nav('dashboard',null,'Dashboard')">Dashboard</div>
-      <div class="tab" id="tab-tradelog" onclick="nav('tradelog',null,'Trade Log')">Trade Log</div>
-      <div class="tab" id="tab-watchlist" onclick="nav('watchlist',null,'Watchlist')">Watchlist</div>
-      <div class="tab" id="tab-accounts" onclick="nav('accounts',null,'Accounts')">Accounts</div>
-      <div class="tab" id="tab-trash" onclick="nav('trash',null,'Trash')"><svg class="icn" aria-hidden="true"><use href="#ic-trash"></use></svg> Trash</div>
-    </div>
 
     <!-- ═══════════════════════════════════════════════
          DASHBOARD PAGE
@@ -831,6 +802,13 @@
          SIGNALS PAGE — content rendered by js/signals.js
     ═══════════════════════════════════════════════ -->
     <div class="page" id="page-signals"></div>
+
+    <!-- ═══════════════════════════════════════════════
+         ADMIN PAGE — content rendered by js/admin.js
+         Admin-only: nav entry hidden client-side, writes
+         enforced server-side by Supabase RLS.
+    ═══════════════════════════════════════════════ -->
+    <div class="page" id="page-admin"></div>
 
     <!-- ═══════════════════════════════════════════════
          PLAYBOOK PAGE
@@ -2263,85 +2241,26 @@
 <script src="js/tradelog-premium.js?v=202607220200"></script>
 <script src="js/calendar-premium.js?v=202607220200"></script>
 <script src="js/signals.js?v=202607202045"></script>
+<script src="js/admin.js?v=202607260001"></script>
+<script src="js/admin-gate.js?v=202607260001"></script>
 
 <!-- ══ MOBILE SIDEBAR OVERLAY ══ already present above ══ -->
 
-<!-- ══ MOBILE BOTTOM NAVIGATION BAR ══ -->
+<!-- ══ MOBILE BOTTOM NAVIGATION BAR — admin-only console: single destination ══ -->
 <nav class="mob-bottom-nav" id="mob-bottom-nav">
-  <button class="mob-bottom-nav-item active" id="mob-nav-dashboard" onclick="nav('dashboard',null,'Dashboard');mobNavActivate('dashboard')" aria-label="Dashboard">
-    <span class="mob-nav-icon"><svg class="icn" aria-hidden="true"><use href="#ic-chart-bar"></use></svg></span>
-    <span class="mob-nav-label">Dashboard</span>
-  </button>
-  <button class="mob-bottom-nav-item" id="mob-nav-tradelog" onclick="nav('tradelog',null,'Trade Log');mobNavActivate('tradelog')" aria-label="Trades">
-    <span class="mob-nav-icon"><svg class="icn" aria-hidden="true"><use href="#ic-menu"></use></svg></span>
-    <span class="mob-nav-label">Trades</span>
-  </button>
-  <button class="mob-bottom-nav-item mob-nav-add-btn" id="mob-nav-add" onclick="openModal()" aria-label="New Trade">
-    <span class="mob-nav-icon">＋</span>
-    <span class="mob-nav-label">New Trade</span>
-  </button>
-  <button class="mob-bottom-nav-item" id="mob-nav-calendar" onclick="nav('calendar',null,'Calendar');mobNavActivate('calendar')" aria-label="Calendar">
-    <span class="mob-nav-icon"><svg class="icn" aria-hidden="true"><use href="#ic-calendar"></use></svg></span>
-    <span class="mob-nav-label">Calendar</span>
-  </button>
-  <button class="mob-bottom-nav-item" id="mob-nav-more" onclick="mobNavMore()" aria-label="More">
-    <span class="mob-nav-icon">•••</span>
-    <span class="mob-nav-label">More</span>
-    <span class="mob-nav-badge" id="mob-nav-trash-badge" style="display:none">0</span>
+  <button class="mob-bottom-nav-item active" id="mob-nav-dashboard" onclick="nav('admin',null,'Admin');mobNavActivate('admin')" aria-label="Admin">
+    <span class="mob-nav-icon"><svg class="icn" aria-hidden="true"><use href="#ic-shield"></use></svg></span>
+    <span class="mob-nav-label">Admin</span>
   </button>
 </nav>
 <script src="js/mobile-nav-smart-dock.js?v=202607220300"></script>
 
-<!-- ══ MOBILE MORE SHEET OVERLAY ══ -->
+<!-- ══ MOBILE MORE SHEET OVERLAY (kept in DOM, unused — no More button links to it) ══ -->
 <div class="mob-more-overlay" id="mob-more-overlay" onclick="mobMoreClose()"></div>
-
-<!-- ══ MOBILE MORE BOTTOM SHEET ══ -->
 <div class="mob-more-sheet" id="mob-more-sheet">
   <div class="mob-more-handle"></div>
   <div class="mob-more-title">More</div>
-  <div class="mob-more-grid">
-    <button class="mob-more-item" onclick="mobMoreNav('accounts','Account Tracker')">
-      <div class="mob-more-icon"><svg class="icn" aria-hidden="true"><use href="#ic-dollar-c"></use></svg></div>
-      <span>Accounts</span>
-    </button>
-    <button class="mob-more-item" onclick="mobMoreNav('watchlist','Weekly Watchlist')">
-      <div class="mob-more-icon"><svg class="icn" aria-hidden="true"><use href="#ic-clipboard"></use></svg></div>
-      <span>Watchlist</span>
-    </button>
-    <button class="mob-more-item" onclick="mobMoreNav('ai','AI Coach')">
-      <div class="mob-more-icon"><svg class="icn" aria-hidden="true"><use href="#ic-robot"></use></svg></div>
-      <span>AI Coach</span>
-    </button>
-    <button class="mob-more-item" onclick="mobMoreNav('backtesting','Backtesting Lab')">
-      <div class="mob-more-icon"><svg class="icn" aria-hidden="true"><use href="#ic-flask"></use></svg></div>
-      <span>Backtest Lab</span>
-    </button>
-    <button class="mob-more-item" onclick="mobMoreNav('signals','Signals')">
-      <div class="mob-more-icon"><svg class="icn" aria-hidden="true"><use href="#ic-zap"></use></svg></div>
-      <span>Signals</span>
-    </button>
-    <button class="mob-more-item" onclick="mobMoreNav('monthly','Monthly Review')">
-      <div class="mob-more-icon"><svg class="icn" aria-hidden="true"><use href="#ic-trend-up"></use></svg></div>
-      <span>Monthly</span>
-    </button>
-    <button class="mob-more-item" onclick="mobMoreNav('goals','Goals')">
-      <div class="mob-more-icon"><svg class="icn" aria-hidden="true"><use href="#ic-target"></use></svg></div>
-      <span>Goals</span>
-    </button>
-    <button class="mob-more-item" onclick="mobMoreNav('playbook','Trading Playbook')">
-      <div class="mob-more-icon"><svg class="icn" aria-hidden="true"><use href="#ic-notebook"></use></svg></div>
-      <span>Playbook</span>
-    </button>
-    <button class="mob-more-item" onclick="mobMoreNav('profile','My Profile')">
-      <div class="mob-more-icon"><svg class="icn" aria-hidden="true"><use href="#ic-user"></use></svg></div>
-      <span>Profile</span>
-    </button>
-    <button class="mob-more-item" onclick="mobMoreNav('trash','Trash')">
-      <div class="mob-more-icon"><svg class="icn" aria-hidden="true"><use href="#ic-trash"></use></svg></div>
-      <span>Trash</span>
-      <span class="mob-nav-badge" id="mob-more-trash-badge" style="display:none">0</span>
-    </button>
-  </div>
+  <div class="mob-more-grid"></div>
 </div>
 
 <!-- Share Modal — injected dynamically by openShareModal() -->

@@ -401,7 +401,7 @@
     <!-- Tabs -->
     <div class="tabs">
       <button class="tab active" id="tabLogin" onclick="switchTab('login')">Sign In</button>
-      <button class="tab" id="tabRegister" onclick="switchTab('register')">Create Account</button>
+      <button class="tab" id="tabRegister" onclick="switchTab('register')" style="display:none">Create Account</button>
     </div>
 
     <!-- SIGN IN -->
@@ -618,9 +618,8 @@
     clearAlerts();
     if (t==='register') { document.getElementById('confirmScreen').classList.remove('show'); document.getElementById('registerForm').style.display=''; }
   }
-  // Deep-link support: login.html#register opens straight to the Create Account tab
-  // (used by the "Start Journaling Free" CTA on the marketing landing page)
-  if (location.hash === '#register') switchTab('register');
+  // Deep-link support for #register is intentionally disabled on this
+  // admin-only subdomain — sign-up isn't offered here.
 
   function clearAlerts() {
     ['loginErr','loginOk','regErr'].forEach(id => { document.getElementById(id).classList.remove('show'); });

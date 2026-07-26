@@ -30,6 +30,7 @@ function nav(pageId, sbEl, label, extra, _skipPush) {
   if (pageId === 'ai') { buildAI(); }
   if (pageId === 'backtesting') { buildBacktestingLab(); _btRenderSessionGrid(); _blRenderGalleryControls(); _blRenderGallery(); _blRenderComparisonTable(); }
   if (pageId === 'signals' && typeof buildSignals === 'function') { buildSignals(); }
+  if (pageId === 'admin' && typeof buildAdmin === 'function') { buildAdmin(); }
   if (pageId === 'profile') { setTimeout(buildProfile, 0); }
   // Sync mobile bottom nav
   mobNavActivate(pageId);
@@ -48,6 +49,7 @@ const _PAGE_LABELS = {
   ai:          'AI Coach',
   backtesting: 'Backtesting Lab',
   signals:     'Signals',
+  admin:       'Admin',
   playbook:    'Trading Playbook',
   goals:       'Goals & Milestones',
   monthly:     'Monthly Review',

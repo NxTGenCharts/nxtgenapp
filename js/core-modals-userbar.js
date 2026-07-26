@@ -341,6 +341,17 @@ document.addEventListener('DOMContentLoaded', async function () {
   // 3. Inject user bar + sign out
   _injectUserBar(_currentUser);
 
+  // 3b. Show/hide the Admin nav entry now that we know who's signed in.
+  // (Nav-item visibility only — the real access control is Supabase RLS.)
+  if (typeof window._admRevealNav === 'function') window._admRevealNav();
+
+  // 3c. This deployment is the admin-only subdomain — verify the signed-in
+  // account is actually the admin, and stop here entirely if not.
+  if (typeof window._admGateEnforce === 'function') {
+    const _admOk = await window._admGateEnforce();
+    if (!_admOk) return;
+  }
+
   // 4. Also sign out if another tab signs out
   sb.auth.onAuthStateChange((event) => {
     if (event === 'SIGNED_OUT') window.location.replace('./login.html');

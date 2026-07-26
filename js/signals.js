@@ -123,15 +123,19 @@
   const _SIG_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   function _sigIsDbId(id) { return typeof id === 'string' && _SIG_UUID_RE.test(id); }
 
-  // ── Admin gate (UI only — the real enforcement is the RLS policies on
-  // journal_signals: signals_write/signals_update/signals_delete, which key
-  // off auth.uid() against this same UUID). This just hides Edit/Duplicate/
-  // Publish/Add Update/Unpublish/Archive/Delete for everyone else so a
-  // non-admin isn't shown controls that would fail server-side anyway.
+  // ── Admin gate (UI only — the real enforcement is the `is_signal_admin()`
+  // Postgres function + RLS policies from supabase/signals_admin_lockdown.sql,
+  // which check auth.uid() against the journal_signal_admins table). This
+  // just hides Edit/Duplicate/Publish/Add Update/Unpublish/Archive/Delete
+  // for everyone else so a non-admin isn't shown controls that would fail
+  // server-side anyway. Keep this UUID in sync with journal_signal_admins.
   const SIG_ADMIN_OWNER_ID = 'acc49a9d-b664-481f-9e07-746fd8ab10ec';
   function _sigIsAdmin() {
     return !!(typeof _currentUser !== 'undefined' && _currentUser && _currentUser.id === SIG_ADMIN_OWNER_ID);
   }
+  // Exposed so js/admin.js (the dedicated Admin section) can reuse the exact
+  // same check instead of duplicating the admin UUID in a second file.
+  window._sigIsAdmin = _sigIsAdmin;
   function _sigIso(v) { if (v === undefined || v === null) return null; return typeof v === 'number' ? new Date(v).toISOString() : v; }
   function _sigMs(v) { if (v === undefined || v === null) return null; return typeof v === 'number' ? v : new Date(v).getTime(); }
 
