@@ -22,6 +22,10 @@
   display:flex; justify-content:space-between; font-size:10.5px; color:var(--text3);
   margin-bottom:6px; font-weight:600; letter-spacing:.2px;
 }
+/* Light Mode: --text3 is a dark slate tuned for the light page
+   background, not the purple hero card — on the card it was nearly
+   invisible. Use the card's own on-purple token instead. */
+[data-theme="light"] .cover .cover-progress-label{ color: var(--cover-on-2, rgba(255,255,255,0.92)); }
 .cover-progress-track{ height:6px; border-radius:var(--r-full); background:var(--glass-2); overflow:hidden; }
 .cover-progress-fill{
   height:100%; width:0%; border-radius:var(--r-full);
