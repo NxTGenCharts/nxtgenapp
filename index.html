@@ -84,7 +84,6 @@
 <link rel="stylesheet" href="css/profile.css?v=202607202045">
 <link rel="stylesheet" href="css/final-misc.css?v=202607202045">
 <link rel="stylesheet" href="css/signals.css?v=202607202045">
-<link rel="stylesheet" href="css/admin.css?v=202607260001">
 <link rel="stylesheet" href="css/premium-controls.css?v=202607202045">
 <link rel="stylesheet" href="css/profile-premium.css?v=202607211200">
 <link rel="stylesheet" href="css/dashboard-premium.css?v=202607211400">
@@ -205,7 +204,7 @@
         <span></span><span></span><span></span>
       </span>
     </button>
-    <span class="brand" onclick="nav('admin',null,'Admin')" style="cursor:pointer">
+    <span class="brand" onclick="nav('tradelog',null,'Trade Log')" style="cursor:pointer">
       <img class="brand-logo-img" src="logo.svg" alt="NxTGen Trading Journal" draggable="false">
     </span>
     <span class="sep">›</span>
@@ -232,9 +231,16 @@
     <div class="sb-logo-header">
       <img class="sb-logo-img" src="logo.svg" alt="NxTGen Trading Journal" draggable="false">
     </div>
-    <!-- Admin-only console: journal/resources nav removed, only Admin reachable -->
+    <!-- TODO: this build is missing its real primary navigation. The page
+         containers for Trade Log, Watchlist, Accounts, Backtesting Lab,
+         Signals, Playbook, Goals, Calendar, AI Coach, and Profile all still
+         exist further down in this file — only their sidebar entries were
+         stripped (this file was, until this fix, an exact copy of the
+         admin-only console build). Restore the full nav list from the
+         actual app source before shipping; a single Trade Log entry is
+         wired up below only so the app isn't completely unreachable. -->
     <div class="sb-section">
-      <div class="sb-item active" id="sb-admin" onclick="nav('admin',this,'Admin')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-shield"></use></svg></span><span class="lbl">Admin</span></div>
+      <div class="sb-item active" id="sb-tradelog" onclick="nav('tradelog',this,'Trade Log')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-shield"></use></svg></span><span class="lbl">Trade Log</span></div>
     </div>
     <!-- Kept in DOM (hidden) — buildSidebarYears()/calMaximizeToPage() write/read
          these elements unconditionally on load; removing them outright throws.
@@ -804,11 +810,9 @@
     <div class="page" id="page-signals"></div>
 
     <!-- ═══════════════════════════════════════════════
-         ADMIN PAGE — content rendered by js/admin.js
          Admin-only: nav entry hidden client-side, writes
          enforced server-side by Supabase RLS.
     ═══════════════════════════════════════════════ -->
-    <div class="page" id="page-admin"></div>
 
     <!-- ═══════════════════════════════════════════════
          PLAYBOOK PAGE
@@ -2145,6 +2149,7 @@
 
 <!-- ══ Supabase SDK ══ -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/auth-storage.js?v=202607260001"></script>
 
 <!-- ══ Charting: Lightweight Charts (free, no license needed) ══
      Backtesting Lab's chart replay + drawing engine is built on
@@ -2241,16 +2246,17 @@
 <script src="js/tradelog-premium.js?v=202607220200"></script>
 <script src="js/calendar-premium.js?v=202607220200"></script>
 <script src="js/signals.js?v=202607202045"></script>
-<script src="js/admin.js?v=202607260001"></script>
-<script src="js/admin-gate.js?v=202607260001"></script>
 
 <!-- ══ MOBILE SIDEBAR OVERLAY ══ already present above ══ -->
 
-<!-- ══ MOBILE BOTTOM NAVIGATION BAR — admin-only console: single destination ══ -->
+<!-- ══ MOBILE BOTTOM NAVIGATION BAR ══
+     TODO: same gap as the sidebar above — this should list Trade Log,
+     Watchlist, Accounts, Calendar, etc. once the real app nav is restored.
+     Wired to Trade Log only so mobile isn't dead-ended on a removed page. -->
 <nav class="mob-bottom-nav" id="mob-bottom-nav">
-  <button class="mob-bottom-nav-item active" id="mob-nav-dashboard" onclick="nav('admin',null,'Admin');mobNavActivate('admin')" aria-label="Admin">
+  <button class="mob-bottom-nav-item active" id="mob-nav-dashboard" onclick="nav('tradelog',null,'Trade Log');mobNavActivate('tradelog')" aria-label="Trade Log">
     <span class="mob-nav-icon"><svg class="icn" aria-hidden="true"><use href="#ic-shield"></use></svg></span>
-    <span class="mob-nav-label">Admin</span>
+    <span class="mob-nav-label">Trade Log</span>
   </button>
 </nav>
 <script src="js/mobile-nav-smart-dock.js?v=202607220300"></script>

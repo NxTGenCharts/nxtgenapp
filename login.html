@@ -521,6 +521,7 @@
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/auth-storage.js?v=202607260001"></script>
 <script>
   const SUPABASE_URL  = 'https://jlqgdwfbwdiieafhwisy.supabase.co';
   const SUPABASE_ANON = 'sb_publishable_t_Bu9PTxcykClDo-_hvO5w_avgOKCDt';
@@ -528,7 +529,11 @@
 
   const BASE = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '');
   const { createClient } = supabase;
-  const sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+  // Cross-subdomain storage adapter (js/auth-storage.js) so a session
+  // started here is visible on the other nxtgencharts.site subdomain too.
+  const sb = createClient(SUPABASE_URL, SUPABASE_ANON, {
+    auth: { storage: window._nxtgenCrossSubdomainAuthStorage, persistSession: true, autoRefreshToken: true }
+  });
 
   // If the user was redirected here from a deep link (e.g. /tradelog), send them back
   // to it after signing in instead of always landing on the dashboard.
