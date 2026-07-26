@@ -146,6 +146,15 @@ const WHATSAPP_PHONE_ID = Deno.env.get('WHATSAPP_PHONE_ID') ?? '';
 const RESEND_FROM_NAME = Deno.env.get('RESEND_FROM_NAME') || 'NxTGen Signals';
 const RESEND_FROM_ADDRESS = Deno.env.get('RESEND_FROM_ADDRESS') || 'alerts@nxtgencharts.site';
 
+// The one account allowed to publish/edit/delete signals (see the
+// signals_write/signals_update/signals_delete RLS policies on
+// journal_signals — all three key off this same UUID). The admin always
+// gets a bell notification for their own action, even if they've never
+// opted into push/email/WhatsApp on the notification-settings page —
+// everyone else only gets notified if they've opted into at least one
+// channel there.
+const ADMIN_OWNER_ID = 'acc49a9d-b664-481f-9e07-746fd8ab10ec';
+
 const APP_URL = 'https://app.nxtgencharts.site';
 const MARKETING_URL = 'https://nxtgencharts.site';
 const SUPPORT_EMAIL = 'support@nxtgencharts.site';
@@ -841,31 +850,32 @@ Deno.serve(async (req) => {
     const fallbackMessage = body.message || '';
     const settingsUrl = `${APP_URL}/signals?notif-settings=1`;
 
-    // Every user who has opted into at least one channel.
+    // Every user who has opted into at least one channel — these are the
+    // only non-admin recipients. Nobody else (no opt-in on the signals
+    // page's notification settings) gets notified at all, bell included.
     const { data: subs, error } = await sb
       .from('journal_notification_prefs')
       .select('*')
       .or('push_enabled.eq.true,email_enabled.eq.true,whatsapp_enabled.eq.true');
     if (error) throw error;
 
-    // ── In-app bell feed — one row per subscriber ──────────────────
-    // This is the piece that was missing. Without it, journal_signal_
-    // notifications only ever gets rows from signals.js's _sigNotify(),
-    // which logs the ADMIN's own activity (owner_id = whoever performed
-    // the action) — never a row addressed to any other subscriber. Every
-    // other user's bell reads `.eq('recipient_id', <their own id>)` and
-    // finds nothing, no matter what they've enabled here, because nothing
-    // was ever written with their id in it. This is that missing write,
-    // scoped to the same opted-in list above (a user who's turned every
-    // channel off doesn't get a bell entry either — consistent with "off
-    // means off"). Requires the recipient_id column from
-    // fix-drafts-and-notifications.sql.
-    if (subs && subs.length) {
+    // ── In-app bell feed — one row per recipient ────────────────────
+    // Recipients are exactly: the admin (always, for their own action)
+    // plus every user in `subs` above (opted into push/email/WhatsApp).
+    // This used to also rely on signals.js's client-side _sigNotify() to
+    // log the admin's own bell row — that call has been removed (see
+    // signals.js) so this edge function is now the single writer and the
+    // admin can't end up with two rows for the same event. Requires the
+    // recipient_id column from fix-drafts-and-notifications.sql.
+    const bellRecipientIds = new Set<string>([ADMIN_OWNER_ID]);
+    (subs as NotificationPrefRow[] | null)?.forEach((s) => bellRecipientIds.add(s.owner_id));
+
+    if (bellRecipientIds.size) {
       const bellMessage = fallbackMessage
         || (kind === 'published' ? `New signal: ${signal.pair}` : `${signal.pair} signal update`);
-      const bellRows = (subs as NotificationPrefRow[]).map((s) => ({
+      const bellRows = Array.from(bellRecipientIds).map((recipientId) => ({
         signal_id: signal.id,
-        recipient_id: s.owner_id,
+        recipient_id: recipientId,
         type: kind,
         message: bellMessage,
         read: false
