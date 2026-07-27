@@ -1367,12 +1367,12 @@
     const totalPips = closed.reduce((a, s) => a + _sigEffectiveMath(s).pips, 0);
     const totalR = closed.reduce((a, s) => a + _sigEffectiveMath(s).r_multiple, 0);
     const openPositions = all.filter(s => ENTERED_STATUSES.includes(s.status)).length;
-    // Counts any signal that ever reached breakeven — currently sitting
-    // there (status === 'breakeven'), closed flat once it got there
-    // (result === 'breakeven'), or passed through it on the way to a
-    // later TP/close (breakeven_at is stamped the moment SL moves,
-    // manually or by the auto-monitor, and stays set afterwards).
-    const breakevens = all.filter(s => s.breakeven_at != null || s.status === 'breakeven' || s.result === 'breakeven').length;
+    // Counts signals whose FINAL result is breakeven — i.e. actually
+    // closed flat — to match how Winning/Losing Signals work (final
+    // outcome, not "this happened at some point during the trade").
+    // A signal that got moved to breakeven mid-trade but went on to WIN
+    // shouldn't also show up here just because breakeven_at is set.
+    const breakevens = all.filter(s => s.result === 'breakeven').length;
     const closedPositions = closed.length;
     const monthClosed = closed.filter(s => s.created_at >= monthAgo);
     const monthProfit = monthClosed.reduce((a, s) => a + _sigEffectiveMath(s).profit_percent, 0);
