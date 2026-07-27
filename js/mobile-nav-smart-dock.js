@@ -29,7 +29,6 @@
   var isMobile = false;
   var kbOpen = false;
   var formLocked = false;      // focused on a form control (not necessarily kb)
-  var sheetOpen = false;       // the "More" bottom sheet is open — dock must stay put
   var lastScrollTop = {};      // per-scroll-container last position (WeakMap-lite via expando)
 
   function isMobileNow() {
@@ -45,7 +44,7 @@
 
   function hide() {
     if (!nav) return;
-    if (formLocked || kbOpen || sheetOpen) return; // never idle-hide while a form/dropdown/sheet is active
+    if (formLocked || kbOpen) return; // never idle-hide while a form/dropdown is active
     nav.classList.add('mob-nav-dock-hidden');
   }
 
@@ -124,22 +123,6 @@
     }
   }
 
-  // ── Keep the dock visible (never idle-hide) while the "More" bottom
-  // sheet is open — its overlay leaves the dock's own strip uncovered
-  // (by design, so the dock stays reachable), so if the dock hides
-  // itself in there the raw page content behind it shows through. ──
-  function watchMoreSheet() {
-    var sheet = document.getElementById('mob-more-sheet');
-    if (!sheet) return;
-    var apply = function () {
-      sheetOpen = sheet.classList.contains('open');
-      if (sheetOpen) show();
-      else scheduleHide();
-    };
-    var mo = new MutationObserver(apply);
-    mo.observe(sheet, { attributes: true, attributeFilter: ['class'] });
-  }
-
   // ── Reveal whenever the active page changes (nav() router just
   // toggles a `.page`'s `active` class — no need to hook the router
   // itself, just watch for it) ───────────────────────────────────────
@@ -196,7 +179,6 @@
     window.addEventListener('resize', applyModeForViewport, { passive: true });
 
     watchPageChanges();
-    watchMoreSheet();
 
     if (isMobile) scheduleHide();
   }
