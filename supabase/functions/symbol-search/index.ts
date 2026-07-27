@@ -47,14 +47,11 @@ const CORS_HEADERS = {
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
-// The "recommended feed" per market, per the product spec: FOREXCOM
-// for forex/metals/indices, Binance for crypto. Anything not listed
-// just doesn't get a pinned recommendation — the full result list is
-// still returned either way.
-const PREFERRED_EXCHANGE: Record<string, string> = {
-  forex: "FOREXCOM",
-  commodities: "FOREXCOM",
-  indices: "FOREXCOM",
+// The "recommended feed" per ASSET TYPE (not per the Market dropdown's
+// current value — see the note below on why that distinction matters):
+// FOREXCOM for forex/metals/indices, Binance for crypto.
+const PREFERRED_EXCHANGE_BY_TYPE: Record<string, string> = {
+  forex: "FOREXCOM", cfd: "FOREXCOM", index: "FOREXCOM", commodity: "FOREXCOM",
   crypto: "BINANCE",
 };
 
@@ -75,6 +72,25 @@ function normSymbol(s: unknown): string {
   return typeof s === "string" ? s.replace(/[\/\s]/g, "").toUpperCase() : "";
 }
 
+// Twelve Data's `instrument_type` is a human-readable label ("Digital
+// Currency", "Physical Currency", "Common Stock", "ETF", ...), not
+// the short vocabulary ("crypto", "forex", "stock", ...) used
+// everywhere else in this function and on the client. Without this
+// normalization, every Twelve Data row's type would silently fail to
+// match PREFERRED_EXCHANGE_BY_TYPE and SEARCH_TYPE_TO_MARKET on the
+// client — same bug as the market-dropdown one, just from the other
+// data source, so both are fixed together here.
+function normTwelveDataType(raw: string): string | null {
+  const s = (raw || "").toLowerCase();
+  if (s.includes("digital currency") || s.includes("crypto")) return "crypto";
+  if (s.includes("physical currency") || s.includes("forex")) return "forex";
+  if (s.includes("index")) return "index";
+  if (s.includes("commodity")) return "commodity";
+  if (s.includes("stock") || s.includes("equity")) return "stock";
+  if (s.includes("etf") || s.includes("fund") || s.includes("trust")) return "fund";
+  return s || null;
+}
+
 // ── Source 1: Twelve Data (official) ──────────────────────────────
 async function fetchTwelveData(query: string): Promise<UnifiedResult[]> {
   if (!TWELVE_DATA_KEY) return [];
@@ -87,7 +103,7 @@ async function fetchTwelveData(query: string): Promise<UnifiedResult[]> {
       symbol: normSymbol(r.symbol),
       description: r.instrument_name || r.symbol || "",
       exchange: r.exchange || r.mic_code || null,
-      type: (r.instrument_type || "").toLowerCase() || null,
+      type: normTwelveDataType(r.instrument_type),
       country: r.country || null,
       source: "twelvedata" as const,
       preferred: false,
@@ -142,8 +158,18 @@ Deno.serve(async (req) => {
       });
     }
 
-    const preferredExchange = PREFERRED_EXCHANGE[market] || null;
-    const cacheKey = `${market || "any"}:${q.toLowerCase()}`;
+    // `market` (whatever the Market dropdown currently shows) is
+    // recorded for the response payload but deliberately NOT used to
+    // decide which result gets pinned as "recommended" — a person
+    // often hasn't switched Market to Crypto yet when they start
+    // typing a crypto ticker (it may still say "Forex" from the
+    // previous signal), and an instrument like BTCUSD genuinely
+    // exists as BOTH a Binance crypto pair AND a FOREXCOM CFD. Basing
+    // the recommendation on the dropdown's stale value pinned the
+    // wrong one and left Market stuck on Forex even after picking a
+    // crypto result. Each row's own type decides its own
+    // recommendation instead — see PREFERRED_EXCHANGE_BY_TYPE.
+    const cacheKey = q.toLowerCase();
 
     const { data: cached } = await sb
       .from("symbol_search_cache")
@@ -151,7 +177,7 @@ Deno.serve(async (req) => {
       .eq("cache_key", cacheKey)
       .maybeSingle();
     if (cached && Date.now() - new Date(cached.fetched_at).getTime() < CACHE_TTL_MS) {
-      return new Response(JSON.stringify({ query: q, market, preferred_exchange: preferredExchange, results: cached.results, tv_available: cached.tv_available, cached: true }), {
+      return new Response(JSON.stringify({ query: q, market, results: cached.results, tv_available: cached.tv_available, cached: true }), {
         headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
@@ -160,16 +186,20 @@ Deno.serve(async (req) => {
     // call never delays the Twelve Data results beyond its own timeout.
     const [tdResults, tv] = await Promise.all([fetchTwelveData(q), fetchTradingView(q)]);
 
-    const merged = [...tdResults, ...tv.results].map((r) => ({
-      ...r,
-      preferred: !!preferredExchange && r.exchange === preferredExchange,
-    }));
+    const merged = [...tdResults, ...tv.results].map((r) => {
+      const wantExchange = r.type ? PREFERRED_EXCHANGE_BY_TYPE[r.type] : null;
+      return { ...r, preferred: !!wantExchange && r.exchange === wantExchange };
+    });
 
-    // Preferred broker feed first, then the rest of TradingView's
-    // multi-broker list (matches "or bring out the whole feed"),
-    // then Twelve Data as the reliable fallback set. De-dupe on
-    // symbol+exchange+source so the same instrument from the same
-    // place never appears twice.
+    // Preferred broker feed(s) first — note a single ambiguous ticker
+    // can legitimately produce MORE THAN ONE preferred row now (e.g.
+    // BTCUSD@BINANCE as crypto AND BTCUSD@FOREXCOM as a forex CFD),
+    // which is correct: they're different instruments and the person
+    // should be able to tell them apart and pick the one they mean,
+    // rather than the tool silently guessing. Then the rest of
+    // TradingView's multi-broker list, then Twelve Data as the
+    // reliable fallback set. De-dupe on symbol+exchange+source so the
+    // same instrument from the same place never appears twice.
     const seen = new Set<string>();
     const deduped: UnifiedResult[] = [];
     for (const r of [
@@ -188,7 +218,7 @@ Deno.serve(async (req) => {
       cache_key: cacheKey, results, tv_available: tv.available, fetched_at: new Date().toISOString(),
     });
 
-    return new Response(JSON.stringify({ query: q, market, preferred_exchange: preferredExchange, results, tv_available: tv.available, cached: false }), {
+    return new Response(JSON.stringify({ query: q, market, results, tv_available: tv.available, cached: false }), {
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   } catch (e) {
