@@ -240,13 +240,13 @@
    ════════════════════════════════════════════════════════════════ */
 
 .sidebar {
-  background: rgba(8, 12, 22, 0.35) !important;
+  background: rgba(8, 12, 22, 0.2275) !important;
   backdrop-filter: var(--lg-blur-sidebar) !important;
   -webkit-backdrop-filter: var(--lg-blur-sidebar) !important;
   border-right: 0.5px solid rgba(255,255,255,0.08) !important;
   box-shadow:
     inset -1px 0 0 rgba(255,255,255,0.04),
-    4px 0 32px rgba(0,0,0,0.25) !important;
+    1px 0 8px rgba(0,0,0,0.0625) !important;
 }
 
 /* Subtle inner shimmer on sidebar */
@@ -264,11 +264,11 @@
 }
 
 [data-theme="light"] .sidebar {
-  background: linear-gradient(180deg, rgba(255,255,255,0.97), rgba(238,241,251,0.93)) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,0.63), rgba(238,241,251,0.60)) !important;
   border-right: 1px solid rgba(30,41,59,0.10) !important;
   box-shadow:
     inset -1px 0 0 rgba(255,255,255,0.8),
-    4px 0 28px rgba(15,23,42,0.08) !important;
+    1px 0 7px rgba(15,23,42,0.02) !important;
 }
 
 /* Mobile: sidebar drawer gets glass treatment */
