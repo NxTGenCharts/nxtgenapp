@@ -336,3 +336,57 @@
     transition-duration: 90ms;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   SIDEBAR TOGGLE — panel icon (replaces the generic hamburger)
+   One glyph, three parts, all animated with transform/opacity so the
+   icon morphs in place instead of swapping between two separate icons:
+     • sbt-frame     the app frame (static)
+     • sbt-rail-fill the sidebar column — fades in solid when open
+     • sbt-rail-line the divider between panel and content (static)
+     • sbt-chevron   flips 180° to show which way the click moves things
+   Loaded last, so this is the authoritative styling for #sb-toggle-btn —
+   the older hamburger-span rules in trash-toast-misc.css and
+   backtesting-lab.css are dead now (no <span> children left to match)
+   and were left in place rather than hunted down, to keep this change
+   isolated and low-risk.
+   ═══════════════════════════════════════════════════════════════════ */
+.sb-toggle-icon{
+  display: block;
+  width: 18px; height: 18px;
+  overflow: visible;
+  color: var(--text2);
+  transition: color .18s ease;
+}
+.sb-toggle-btn:hover .sb-toggle-icon{ color: var(--text); }
+
+.sb-toggle-icon .sbt-frame,
+.sb-toggle-icon .sbt-rail-line{
+  transition: stroke .18s ease;
+}
+.sb-toggle-icon .sbt-rail-fill{
+  opacity: 0;
+  transition: opacity .2s cubic-bezier(.4,0,.2,1);
+}
+.sb-toggle-icon .sbt-chevron{
+  transform-origin: 14.5px 12px;
+  transition: transform .22s cubic-bezier(.4,0,.2,1);
+}
+
+/* Sidebar open (button carries .active, set by toggleSidebar()):
+   rail reads as filled/present, chevron points left = "click collapses". 
+   Sidebar collapsed: rail is hollow, chevron points right = "click expands". */
+.sb-toggle-btn.active .sb-toggle-icon .sbt-rail-fill{ opacity: .85; }
+.sb-toggle-btn.active .sb-toggle-icon .sbt-chevron{ transform: rotate(180deg); }
+
+.sb-toggle-btn{
+  transition: background .16s ease, border-color .16s ease,
+              transform .12s cubic-bezier(.4,0,.2,1), box-shadow .16s ease;
+}
+.sb-toggle-btn:active{ transform: scale(.92); }
+.sb-toggle-btn:focus-visible{
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+[data-theme="light"] .sb-toggle-icon{ color: var(--text2); }
+[data-theme="light"] .sb-toggle-btn:hover .sb-toggle-icon{ color: var(--text); }
