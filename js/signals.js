@@ -1352,6 +1352,12 @@
     const wins = all.filter(s => s.result === 'win');
     const losses = all.filter(s => s.result === 'loss');
     const closed = all.filter(s => s.result === 'win' || s.result === 'loss');
+    // Separate from `closed` above on purpose: `closed` drives win-rate
+    // math (winPct/lossPct/totalPips/totalR/monthProfit) where breakeven
+    // shouldn't count as either a win or a loss. But "Closed Positions"
+    // is just asking "is this trade done", and a breakeven scratch is
+    // just as done as a win or a loss — so it needs its own set here.
+    const closedAll = all.filter(s => s.result === 'win' || s.result === 'loss' || s.result === 'breakeven');
     const todays = all.filter(s => !s.is_draft && s.status !== 'scheduled' && s.created_at >= today.getTime());
     // Drafts aren't published signals — they shouldn't inflate "this week" /
     // "this month" counts (Active Signals footer, More Analytics tiles).
@@ -1373,7 +1379,7 @@
     // A signal that got moved to breakeven mid-trade but went on to WIN
     // shouldn't also show up here just because breakeven_at is set.
     const breakevens = all.filter(s => s.result === 'breakeven').length;
-    const closedPositions = closed.length;
+    const closedPositions = closedAll.length;
     const monthClosed = closed.filter(s => s.created_at >= monthAgo);
     const monthProfit = monthClosed.reduce((a, s) => a + _sigEffectiveMath(s).profit_percent, 0);
     const avgHold = closed.length ? (closed.reduce((a, s) => a + ((s.closed_at && s.entered_at) ? (s.closed_at - s.entered_at) : 3600000 * 4), 0) / closed.length) : 0;
@@ -1431,7 +1437,7 @@
 
     const triggeredCt = all.filter(s => s.status !== 'waiting' && s.status !== 'cancelled').length;
     const entryAccuracy = all.length ? triggeredCt / all.length * 100 : 0;
-    const completionRate = all.length ? closed.length / all.length * 100 : 0;
+    const completionRate = all.length ? closedAll.length / all.length * 100 : 0;
 
     return {
       all, active, wins, losses, closed, todays, thisWeek,
