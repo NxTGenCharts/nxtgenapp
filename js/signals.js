@@ -318,13 +318,39 @@
   // does the real fan-out. See notify-subscribers-edge-function.ts for
   // that function's implementation and setup notes.
   // ══════════════════════════════════════════════════════════════
-  async function _sigBroadcastSignalEvent(signal, eventType, message) {
+  // Fields subscribers actually see in the "Signal Summary" card of the
+  // notify-subscribers email (order type, entry/SL/TP, RR, session,
+  // confidence, market, direction, pair). Internal-only fields — notes,
+  // lessons, management rules, chart screenshots, tags, etc. — are
+  // deliberately left out so an admin tweaking their private notes doesn't
+  // fire off a "signal updated" email calling out a change nobody who
+  // receives the alert can even see.
+  const NOTIFY_RELEVANT_FIELDS = [
+    'pair', 'direction', 'order_type', 'entry', 'stop_loss', 'tp1', 'tp2',
+    'risk_reward', 'risk_percent', 'session', 'confidence', 'market'
+  ];
+  // Plain-value diff — good enough for the primitives every field above
+  // actually holds (numbers/strings), while still treating null/undefined
+  // and NaN/NaN as "unchanged" instead of false-positiving on them.
+  function _sigValueChanged(a, b) {
+    if (a === b) return false;
+    if (a === null || a === undefined) return !(b === null || b === undefined);
+    if (b === null || b === undefined) return true;
+    if (typeof a === 'number' && typeof b === 'number' && Number.isNaN(a) && Number.isNaN(b)) return false;
+    return true;
+  }
+
+  async function _sigBroadcastSignalEvent(signal, eventType, message, changedFields) {
     if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb)) return; // demo mode — no real subscriber base
     try {
       await sb.functions.invoke('notify-subscribers', {
         body: {
           signal_id: signal.id, pair: signal.pair, direction: signal.direction,
-          event_type: eventType, message
+          event_type: eventType, message,
+          // Only meaningful for eventType 'edited' — see NOTIFY_RELEVANT_FIELDS
+          // above and the FIELD_LABEL map in notify-subscribers-edge-function.ts,
+          // which turns this into "Updated: order type and entry price".
+          ...(changedFields && changedFields.length ? { changed_fields: changedFields } : {})
         }
       });
     } catch (e) { console.error('broadcast to subscribers failed:', e); }
@@ -3205,6 +3231,13 @@
     if (!_sigValidateRow(row)) return;
     const prevOrderType = s.order_type;
     const wasPending = PENDING_ORDER_TYPES.includes(prevOrderType);
+    // Snapshot the subscriber-relevant fields *before* they're overwritten
+    // below, so we can tell notify-subscribers exactly what changed (e.g.
+    // "order type and entry price") instead of a blanket "signal was
+    // edited" that leaves recipients to spot the diff themselves against
+    // the previous email.
+    const prevSnapshot = {};
+    NOTIFY_RELEVANT_FIELDS.forEach((k) => { prevSnapshot[k] = s[k]; });
     Object.assign(s, row, { updated_at: Date.now(), edited_at: Date.now(), edited_by: 'You' });
     const isPendingNow = PENDING_ORDER_TYPES.includes(s.order_type);
     // Order type can change on edit (e.g. Buy Limit -> Market Execution).
@@ -3219,12 +3252,13 @@
     }
     s.version_history = s.version_history || [];
     s.version_history.push({ ts: Date.now(), note: 'Signal updated & republished' });
+    const changedFields = NOTIFY_RELEVANT_FIELDS.filter((k) => _sigValueChanged(prevSnapshot[k], s[k]));
     const ok = await _sigPersistSignal(s);
     if (!ok) return;
     _sigLogUpdate(s.id, s.status, 'Signal edited');
     _sigLogActivity(s.id, 'edited', 'Signal updated & republished');
     _sigNotify(s.id, 'edited', `${s.pair} signal was edited`);
-    _sigBroadcastSignalEvent(s, 'edited', `${s.pair} signal was edited`);
+    _sigBroadcastSignalEvent(s, 'edited', `${s.pair} signal was edited`, changedFields);
     _sigCloseModal();
     _sigRenderStats();
     _sigRenderActiveView();
