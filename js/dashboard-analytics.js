@@ -890,9 +890,10 @@ function updateClock() {
   if (!el) return;
   const tz = getUserTz();
   const now = new Date();
-  // Below ~1200px the chip switches to a compact "Jul 20 • 11:48 PM" form
-  // (no weekday, no seconds, no UTC offset) so it never crowds the other
-  // topbar controls or wraps. Full width keeps the detailed format.
+  // Below ~1200px the widget switches to a compact "Jul 20 • 11:48 PM" form
+  // (no weekday, no seconds, no live badge, no UTC offset) so it never
+  // crowds the other topbar controls or wraps. Full width keeps the
+  // detailed "live status widget" layout.
   const compact = window.innerWidth <= 1200;
   let date, time, offset;
   try {
@@ -904,7 +905,16 @@ function updateClock() {
     time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: compact ? undefined : '2-digit', hour12: true });
     offset = getUserTzOffsetLabel(tz);
   }
-  el.textContent = compact ? (date + ' • ' + time) : (date + '  ' + time + '  ' + offset);
+  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  el.innerHTML = compact
+    ? '<span class="tc-main tc-compact"><span class="tc-date">' + esc(date) + '</span>'
+      + '<span class="tc-dot-sep" aria-hidden="true">•</span>'
+      + '<span class="tc-time">' + esc(time) + '</span></span>'
+    : '<span class="tc-live"><span class="tc-dot" aria-hidden="true"></span><span class="tc-live-label">Live</span></span>'
+      + '<span class="tc-sep" aria-hidden="true"></span>'
+      + '<span class="tc-main"><span class="tc-date">' + esc(date) + '</span>'
+      + '<span class="tc-time">' + esc(time) + '</span></span>'
+      + '<span class="tc-tz">' + esc(offset) + '</span>';
   el.setAttribute('aria-label', date + ' ' + time + ' ' + offset);
 }
 if (typeof window !== 'undefined') {
