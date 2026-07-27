@@ -234,9 +234,17 @@
   // than blocking the main save, but they no longer silently no-op —
   // see the note on _sigLoadUpdatesLog/_sigLoadActivityLog below for why
   // these were appearing to do nothing.
-  async function _sigLogUpdate(signalId, status, note, price) {
+  // `source` defaults to 'manual' so every existing call site (the
+  // Add Update modal) keeps writing exactly what it always has. The
+  // automatic monitoring engine (Supabase Edge Function
+  // `signal-monitor`) writes its own rows directly with
+  // source:'system' + a stable event_key — it does not go through
+  // this client-side function at all, since it runs server-side on a
+  // schedule independent of any browser being open. This function
+  // stays here, unchanged in behavior, purely for the manual flow.
+  async function _sigLogUpdate(signalId, status, note, price, source) {
     if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb) || !_sigIsDbId(signalId)) return;
-    try { await sb.from('journal_signal_updates').insert({ signal_id: signalId, status: status || null, note: note || null, price: price ?? null }); }
+    try { await sb.from('journal_signal_updates').insert({ signal_id: signalId, status: status || null, note: note || null, price: price ?? null, source: source || 'manual' }); }
     catch (e) { console.error('signal update log failed:', e); }
   }
   async function _sigLogActivity(signalId, action, detail) {
@@ -470,6 +478,7 @@
     _sigRenderActiveView();
     _sigRefreshNotifBadge();
     _sigWatchNotifications();
+    _sigWatchLiveUpdates();
     if (!_sigUsingSupabase) {
       const badge = document.getElementById('sig-demo-badge');
       if (badge) badge.style.display = 'inline-flex';
@@ -494,6 +503,61 @@
       } catch (e) { console.error('notif realtime subscribe failed:', e); }
     }
     setInterval(_sigRefreshNotifBadge, 20000);
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // LIVE STATUS SYNC — reflects the automatic monitoring engine's
+  // writes (and any other admin's manual updates) without requiring a
+  // page refresh. Subscribes to Supabase Realtime on `journal_signals`
+  // (status/price/result columns changing) and `journal_signal_updates`
+  // (new timeline rows, manual or automatic). Falls back to a 30s poll
+  // if Realtime isn't enabled on these tables yet (see the
+  // "alter publication supabase_realtime add table ..." note at the
+  // bottom of supabase/signals_auto_monitor_schema.sql) so this never
+  // depends on Realtime being configured correctly to work at all.
+  // ══════════════════════════════════════════════════════════════
+  let _sigLiveWatchStarted = false;
+  function _sigApplyRowPatch(row) {
+    if (!row || !row.id) return;
+    const idx = _sigAll.findIndex(x => x.id === row.id);
+    if (idx === -1) return; // not loaded on this page/view — nothing to patch
+    _sigAll[idx] = _sigFromDbRow({ ..._sigAll[idx], ...row });
+  }
+  function _sigWatchLiveUpdates() {
+    if (_sigLiveWatchStarted) return;
+    _sigLiveWatchStarted = true;
+    const refresh = () => {
+      _sigRenderStats();
+      _sigRenderActiveView();
+      const drawer = document.getElementById('signal-drawer');
+      if (drawer && drawer.classList.contains('open')) {
+        const openId = drawer.dataset.signalId;
+        if (openId) { window._sigOpenDrawer(openId); }
+      }
+    };
+    if (_sigUsingSupabase && typeof sb !== 'undefined' && sb) {
+      try {
+        sb.channel('sig-live-status')
+          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'journal_signals' }, (payload) => {
+            _sigApplyRowPatch(payload.new);
+            refresh();
+          })
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'journal_signal_updates' }, (payload) => {
+            const id = payload.new && payload.new.signal_id;
+            if (id && document.getElementById('sig-updates-log-' + id)) _sigLoadUpdatesLog(id);
+          })
+          .subscribe();
+      } catch (e) { console.error('live status realtime subscribe failed:', e); }
+    }
+    // Fallback poll — cheap (just re-fetches the signal list) and
+    // guarantees the UI self-heals even if Realtime is misconfigured
+    // or momentarily disconnected. Uses the same _loadSignals() the
+    // page's own init calls, so demo/local mode is unaffected.
+    setInterval(async () => {
+      if (!_sigUsingSupabase) return;
+      try { _sigAll = await _loadSignals(); refresh(); }
+      catch (e) { console.error('live status poll failed:', e); }
+    }, 30000);
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -2119,6 +2183,7 @@
       document.body.appendChild(drawer);
     }
     drawer.innerHTML = _sigDrawerContent(s);
+    drawer.dataset.signalId = id;
     requestAnimationFrame(() => drawer.classList.add('open'));
     // Local/demo signals already have their updates & activity rendered
     // Updates & Activity are fetched fresh from Supabase every time the
@@ -2140,8 +2205,16 @@
       const { data, error } = await sb.from('journal_signal_updates').select('*').eq('signal_id', id).order('created_at', { ascending: true });
       if (error) throw error;
       if (!data || !data.length) { el.innerHTML = `<div class="sig-body-text">No updates yet.</div>`; return; }
+      // Automatic updates (written by the signal-monitor Edge Function,
+      // source:'system') render with a "System Update" badge instead of
+      // "Admin" so users can tell at a glance which entries came from
+      // the monitoring engine vs. a human — they otherwise look and
+      // behave identically, and neither ever overwrites the other.
       el.innerHTML = data.map(u => `
-        <div class="sig-version-item"><span class="dot"></span>${(u.note || STATUS_LABEL[u.status] || u.status || '')}
+        <div class="sig-version-item">
+          <span class="dot"></span>
+          <span class="sig-update-source-badge ${u.source === 'system' ? 'is-system' : 'is-manual'}">${u.source === 'system' ? 'System Update' : 'Admin'}</span>
+          ${(u.note || STATUS_LABEL[u.status] || u.status || '')}
           <span class="sig-version-ts">${new Date(u.created_at).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}</span>
         </div>`).join('');
     } catch (e) {
@@ -2167,7 +2240,7 @@
   }
   window._sigCloseDrawer = function () {
     const d = document.getElementById('signal-drawer');
-    if (d) d.classList.remove('open');
+    if (d) { d.classList.remove('open'); delete d.dataset.signalId; }
   };
 
   function _sigDrawerContent(s) {
@@ -2791,7 +2864,12 @@
           <button type="button" class="glass-btn glass-btn-cancel" onclick="_sigSaveAsTemplate()">${icn('ic-save')} Save as Template</button>
         </div>` : ''}
         <div class="form-grid">
-          <div class="form-field"><label class="form-label">Pair</label><input class="form-input" id="sf-pair" placeholder="EURUSD" value="${s.pair || ''}"></div>
+          <div class="form-field sig-pair-field">
+            <label class="form-label">Pair</label>
+            <input class="form-input" id="sf-pair" placeholder="EURUSD" value="${s.pair || ''}" autocomplete="off"
+              oninput="_sigPairSearchDebounced()" onfocus="_sigPairSearchDebounced()" onblur="setTimeout(_sigClosePairDropdown, 150)">
+            <div class="sig-pair-dropdown" id="sf-pair-dropdown" style="display:none"></div>
+          </div>
           <div class="form-field"><label class="form-label">Market</label>
             <select class="form-select" id="sf-market">
               ${Object.entries(MARKET_LABEL).map(([k, v]) => `<option value="${k}" ${opt(k, s.market)}>${v}</option>`).join('')}
@@ -2857,7 +2935,106 @@
     </div>`;
   }
 
-  // TP1 is always a fixed 1:2 risk:reward. As soon as Entry + Stop Loss (and
+  // ══════════════════════════════════════════════════════════════
+  // PAIR SYMBOL SEARCH — powers the autocomplete dropdown under the
+  // Pair field. Calls the `symbol-search` Edge Function, which
+  // layers an official Twelve Data lookup (always available) under
+  // an unofficial TradingView broker-picker lookup (best-effort —
+  // see the function's own comments). The field stays a completely
+  // normal text input the whole time: nothing here ever blocks
+  // typing a symbol by hand and just publishing, so a slow network
+  // or an unresolved symbol never gets in the way of the actual job.
+  // ══════════════════════════════════════════════════════════════
+  const SEARCH_TYPE_TO_MARKET = { forex: 'forex', crypto: 'crypto', index: 'indices', commodity: 'commodities', stock: 'stocks', fund: 'stocks' };
+  let _sigPairSearchToken = 0;
+
+  window._sigPairSearchDebounced = _debounce(function () { _sigRunPairSearch(); }, 250);
+
+  async function _sigRunPairSearch() {
+    const input = document.getElementById('sf-pair');
+    const dd = document.getElementById('sf-pair-dropdown');
+    if (!input || !dd) return;
+    const query = input.value.trim();
+    if (query.length < 2) { dd.style.display = 'none'; dd.innerHTML = ''; return; }
+    if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb)) return; // demo/local mode — plain text input, no lookup available
+
+    const market = document.getElementById('sf-market')?.value || '';
+    const myToken = ++_sigPairSearchToken; // guards against a slower earlier request overwriting a faster later one
+    dd.style.display = 'block';
+    dd.innerHTML = `<div class="sig-pair-dd-status">Searching…</div>`;
+
+    let payload;
+    try {
+      const { data, error } = await sb.functions.invoke('symbol-search', { body: { query, market } });
+      if (error) throw error;
+      payload = data;
+    } catch (e) {
+      console.error('symbol search failed:', e);
+      if (myToken === _sigPairSearchToken) dd.innerHTML = `<div class="sig-pair-dd-status">Couldn't reach symbol search — just type the pair manually.</div>`;
+      return;
+    }
+    if (myToken !== _sigPairSearchToken) return; // a newer keystroke already superseded this response
+
+    _sigRenderPairDropdown(payload?.results || [], payload?.preferred_exchange || null);
+  }
+
+  function _sigRenderPairDropdown(results, preferredExchange) {
+    const dd = document.getElementById('sf-pair-dropdown');
+    if (!dd) return;
+    if (!results.length) { dd.innerHTML = `<div class="sig-pair-dd-status">No matches — you can still type the pair manually.</div>`; return; }
+
+    const preferred = results.filter(r => r.preferred);
+    const rest = results.filter(r => !r.preferred);
+    const row = (r) => `
+      <div class="sig-pair-dd-row" onmousedown="event.preventDefault();_sigSelectPairResult('${r.symbol.replace(/'/g, "\\'")}','${(r.type || '').replace(/'/g, "\\'")}')">
+        <div class="sig-pair-dd-main">
+          <span class="sig-pair-dd-symbol">${r.symbol}</span>
+          <span class="sig-pair-dd-desc">${(r.description || '').slice(0, 48)}</span>
+        </div>
+        ${r.exchange ? `<span class="sig-pair-dd-exchange ${r.preferred ? 'is-preferred' : ''}">${r.exchange}</span>` : ''}
+      </div>`;
+
+    let html = '';
+    if (preferred.length) {
+      html += `<div class="sig-pair-dd-section-label">Recommended feed${preferredExchange ? ' — ' + preferredExchange : ''}</div>`;
+      html += preferred.map(row).join('');
+    }
+    if (rest.length) {
+      html += `<div class="sig-pair-dd-section-label">${preferred.length ? 'All sources' : 'Matches'} (${rest.length})</div>`;
+      html += `<div class="sig-pair-dd-more">${rest.slice(0, 6).map(row).join('')}</div>`;
+      if (rest.length > 6) {
+        html += `<div class="sig-pair-dd-showmore" onmousedown="event.preventDefault();_sigExpandPairDropdown()">Show all ${rest.length} sources</div>`;
+        dd.dataset.allRestRows = rest.map(row).join('').replace(/"/g, '&quot;');
+      }
+    }
+    dd.innerHTML = html;
+  }
+
+  window._sigExpandPairDropdown = function () {
+    const dd = document.getElementById('sf-pair-dropdown');
+    if (!dd) return;
+    const more = dd.querySelector('.sig-pair-dd-more');
+    const btn = dd.querySelector('.sig-pair-dd-showmore');
+    if (more && dd.dataset.allRestRows) more.innerHTML = dd.dataset.allRestRows.replace(/&quot;/g, '"');
+    if (btn) btn.remove();
+  };
+
+  window._sigSelectPairResult = function (symbol, type) {
+    const pairInput = document.getElementById('sf-pair');
+    if (pairInput) pairInput.value = symbol;
+    const mappedMarket = SEARCH_TYPE_TO_MARKET[type];
+    const marketSelect = document.getElementById('sf-market');
+    if (mappedMarket && marketSelect) { marketSelect.value = mappedMarket; }
+    _sigClosePairDropdown();
+    if (window._sigAutoCalcTp1) window._sigAutoCalcTp1();
+  };
+
+  window._sigClosePairDropdown = function () {
+    const dd = document.getElementById('sf-pair-dropdown');
+    if (dd) { dd.style.display = 'none'; dd.innerHTML = ''; }
+  };
+
+
   // Direction) are known, quietly fill TP1 in for the person — but only if
   // they haven't already typed their own value in, so this never clobbers
   // a deliberate override.
