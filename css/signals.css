@@ -351,6 +351,25 @@
 .sig-tl-label{font-size:8.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-top:6px;text-align:center;font-weight:600}
 .sig-tl-step.done .sig-tl-label,.sig-tl-step.current .sig-tl-label{color:var(--text)}
 
+/* A milestone the trade never actually reached before closing (e.g. TP2
+   on a signal stopped out at breakeven after TP1) — greyed dot with an
+   X, not a green checkmark, and the connecting line stays neutral
+   instead of implying progress that didn't happen. */
+.sig-tl-step.skipped .sig-tl-dot{background:var(--glass-2);border-color:var(--glass-border)}
+.sig-tl-step.skipped .sig-tl-dot .icn{opacity:.7;color:var(--text3)}
+.sig-tl-step.skipped .sig-tl-line{background:var(--glass-border)}
+.sig-tl-step.skipped .sig-tl-label{color:var(--text3)}
+/* The line INTO a skipped step still reflects that the trade got that
+   far (e.g. entry→TP1 happened even if TP1→TP2 didn't), so only the
+   step's own outgoing line is muted — handled by .skipped above; the
+   preceding .done step's line already renders green independently. */
+
+/* Final "Closed" step colored by actual outcome instead of always green. */
+.sig-tl-step.done.outcome-loss .sig-tl-dot{background:var(--red);border-color:var(--red);box-shadow:none}
+.sig-tl-step.done.outcome-loss .sig-tl-line{background:var(--red)}
+.sig-tl-step.done.outcome-breakeven .sig-tl-dot{background:var(--gold);border-color:var(--gold);box-shadow:none}
+.sig-tl-step.done.outcome-breakeven .sig-tl-line{background:var(--gold)}
+
 /* ── Price ladder ─────────────────────────────────────────────── */
 .sig-ladder{
   border-radius:var(--r-lg);overflow:hidden;border:1px solid var(--glass-border);

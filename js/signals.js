@@ -152,9 +152,9 @@
     'confluences', 'tags', 'chart_screenshot_url', 'tradingview_link', 'expires_at',
     'published_at', 'entered_at', 'closed_at', 'result', 'pips', 'profit_percent',
     'r_multiple', 'is_draft', 'draft_name', 'archived', 'scheduled_at', 'edited_at',
-    'checklist', 'version_history'
+    'checklist', 'version_history', 'breakeven_at', 'tp1_hit_at', 'tp2_hit_at'
   ];
-  const SIGNAL_TS_FIELDS = ['expires_at', 'published_at', 'entered_at', 'closed_at', 'scheduled_at', 'edited_at', 'created_at', 'updated_at'];
+  const SIGNAL_TS_FIELDS = ['expires_at', 'published_at', 'entered_at', 'closed_at', 'scheduled_at', 'edited_at', 'created_at', 'updated_at', 'breakeven_at', 'tp1_hit_at', 'tp2_hit_at'];
 
   // Columns in journal_signals that are declared NOT NULL. If a row being
   // saved never set these (e.g. a brand-new draft built before `archived`
@@ -1367,6 +1367,12 @@
     const totalPips = closed.reduce((a, s) => a + _sigEffectiveMath(s).pips, 0);
     const totalR = closed.reduce((a, s) => a + _sigEffectiveMath(s).r_multiple, 0);
     const openPositions = all.filter(s => ENTERED_STATUSES.includes(s.status)).length;
+    // Counts any signal that ever reached breakeven — currently sitting
+    // there (status === 'breakeven'), closed flat once it got there
+    // (result === 'breakeven'), or passed through it on the way to a
+    // later TP/close (breakeven_at is stamped the moment SL moves,
+    // manually or by the auto-monitor, and stays set afterwards).
+    const breakevens = all.filter(s => s.breakeven_at != null || s.status === 'breakeven' || s.result === 'breakeven').length;
     const closedPositions = closed.length;
     const monthClosed = closed.filter(s => s.created_at >= monthAgo);
     const monthProfit = monthClosed.reduce((a, s) => a + _sigEffectiveMath(s).profit_percent, 0);
@@ -1430,7 +1436,7 @@
     return {
       all, active, wins, losses, closed, todays, thisWeek,
       weekAcc, winPct, lossPct, avgRR, totalPips, totalR,
-      openPositions, closedPositions, monthProfit, avgHoldHrs,
+      openPositions, breakevens, closedPositions, monthProfit, avgHoldHrs,
       hourly, activeTrend, winTrend, lossTrend, pipsTrend, profitTrend,
       winsDelta: winsThisWeek - winsPrevWeek, lossesDelta: lossesThisWeek - lossesPrevWeek,
       byMarket, bestSession, bestSessionRate, bestPair, bestRate,
@@ -1495,10 +1501,11 @@
       _sigWidgetShell('sig-w-totalr', 'sig-widget-ring-card', 'Total R', 'ic-scale', m.totalR >= 0 ? 'green' : 'red',
         `${m.totalR >= 0 ? '+' : ''}<span class="sig-counting" data-target="${m.totalR.toFixed(1)}">${m.totalR.toFixed(1)}</span>R`,
         `<div id="sig-w-totalr-ring" class="sig-widget-ring sig-widget-ring-solo"></div>`),
-      // 10 — Open Positions: live indicator
-      _sigWidgetShell('sig-w-open', '', 'Open Positions', 'ic-folder-open', 'blue',
-        `<span class="sig-counting" data-target="${m.openPositions}">${m.openPositions}</span>`,
-        `<div class="sig-widget-foot">${m.openPositions > 0 ? '<span class="sig-live-dot"></span> Live in market' : 'No open exposure'}</div>`),
+      // 10 — Breakevens: signals that reached (or closed at) breakeven.
+      // Replaces Open Positions, which just duplicated Active Signals.
+      _sigWidgetShell('sig-w-breakeven', '', 'Breakevens', 'ic-scale', 'gold',
+        `<span class="sig-counting" data-target="${m.breakevens}">${m.breakevens}</span>`,
+        `<div class="sig-widget-foot">${m.breakevens ? `${(m.all.length ? (m.breakevens / m.all.length * 100) : 0).toFixed(0)}% of all signals` : 'None yet'}</div>`),
       // 11 — Closed Positions: completion ring
       _sigWidgetShell('sig-w-closed', 'sig-widget-ring-card', 'Closed Positions', 'ic-folder', 'purple',
         `<span class="sig-counting" data-target="${m.closedPositions}">${m.closedPositions}</span>`,
@@ -2186,16 +2193,48 @@
     if (['active', 'partial', 'breakeven'].includes(s.status)) return isPending ? 1 : 0;
     return 0;
   }
+  const SIG_TL_TERMINAL = ['closed', 'stopped_out', 'cancelled', 'expired'];
+  // Whether a specific milestone (Entry / TP1 / TP2) was actually reached,
+  // independent of what stage the signal eventually landed on — a trade
+  // can close (win, loss, or breakeven) without ever touching TP1 or TP2,
+  // and the stepper shouldn't imply it passed through a level it didn't.
+  // Returns true/false when the row carries the relevant timestamp column
+  // (even if null — a real "never happened"), or null when the column is
+  // entirely absent (older/local/demo rows) so the caller can fall back
+  // to the previous coarse behavior instead of guessing wrong.
+  function _sigStepReached(s, key) {
+    const field = { active: 'entered_at', tp1_hit: 'tp1_hit_at', tp2_hit: 'tp2_hit_at' }[key];
+    if (!field) return true; // 'waiting' — just means the signal exists
+    if (s[field] != null) return true;
+    if (Object.prototype.hasOwnProperty.call(s, field)) return false;
+    return null;
+  }
   function _sigRenderTimeline(s) {
     const isPending = PENDING_ORDER_TYPES.includes(s.order_type);
+    const keys = isPending ? ['waiting', 'active', 'tp1_hit', 'tp2_hit', 'closed'] : ['active', 'tp1_hit', 'tp2_hit', 'closed'];
     const labels = isPending ? ['Waiting', 'Entry Triggered', 'TP1', 'TP2', 'Closed'] : ['Entry Triggered', 'TP1', 'TP2', 'Closed'];
     const idx = _sigTimelineIndex(s, isPending);
-    return `<div class="sig-timeline">${labels.map((l, i) => `
-      <div class="sig-tl-step ${i < idx ? 'done' : i === idx ? 'current' : ''}">
+    const isTerminal = SIG_TL_TERMINAL.includes(s.status);
+    const outcomeClass = s.result === 'loss' ? 'outcome-loss' : s.result === 'breakeven' ? 'outcome-breakeven' : '';
+    return `<div class="sig-timeline">${keys.map((key, i) => {
+      let cls, skipped = false;
+      if (key === 'closed') {
+        cls = isTerminal ? `done ${outcomeClass}`.trim() : (i === idx ? 'current' : '');
+      } else if (i < idx) {
+        let reached = isTerminal ? _sigStepReached(s, key) : true;
+        if (reached === null) reached = true; // unknown/legacy row — old behavior
+        skipped = !reached;
+        cls = reached ? 'done' : 'skipped';
+      } else {
+        cls = i === idx ? 'current' : '';
+      }
+      return `
+      <div class="sig-tl-step ${cls}">
         <div class="sig-tl-line"></div>
-        <div class="sig-tl-dot">${icn('ic-check')}</div>
-        <div class="sig-tl-label">${l}</div>
-      </div>`).join('')}</div>`;
+        <div class="sig-tl-dot">${icn(skipped ? 'ic-close' : 'ic-check')}</div>
+        <div class="sig-tl-label">${labels[i]}</div>
+      </div>`;
+    }).join('')}</div>`;
   }
 
   window._sigOpenDrawer = function (id) {
@@ -2689,6 +2728,9 @@
       if (closeInfo) label = closeInfo.label;
       s.status = chosen.status;
       if (chosen.status === 'active' && !s.entered_at) s.entered_at = Date.now();
+      if (chosen.status === 'breakeven' && !s.breakeven_at) s.breakeven_at = Date.now();
+      if (chosen.status === 'tp1_hit' && !s.tp1_hit_at) s.tp1_hit_at = Date.now();
+      if (chosen.status === 'tp2_hit' && !s.tp2_hit_at) s.tp2_hit_at = Date.now();
       // Hitting TP1 or TP2 already means the trade is a winner — reflect
       // that in the stats/badges right away instead of making the user
       // wait until they explicitly Close the signal to see it counted as
