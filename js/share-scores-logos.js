@@ -588,8 +588,11 @@ async function _restoreAccountByName(name) {
 //    compact     boolean DEFAULT false,
 //    autosave    boolean DEFAULT true,
 //    avatar_url  text,
+//    local_prefs jsonb DEFAULT '{}'::jsonb,  -- Floating Assistant + interface prefs
 //    updated_at  timestamptz DEFAULT now()
 //  );
+//  -- Existing deployments: see supabase/local_prefs_schema.sql to add the
+//  -- local_prefs column without touching any other data.
 //  ALTER TABLE journal_profiles ENABLE ROW LEVEL SECURITY;
 //  CREATE POLICY "Users manage own profile"
 //    ON journal_profiles FOR ALL USING (auth.uid() = user_id);
@@ -637,6 +640,7 @@ async function _profileLoad() {
       compact:      false,
       autosave:     true,
       avatar_url:   meta.avatar_url || '',
+      local_prefs:  {}, // Floating Assistant / interface prefs — see profile-premium.js
     };
     // Persist the seed immediately
     await _profileSave();

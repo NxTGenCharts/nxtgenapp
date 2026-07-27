@@ -93,6 +93,7 @@
 
   /* Layout */
   --sidebar: 220px;
+  --sidebar-collapsed: 68px;
   --topbar:  52px;
 
   /* Typography */
