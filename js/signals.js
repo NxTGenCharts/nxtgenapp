@@ -2975,28 +2975,35 @@
     }
     if (myToken !== _sigPairSearchToken) return; // a newer keystroke already superseded this response
 
-    _sigRenderPairDropdown(payload?.results || [], payload?.preferred_exchange || null);
+    _sigRenderPairDropdown(payload?.results || []);
   }
 
-  function _sigRenderPairDropdown(results, preferredExchange) {
+  function _sigRenderPairDropdown(results) {
     const dd = document.getElementById('sf-pair-dropdown');
     if (!dd) return;
     if (!results.length) { dd.innerHTML = `<div class="sig-pair-dd-status">No matches — you can still type the pair manually.</div>`; return; }
 
     const preferred = results.filter(r => r.preferred);
     const rest = results.filter(r => !r.preferred);
+    const TYPE_TAG = { forex: 'Forex', crypto: 'Crypto', index: 'Index', commodity: 'Commodity', stock: 'Stock', fund: 'Fund', cfd: 'CFD' };
     const row = (r) => `
       <div class="sig-pair-dd-row" onmousedown="event.preventDefault();_sigSelectPairResult('${r.symbol.replace(/'/g, "\\'")}','${(r.type || '').replace(/'/g, "\\'")}')">
         <div class="sig-pair-dd-main">
           <span class="sig-pair-dd-symbol">${r.symbol}</span>
-          <span class="sig-pair-dd-desc">${(r.description || '').slice(0, 48)}</span>
+          <span class="sig-pair-dd-desc">${(r.description || '').slice(0, 40)}${r.type && TYPE_TAG[r.type] ? ` · ${TYPE_TAG[r.type]}` : ''}</span>
         </div>
         ${r.exchange ? `<span class="sig-pair-dd-exchange ${r.preferred ? 'is-preferred' : ''}">${r.exchange}</span>` : ''}
       </div>`;
 
     let html = '';
     if (preferred.length) {
-      html += `<div class="sig-pair-dd-section-label">Recommended feed${preferredExchange ? ' — ' + preferredExchange : ''}</div>`;
+      // Note there can legitimately be more than one "recommended" row
+      // for an ambiguous ticker (e.g. BTCUSD as a Binance crypto pair
+      // AND as a FOREXCOM CFD) — each is a genuinely different
+      // instrument, so both surface here rather than the tool
+      // silently guessing which one you meant. The exchange + type
+      // badge on each row is what tells them apart.
+      html += `<div class="sig-pair-dd-section-label">Recommended</div>`;
       html += preferred.map(row).join('');
     }
     if (rest.length) {
