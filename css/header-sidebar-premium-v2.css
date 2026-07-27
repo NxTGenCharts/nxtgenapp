@@ -247,6 +247,19 @@
   .topbar-clock .tc-main{ gap: 6px; }
 }
 
+/* ═══════════════ SIDEBAR — remove stray bottom gradient box ═════════
+   backtesting-lab.css adds a `.sidebar::after` "scroll fade" bar meant
+   to hint at more content below. It's pinned to the bottom of the
+   sidebar's flex column even when the nav list is short and doesn't
+   overflow, so it renders as a bare gradient box sitting under
+   "My Profile" — solid-looking in light mode (var(--bg2) is a fairly
+   opaque near-white there), fainter but still present in dark mode.
+   Dropping it entirely; the sidebar doesn't need a scroll cue at its
+   current length, and it never rendered usefully in the first place. */
+.sidebar::after{
+  content: none;
+}
+
 /* ═══════════════ SIDEBAR — active navigation ════════════════════════ */
 
 .sb-item{
