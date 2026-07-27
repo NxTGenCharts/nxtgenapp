@@ -1684,7 +1684,7 @@
     const rows = allRows.slice(0, _sigTableLimit);
     const body = rows.map(s => {
       const expanded = _sigExpandedRows.has(s.id);
-      const statusTone = s.result === 'win' ? 'green' : s.result === 'loss' ? 'red' : ENTERED_STATUSES.includes(s.status) ? 'blue' : '';
+      const statusTone = s.result === 'win' ? 'green' : s.result === 'loss' ? 'red' : s.result === 'breakeven' ? 'gold' : ENTERED_STATUSES.includes(s.status) ? 'blue' : '';
       const em = _sigEffectiveMath(s);
       const expandRow = expanded ? `
       <tr class="sig-row-expand-tr">
