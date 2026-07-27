@@ -74,6 +74,15 @@ function _profileRefreshInitials(fname, lname, display) {
     initials = ((fname[0]||'') + (lname[0]||'')).toUpperCase() || 'TJ';
   }
   document.querySelectorAll('#topbar-avatar-initials').forEach(el => el.textContent = initials);
+
+  // The big avatar circle on the Profile page (#profile-avatar-display) has a
+  // hardcoded "TJ" placeholder in the markup. Previously nothing ever
+  // replaced that text unless the user had uploaded a photo, so every user
+  // without one saw the same default "TJ" instead of their own initials.
+  // Only touch it when there's no photo in place (an <img> means
+  // _profileApplyAvatar already rendered the real avatar there).
+  const bigAvatar = document.getElementById('profile-avatar-display');
+  if (bigAvatar && !bigAvatar.querySelector('img')) bigAvatar.textContent = initials;
 }
 
 async function profileHandleAvatar(e) {

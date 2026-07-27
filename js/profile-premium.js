@@ -2,14 +2,23 @@
 // Premium redesign layer for the My Profile page. Loaded after profile.js
 // and settings-fab-chat.js so it can extend/override without touching them.
 //
-// New, purely-local settings (Floating Assistant sub-toggles, Interface
-// preferences, per-sound notification switches) are stored in localStorage
-// under NX_PREFS_KEY rather than in journal_profiles — the Supabase schema
-// for that table isn't controlled here, so we don't risk breaking the
-// existing cloud-synced fields by pushing unknown columns into that row.
+// These settings (Floating Assistant sub-toggles, Interface preferences,
+// per-sound notification switches) now live in Supabase, in a new jsonb
+// column `journal_profiles.local_prefs` — see
+// supabase/local_prefs_schema.sql for the migration. They ride along with
+// the rest of _profileData, so they're loaded/saved by the exact same
+// _profileLoad()/_profileSave() calls the rest of the profile already
+// uses, which is what makes them follow the user to every device/browser
+// instead of being stuck on whichever device last toggled them.
+//
+// localStorage (NX_PREFS_KEY) is kept ONLY as an instant-paint cache, so
+// the FAB doesn't flash its defaults for the split second before the
+// cloud profile finishes loading on boot. It is never the source of
+// truth — every read refreshes it from the cloud copy the moment
+// _profileData is available, and every write pushes straight to Supabase.
 // ═══════════════════════════════════════════════════════════════════════
 
-const NX_PREFS_KEY = 'nx_local_prefs_v1';
+const NX_PREFS_KEY = 'nx_local_prefs_v1'; // instant-paint cache only, not authoritative
 const NX_PREFS_DEFAULTS = {
   fabEnabled: true, fabShowAffirmation: true, fabShowChat: true,
   fabAutoOpenFirst: true, fabRememberPos: false, fabSnapEdges: true,
@@ -21,6 +30,17 @@ const NX_PREFS_DEFAULTS = {
 };
 
 function _nxGetPrefs() {
+  const cloud = (typeof _profileData !== 'undefined' && _profileData && _profileData.local_prefs) || null;
+  if (cloud) {
+    const merged = Object.assign({}, NX_PREFS_DEFAULTS, cloud);
+    // Keep the local cache fresh so the next page load paints correctly
+    // before the cloud round-trip completes.
+    try { localStorage.setItem(NX_PREFS_KEY, JSON.stringify(merged)); } catch (e) {}
+    return merged;
+  }
+  // Cloud profile hasn't loaded yet (or this is mid-boot) — paint from the
+  // last-known cache so there's no flash; callers naturally pick up the
+  // cloud values the next time they call _nxGetPrefs() post-load.
   let stored = {};
   try { stored = JSON.parse(localStorage.getItem(NX_PREFS_KEY) || '{}'); } catch (e) {}
   return Object.assign({}, NX_PREFS_DEFAULTS, stored);
@@ -28,7 +48,13 @@ function _nxGetPrefs() {
 function _nxSetPref(key, val) {
   const p = _nxGetPrefs();
   p[key] = val;
-  try { localStorage.setItem(NX_PREFS_KEY, JSON.stringify(p)); } catch (e) {}
+  try { localStorage.setItem(NX_PREFS_KEY, JSON.stringify(p)); } catch (e) {} // instant local cache
+  if (typeof _profileData !== 'undefined' && _profileData) {
+    _profileData.local_prefs = p;
+    if (typeof _profileSave === 'function') {
+      _profileSave().catch(e => console.error('local_prefs cloud sync failed:', e?.message || e));
+    }
+  }
   return p;
 }
 
