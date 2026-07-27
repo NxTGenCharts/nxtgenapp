@@ -718,6 +718,7 @@
 .sig-row-tone-green td:first-child::before{background:var(--green)}
 .sig-row-tone-red td:first-child::before{background:var(--red)}
 .sig-row-tone-blue td:first-child::before{background:var(--blue)}
+.sig-row-tone-gold td:first-child::before{background:var(--gold)}
 .sig-row-expand-tr td{padding:0;border-bottom:1px solid var(--border2)}
 .sig-row-expand{
   display:grid;grid-template-columns:1.4fr 1.4fr auto;gap:18px;padding:14px 18px;
