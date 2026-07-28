@@ -1226,10 +1226,14 @@
     const insightsHost = document.getElementById('sig-insights-host');
     if (!wrap || !btn) return;
     const onDrafts = _sigView === 'drafts';
+    const onAnalytics = _sigView === 'analytics';
     const collapsed = onDrafts && !_sigKpiExpandedOnDrafts;
     wrap.style.display = collapsed ? 'none' : '';
-    if (heroHost) heroHost.style.display = collapsed ? 'none' : '';
-    if (insightsHost) insightsHost.style.display = collapsed ? 'none' : '';
+    // Health score + insights are an Analytics-tab feature only — they
+    // don't belong on Table/Cards/Calendar/Drafts, which stay focused
+    // on the raw signal list.
+    if (heroHost) heroHost.style.display = onAnalytics ? '' : 'none';
+    if (insightsHost) insightsHost.style.display = onAnalytics ? '' : 'none';
     btn.style.display = onDrafts ? 'inline-flex' : 'none';
     btn.innerHTML = `${icn(_sigKpiExpandedOnDrafts ? 'ic-minus' : 'ic-chart-bar')} ${_sigKpiExpandedOnDrafts ? 'Hide' : 'Show'} performance stats`;
   }
@@ -1570,7 +1574,7 @@
     });
   }
 
-  // ── Today's Insights (auto-generated observations) ───────────────
+  // ── Signal Insights (auto-generated observations) ───────────────
   // Reads the same _sigComputeMetrics() output every other card uses —
   // no separate data source, no AI call — and turns it into a short
   // list of plain-English observations. Pure function of current data,
@@ -1638,14 +1642,14 @@
     if (!insights.length) {
       host.innerHTML = `
         <div class="sig-insights-panel">
-          <div class="sig-insights-head"><span class="sig-stat-icon purple">${icn('ic-zap')}</span><span class="sig-insights-title">Today's Insights</span></div>
+          <div class="sig-insights-head"><span class="sig-stat-icon purple">${icn('ic-zap')}</span><span class="sig-insights-title">Signal Insights</span></div>
           <div class="sig-insights-empty">Publish and close a few signals — insights will appear here automatically.</div>
         </div>`;
       return;
     }
     host.innerHTML = `
       <div class="sig-insights-panel">
-        <div class="sig-insights-head"><span class="sig-stat-icon purple">${icn('ic-zap')}</span><span class="sig-insights-title">Today's Insights</span></div>
+        <div class="sig-insights-head"><span class="sig-stat-icon purple">${icn('ic-zap')}</span><span class="sig-insights-title">Signal Insights</span></div>
         <ul class="sig-insights-list">
           ${insights.slice(0, 8).map((ins, i) => `
             <li class="sig-insight-row ${ins.tone}" style="animation-delay:${(i * 0.04).toFixed(2)}s">
