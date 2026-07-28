@@ -2343,9 +2343,80 @@
   let _sigTableLimit = SIG_TABLE_BATCH;
   window._sigLoadMoreRows = function () { _sigTableLimit += SIG_TABLE_BATCH; _sigRenderActiveView(); };
 
+  // ── Table column sorting ─────────────────────────────────────────
+  // Client-side only — sorts whatever _sigFilteredSignals() already
+  // returned, so it composes with every existing filter/search chip
+  // instead of replacing them.
+  let _sigTableSort = { key: null, dir: 'asc' };
+  const SIG_TABLE_SORT_KEYS = {
+    status: s => STATUS_LABEL[s.status] || s.status || '',
+    pair: s => s.pair || '',
+    market: s => MARKET_LABEL[s.market] || s.market || '',
+    direction: s => s.direction || '',
+    entry: s => +s.entry || 0,
+    rr: s => +s.risk_reward || 0,
+    confidence: s => +s.confidence_score || 0,
+    session: s => SESSION_LABEL[s.session] || s.session || '',
+    date: s => s.created_at || 0,
+    result: s => s.result || '',
+    pips: s => _sigEffectiveMath(s).pips,
+    profit: s => _sigEffectiveMath(s).profit_percent,
+  };
+  window._sigSetTableSort = function (key) {
+    if (_sigTableSort.key === key) _sigTableSort.dir = _sigTableSort.dir === 'asc' ? 'desc' : 'asc';
+    else { _sigTableSort.key = key; _sigTableSort.dir = 'asc'; }
+    _sigRenderActiveView();
+  };
+  function _sigApplyTableSort(rows) {
+    if (!_sigTableSort.key || !SIG_TABLE_SORT_KEYS[_sigTableSort.key]) return rows;
+    const getVal = SIG_TABLE_SORT_KEYS[_sigTableSort.key];
+    const dir = _sigTableSort.dir === 'asc' ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      const av = getVal(a), bv = getVal(b);
+      if (typeof av === 'string') return av.localeCompare(bv) * dir;
+      return (av - bv) * dir;
+    });
+  }
+  function _sigSortIcon(key) {
+    if (_sigTableSort.key !== key) return `<span class="sig-th-sort-icn">${icn('ic-arrow-down', 'sig-th-sort-glyph')}</span>`;
+    return `<span class="sig-th-sort-icn active">${icn(_sigTableSort.dir === 'asc' ? 'ic-arrow-up' : 'ic-arrow-down', 'sig-th-sort-glyph')}</span>`;
+  }
+  function _sigTh(label, key) {
+    return `<th class="sig-th-sortable ${_sigTableSort.key === key ? 'active' : ''}" onclick="_sigSetTableSort('${key}')" role="button" tabindex="0" onkeydown="if(event.key==='Enter'){_sigSetTableSort('${key}')}">${label}${_sigSortIcon(key)}</th>`;
+  }
+
+  // ── Table CSV export ── exports every row currently matching the
+  // active filters/search/sort — not just the page that's loaded on
+  // screen — so it always matches what the person is looking at.
+  window._sigExportTableCsv = function () {
+    const rows = _sigApplyTableSort(_sigFilteredSignals());
+    if (!rows.length) { showToast('Nothing to export', 'info'); return; }
+    const header = ['Status', 'Pair', 'Market', 'Direction', 'Entry', 'Stop Loss', 'TP1', 'TP2', 'Order Type', 'Risk:Reward', 'Confidence', 'Session', 'Created', 'Result', 'Pips', 'Profit %'];
+    const csvRows = rows.map(s => {
+      const em = _sigEffectiveMath(s);
+      return [
+        STATUS_LABEL[s.status] || s.status, s.pair, MARKET_LABEL[s.market] || s.market, s.direction,
+        s.entry, s.stop_loss, s.tp1, s.tp2 || '', ORDER_TYPE_LABEL[s.order_type] || s.order_type,
+        '1:' + s.risk_reward, s.confidence_score != null ? s.confidence_score + '%' : '',
+        SESSION_LABEL[s.session] || s.session || '',
+        s.created_at ? new Date(s.created_at).toISOString() : '',
+        s.result || '', _sigHasOutcome(s) ? em.pips.toFixed(1) : '', _sigHasOutcome(s) ? em.profit_percent : '',
+      ];
+    });
+    const csv = [header, ...csvRows].map(r => r.map(v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`).join(',')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `signals-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    showToast(`Exported ${rows.length} signal${rows.length === 1 ? '' : 's'}`, 'success');
+  };
+
   function _sigRenderTable(allRows) {
     if (!allRows.length) return _sigEmptyState();
-    const rows = allRows.slice(0, _sigTableLimit);
+    const sortedRows = _sigApplyTableSort(allRows);
+    const rows = sortedRows.slice(0, _sigTableLimit);
     const body = rows.map(s => {
       const expanded = _sigExpandedRows.has(s.id);
       const statusTone = s.result === 'win' ? 'green' : s.result === 'loss' ? 'red' : s.result === 'breakeven' ? 'gold' : ENTERED_STATUSES.includes(s.status) ? 'blue' : '';
@@ -2399,12 +2470,16 @@
 
     return `
     <div class="sig-table-card">
+      <div class="sig-table-toolbar">
+        <span class="sig-table-count">${allRows.length} signal${allRows.length === 1 ? '' : 's'}</span>
+        <button class="btn sig-table-export-btn" onclick="_sigExportTableCsv()">${icn('ic-download')} <span>Export CSV</span></button>
+      </div>
       <div class="sig-table-scroll">
         <table>
           <thead><tr>
-            <th></th><th>Status</th><th>Pair</th><th>Market</th><th>Direction</th><th>Entry</th><th>SL</th>
-            <th>TP1</th><th>TP2</th><th>Order</th><th>RR</th><th>Confidence</th><th>Session</th>
-            <th>Date</th><th>Result</th><th>Pips</th><th>Profit %</th><th>Actions</th>
+            <th></th>${_sigTh('Status', 'status')}${_sigTh('Pair', 'pair')}${_sigTh('Market', 'market')}${_sigTh('Direction', 'direction')}${_sigTh('Entry', 'entry')}<th>SL</th>
+            <th>TP1</th><th>TP2</th><th>Order</th>${_sigTh('RR', 'rr')}${_sigTh('Confidence', 'confidence')}${_sigTh('Session', 'session')}
+            ${_sigTh('Date', 'date')}${_sigTh('Result', 'result')}${_sigTh('Pips', 'pips')}${_sigTh('Profit %', 'profit')}<th>Actions</th>
           </tr></thead>
           <tbody>${body}</tbody>
         </table>
@@ -2780,6 +2855,58 @@
     rows.forEach(s => { const rr = +s.risk_reward || 0; if (rr < 1) rrBuckets['<1']++; else if (rr < 2) rrBuckets['1-2']++; else if (rr < 3) rrBuckets['2-3']++; else rrBuckets['3+']++; });
     const rrMax = Math.max(1, ...Object.values(rrBuckets));
 
+    function _sigFmtDur(ms) {
+      if (ms == null) return '—';
+      const hrs = ms / 3600000;
+      if (hrs < 1) return Math.max(1, Math.round(ms / 60000)) + 'm';
+      if (hrs < 48) return hrs.toFixed(1) + 'h';
+      return (hrs / 24).toFixed(1) + 'd';
+    }
+
+    // ── Highest RR seen across the filtered set ──
+    let highestRR = 0;
+    rows.forEach(s => { const rr = +s.risk_reward || 0; if (rr > highestRR) highestRR = rr; });
+
+    // ── Most traded pair (by signal count, not pips — a different lens
+    //    than "Best Pair" above) ──
+    let mostTradedPair = '—', mostTradedCt = 0;
+    Object.entries(byPair).forEach(([k, v]) => { if (v.n > mostTradedCt) { mostTradedCt = v.n; mostTradedPair = k; } });
+
+    // ── Win/loss streaks + drawdown, walked chronologically once ──
+    const chronoClosed = [...closed].sort((a, b) => a.created_at - b.created_at);
+    let runType = null, runLen = 0, bestWinStreak = 0, bestLossStreak = 0;
+    let peak = 0, cum = 0, maxDD = 0, ddSum = 0, ddCount = 0;
+    const durList = [];
+    let longestWinDur = null, fastestWinDur = null, longestLossDur = null;
+    chronoClosed.forEach(s => {
+      const t = s.result === 'win' ? 'win' : 'loss';
+      if (t === runType) runLen++; else { runType = t; runLen = 1; }
+      if (runType === 'win') bestWinStreak = Math.max(bestWinStreak, runLen);
+      else bestLossStreak = Math.max(bestLossStreak, runLen);
+
+      cum += _sigEffectiveMath(s).r_multiple;
+      if (cum > peak) peak = cum;
+      const dd = peak - cum;
+      if (dd > 0) { ddSum += dd; ddCount++; }
+      if (dd > maxDD) maxDD = dd;
+
+      const dur = (s.closed_at && s.entered_at) ? (s.closed_at - s.entered_at) : null;
+      if (dur != null) {
+        durList.push(dur);
+        if (t === 'win') {
+          if (longestWinDur == null || dur > longestWinDur) longestWinDur = dur;
+          if (fastestWinDur == null || dur < fastestWinDur) fastestWinDur = dur;
+        } else if (longestLossDur == null || dur > longestLossDur) longestLossDur = dur;
+      }
+    });
+    const curStreakType = runType, curStreakLen = runLen;
+    const avgDurationMs = durList.length ? durList.reduce((a, b) => a + b, 0) / durList.length : null;
+    const avgDD = ddCount ? ddSum / ddCount : 0;
+    const recoveryFactor = maxDD > 0 ? (totalR / maxDD).toFixed(2) : (totalR > 0 ? '∞' : '—');
+    const recoveryTone = recoveryFactor === '∞' ? 'green' : (parseFloat(recoveryFactor) >= 1 ? 'green' : (recoveryFactor === '—' ? null : 'red'));
+    const streakStrip = chronoClosed.slice(-24).map(s =>
+      `<span class="sig-streak-dot ${s.result === 'win' ? 'green' : 'red'}" title="${s.pair} · ${s.result}"></span>`).join('');
+
     const uniqueTiles = [
       ['ic-scale', 'Profit Factor', profitFactor, null],
       ['ic-trend-up', 'Expectancy', expectancy + 'R', +expectancy >= 0 ? 'green' : 'red'],
@@ -2787,6 +2914,14 @@
       ['ic-frown', 'Weakest Pair', worstPair, 'red'],
       ['ic-fire', 'Best Session', bestSession, 'gold'],
       ['ic-calendar', 'Best Weekday', bestDow, null],
+    ];
+    const proTiles = [
+      ['ic-ruler', 'Highest RR', highestRR ? `1:${highestRR.toFixed(1)}` : '—', 'gold'],
+      ['ic-trophy', 'Best Month', bestMonth, null],
+      ['ic-clock', 'Avg Trade Duration', _sigFmtDur(avgDurationMs), null],
+      ['ic-target', 'Most Traded Pair', mostTradedPair, 'blue'],
+      ['ic-scale', 'Recovery Factor', recoveryFactor, recoveryTone],
+      ['ic-trend-down', 'Max Drawdown', maxDD > 0 ? `-${maxDD.toFixed(1)}R` : '0.0R', maxDD > 0 ? 'red' : 'green'],
     ];
 
     const pairBars = pairRows.map(([pair, v]) => {
@@ -2830,6 +2965,12 @@
         <div class="sig-stat-value ${t[3] || ''}">${t[2]}</div>
       </div>`).join('')}</div>
 
+    <div class="sig-analytics-grid sig-analytics-grid-compact" style="margin-top:-6px">${proTiles.map(t => `
+      <div class="sig-analytics-card">
+        <div class="sig-analytics-title">${icn(t[0])}${t[1]}</div>
+        <div class="sig-stat-value ${t[3] || ''}">${t[2]}</div>
+      </div>`).join('')}</div>
+
     <div class="sig-analytics-panels">
       <div class="sig-analytics-panel">
         <div class="sig-section-title" style="margin-top:0">${icn('ic-star')} Performance by Pair</div>
@@ -2846,6 +2987,24 @@
       <div class="sig-analytics-panel">
         <div class="sig-section-title" style="margin-top:0">${icn('ic-ruler')} Risk:Reward Distribution</div>
         ${rrBars}
+      </div>
+      <div class="sig-analytics-panel">
+        <div class="sig-section-title" style="margin-top:0">${icn('ic-activity')} Win / Loss Streaks</div>
+        <div class="sig-mini-tile-row">
+          ${_sigMiniStat('Current Streak', curStreakLen ? `${curStreakLen}${curStreakType === 'win' ? 'W' : 'L'}` : '—', curStreakType === 'win' ? 'green' : curStreakType === 'loss' ? 'red' : null)}
+          ${_sigMiniStat('Best Win Streak', bestWinStreak || '—', 'green')}
+          ${_sigMiniStat('Worst Loss Streak', bestLossStreak || '—', 'red')}
+        </div>
+        ${streakStrip ? `<div class="sig-streak-strip">${streakStrip}</div>` : `<div class="sig-body-text" style="margin-top:8px">No closed signals yet.</div>`}
+      </div>
+      <div class="sig-analytics-panel">
+        <div class="sig-section-title" style="margin-top:0">${icn('ic-clock')} Trade Duration Extremes</div>
+        <div class="sig-mini-tile-row sig-mini-tile-row-wrap">
+          ${_sigMiniStat('Fastest Win', _sigFmtDur(fastestWinDur), 'green')}
+          ${_sigMiniStat('Longest Win', _sigFmtDur(longestWinDur), 'green')}
+          ${_sigMiniStat('Longest Loss', _sigFmtDur(longestLossDur), 'red')}
+          ${_sigMiniStat('Avg Drawdown', avgDD > 0 ? `-${avgDD.toFixed(1)}R` : '0.0R', avgDD > 0 ? 'gold' : 'green')}
+        </div>
       </div>
     </div>`;
   }
