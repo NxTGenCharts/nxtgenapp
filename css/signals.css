@@ -783,10 +783,14 @@
 .sig-skel-b{height:10px;width:80%}
 .sig-skel-stat{height:32px;width:100%;border-radius:var(--r-sm)}
 
-/* ── Mobile: full-screen bottom sheet instead of a right-side rail ── */
+/* ── Mobile: bottom sheet capped at ~half the screen instead of a
+   right-side rail. Height is capped rather than fixed, so a short list
+   (e.g. one breakeven signal) doesn't drag a nearly-empty 88vh sheet up
+   with it — the sheet only grows to fit its content, up to the cap. ── */
 @media (max-width:768px){
   .detail-panel.sig-analytics-drawer{
-    width:100vw;left:0;right:0;top:auto;bottom:0;height:88vh;max-height:88vh;
+    width:100vw;left:0;right:0;top:auto;bottom:0;
+    height:auto;max-height:50vh;min-height:280px;
     border-left:none;border-top:1px solid var(--glass-border);
     border-radius:var(--r-xl) var(--r-xl) 0 0;
     transform:translateY(100%);
@@ -795,6 +799,16 @@
   .sig-ana-summary{grid-template-columns:repeat(2,1fr)}
   .sig-ana-controls{flex-direction:column}
   .sig-ana-sort{width:100%}
+}
+/* This drawer has its own working drag-to-close (see
+   initSigAnalyticsDrawerSwipeToClose in signals.js) — the generic pill
+   handle other .detail-panel sheets show (css/backtesting-lab.css) isn't
+   wired to anything here, so it reads as a second, non-functional close
+   affordance next to the real close button. Drop it for this drawer only. */
+.detail-panel.sig-analytics-drawer::before{display:none}
+@media (max-width:768px){
+  .detail-panel.sig-analytics-drawer .sig-ana-head{cursor:grab;touch-action:none}
+  .detail-panel.sig-analytics-drawer .sig-ana-head:active{cursor:grabbing}
 }
 
 /* ── More Analytics (lazy collapsible strip) ─────────────────── */

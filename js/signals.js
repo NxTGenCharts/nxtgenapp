@@ -2066,6 +2066,55 @@
     if (ana && ana.classList.contains('open')) { window._sigCloseAnalyticsDrawer(); return; }
   });
 
+  // Drag-to-dismiss on mobile — same pattern already used for the
+  // single-signal drawer's bottom sheet (see initSignalDrawerSwipeToClose
+  // below), just wired to #sig-analytics-drawer. The panel has no visual
+  // grab-handle bar (removed — it duplicated the real close button), so
+  // the whole header is the drag zone; taps on the close button, search
+  // box, sort dropdown, or filter chips are excluded so they still work
+  // normally.
+  (function initSigAnalyticsDrawerSwipeToClose() {
+    const DISMISS_THRESHOLD = 90;
+    let startY = 0, lastY = 0, dragging = false;
+
+    function isMobileSheet(panel) {
+      return window.matchMedia('(max-width: 768px)').matches && panel.classList.contains('open');
+    }
+
+    document.addEventListener('pointerdown', (e) => {
+      const panel = document.getElementById('sig-analytics-drawer');
+      if (!panel || !isMobileSheet(panel)) return;
+      const head = panel.querySelector('.sig-ana-head');
+      if (!head || !head.contains(e.target)) return;
+      if (e.target.closest('button, select, input, a')) return; // let real controls keep working
+      dragging = true;
+      startY = lastY = e.clientY;
+      panel.style.transition = 'none';
+      panel.setPointerCapture?.(e.pointerId);
+    });
+    document.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const panel = document.getElementById('sig-analytics-drawer');
+      if (!panel) return;
+      lastY = e.clientY;
+      const dy = Math.max(0, lastY - startY);
+      panel.style.transform = `translateY(${dy}px)`;
+    });
+    document.addEventListener('touchmove', (e) => {
+      if (dragging) e.preventDefault();
+    }, { passive: false });
+    function endDrag() {
+      if (!dragging) return;
+      dragging = false;
+      const panel = document.getElementById('sig-analytics-drawer');
+      const dy = Math.max(0, lastY - startY);
+      if (panel) { panel.style.transition = ''; panel.style.transform = ''; }
+      if (dy > DISMISS_THRESHOLD) window._sigCloseAnalyticsDrawer();
+    }
+    document.addEventListener('pointerup', endDrag);
+    document.addEventListener('pointercancel', endDrag);
+  })();
+
   // ══════════════════════════════════════════════════════════════
   // TABLE VIEW
   // ══════════════════════════════════════════════════════════════
