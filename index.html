@@ -308,7 +308,14 @@
 
   <!-- ══ SIDEBAR ══ -->
   <div class="sidebar" id="sidebar">
-    <div class="sb-close-btn"><button onclick="closeSidebar()" aria-label="Close menu"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button></div>
+    <div class="sb-close-btn"><button onclick="closeSidebar()" aria-label="Close menu">
+      <svg class="sb-toggle-icon sb-toggle-icon-close" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <rect class="sbt-rail-fill" x="4.25" y="5.25" width="5.5" height="13.5" rx="1.5" fill="currentColor"/>
+        <rect class="sbt-frame" x="3.5" y="4.5" width="17" height="15" rx="3" fill="none" stroke="currentColor" stroke-width="1.75"/>
+        <path class="sbt-rail-line" d="M9.5 4.5v15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+        <path class="sbt-chevron" d="M13.5 9.5l2.5 2.5-2.5 2.5" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button></div>
     <div class="sb-logo-header">
       <img class="sb-logo-img" src="logo.svg" alt="NxTGen Trading Journal" draggable="false">
     </div>

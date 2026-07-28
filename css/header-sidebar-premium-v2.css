@@ -113,10 +113,9 @@
 /* ═══════════════ B. "NEW TRADE" / "NEW SIGNAL" CTA ═════════════════ */
 
 /* Shape/spacing/icon sizing only — shared so the two buttons stay the
-   same size and layout. Color/fill is defined separately below per
-   button: the Signals page's "New Signal" button keeps its existing
-   purple-glass look untouched; only the desktop New Trade button
-   changes to a solid fill (see next block). */
+   same size and layout. Color/fill is also shared below: "New Signal"
+   now uses the exact same solid blue gradient as the desktop "New
+   Trade" button rather than its own purple-glass look. */
 .topbar-new-trade-btn.btn-primary,
 .sig-header-actions .btn-primary{
   position: relative;
@@ -140,54 +139,33 @@
   transform: rotate(90deg) scale(1.12);
 }
 
-/* ── "New Signal" (Signals page) — unchanged purple glass CTA ── */
+/* ── "New Trade" (desktop) + "New Signal" (Signals page) — same solid
+   blue fill, no glass, matching the mobile floating New Trade button's
+   exact blue gradient (see .mob-nav-add-btn .mob-nav-icon in
+   css/ai-coach-and-late-misc.css) at full opacity since these sit on
+   solid surfaces rather than over live content. ── */
+.topbar-new-trade-btn.btn-primary,
 .sig-header-actions .btn-primary{
-  background: var(--hp-cta-grad);
-  backdrop-filter: blur(14px) saturate(1.5);
-  -webkit-backdrop-filter: blur(14px) saturate(1.5);
-  border: 1px solid rgba(255,255,255,0.16);
-  box-shadow: var(--hp-cta-ring), var(--hp-cta-glow), inset 0 1px 0 rgba(255,255,255,0.22);
-}
-[data-theme="light"] .sig-header-actions .btn-primary{
-  border-color: rgba(255,255,255,0.28);
-}
-.sig-header-actions .btn-primary:hover{
-  background: var(--hp-cta-grad-h);
-  box-shadow: var(--hp-cta-ring), var(--hp-cta-glow-h), inset 0 1px 0 rgba(255,255,255,0.26);
-  transform: translateY(-1.5px);
-}
-.sig-header-actions .btn-primary:active{
-  transform: translateY(0) scale(0.965);
-  box-shadow: var(--hp-cta-ring), 0 1px 4px rgba(91,84,162,0.30), inset 0 1px 3px rgba(0,0,0,0.18);
-  transition-duration: 90ms;
-}
-.sig-header-actions .btn-primary:focus-visible{
-  outline: none;
-  box-shadow: var(--hp-cta-ring), var(--hp-cta-glow), 0 0 0 2px var(--bg2), 0 0 0 4px rgba(133,120,201,0.55);
-}
-
-/* ── Desktop "New Trade" — solid fill, no glass, matching the mobile
-   floating New Trade button's exact blue gradient (see .mob-nav-add-btn
-   .mob-nav-icon in css/ai-coach-and-late-misc.css) at full opacity
-   since this sits on the solid topbar rather than over live content. ── */
-.topbar-new-trade-btn.btn-primary{
   background: linear-gradient(145deg, #60a5fa 0%, #2563eb 100%);
   border: 1px solid rgba(255,255,255,0.14);
   box-shadow: 0 4px 14px rgba(37,99,235,0.35), 0 1px 3px rgba(0,0,0,0.18),
               inset 0 1px 0 rgba(255,255,255,0.22);
 }
-.topbar-new-trade-btn.btn-primary:hover{
+.topbar-new-trade-btn.btn-primary:hover,
+.sig-header-actions .btn-primary:hover{
   background: linear-gradient(145deg, #6bacfb 0%, #2f6cf0 100%);
   box-shadow: 0 8px 22px rgba(37,99,235,0.42), 0 2px 5px rgba(0,0,0,0.20),
               inset 0 1px 0 rgba(255,255,255,0.26);
   transform: translateY(-1.5px);
 }
-.topbar-new-trade-btn.btn-primary:active{
+.topbar-new-trade-btn.btn-primary:active,
+.sig-header-actions .btn-primary:active{
   transform: translateY(0) scale(0.965);
   box-shadow: 0 2px 8px rgba(37,99,235,0.30), inset 0 1px 3px rgba(0,0,0,0.18);
   transition-duration: 90ms;
 }
-.topbar-new-trade-btn.btn-primary:focus-visible{
+.topbar-new-trade-btn.btn-primary:focus-visible,
+.sig-header-actions .btn-primary:focus-visible{
   outline: none;
   box-shadow: 0 4px 14px rgba(37,99,235,0.35), 0 0 0 2px var(--bg2), 0 0 0 4px rgba(37,99,235,0.55);
 }
@@ -431,3 +409,15 @@
 }
 [data-theme="light"] .sb-toggle-icon{ color: var(--text2); }
 [data-theme="light"] .sb-toggle-btn:hover .sb-toggle-icon{ color: var(--text); }
+
+/* ── In-sidebar close control — same glyph as #sb-toggle-btn above,
+   just permanently in the "open" pose (filled rail, chevron pointing
+   left) since this button only ever appears while the sidebar itself
+   is open on mobile. Replaces the old plain X so both controls that
+   show/hide the left nav share one visual language. ── */
+.sb-toggle-icon-close .sbt-rail-fill{ opacity: .85; }
+.sb-toggle-icon-close .sbt-chevron{ transform: rotate(180deg); transform-origin: 14.5px 12px; }
+.sb-close-btn button:hover{ transform: scale(1.08); }
+.sb-close-btn button:hover .sb-toggle-icon-close{ color: var(--red); }
+.sb-close-btn button:hover .sb-toggle-icon-close .sbt-frame,
+.sb-close-btn button:hover .sb-toggle-icon-close .sbt-rail-line{ stroke: var(--red); }

@@ -2327,6 +2327,74 @@
     if (d) { d.classList.remove('open'); delete d.dataset.signalId; }
   };
 
+  // Close the drawer when clicking/tapping anywhere outside of it — the
+  // same "click outside closes the panel" pattern already used for the
+  // trade log's #detail-panel — so desktop users never have to hunt for
+  // a close button (and the mobile one is hidden entirely; see below).
+  document.addEventListener('click', (e) => {
+    const drawer = document.getElementById('signal-drawer');
+    if (!drawer || !drawer.classList.contains('open')) return;
+    if (drawer.contains(e.target)) return;
+    if (e.target.closest('[onclick*="_sigOpenDrawer"]')) return;
+    if (e.target.closest('.toast, .confirm-dialog, .dropdown-menu, #sig-prefs-modal-overlay, #sig-update-modal-overlay, #sig-modal-overlay, #sig-review-overlay')) return;
+    window._sigCloseDrawer();
+  }, true);
+
+  // Drag-to-dismiss on the mobile bottom-sheet's grab handle. The drawer
+  // is created on demand, so this listens at the document level (rather
+  // than binding once to a specific node) and resolves #signal-drawer
+  // fresh on every gesture — same behavior as the trade log panel's
+  // swipe-to-close, just wired for an element that doesn't exist yet
+  // at script-load time.
+  (function initSignalDrawerSwipeToClose() {
+    const HANDLE_ZONE = 40;       // px from the panel's top counted as the grab band
+    const DISMISS_THRESHOLD = 90; // px of downward drag needed to trigger close
+    let startY = 0, lastY = 0, dragging = false;
+
+    function isMobileSheet(panel) {
+      return window.matchMedia('(max-width: 768px)').matches
+        && panel.classList.contains('open')
+        && !panel.classList.contains('fullscreen');
+    }
+
+    document.addEventListener('pointerdown', (e) => {
+      const panel = document.getElementById('signal-drawer');
+      if (!panel || !isMobileSheet(panel) || !panel.contains(e.target)) return;
+      const rect = panel.getBoundingClientRect();
+      if (e.clientY - rect.top > HANDLE_ZONE) return;
+      dragging = true;
+      startY = lastY = e.clientY;
+      panel.style.transition = 'none';
+      panel.style.touchAction = 'none';
+      panel.setPointerCapture?.(e.pointerId);
+    });
+    document.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const panel = document.getElementById('signal-drawer');
+      if (!panel) return;
+      lastY = e.clientY;
+      const dy = Math.max(0, lastY - startY);
+      panel.style.transform = `translateX(0) translateY(${dy}px)`;
+    });
+    document.addEventListener('touchmove', (e) => {
+      if (dragging) e.preventDefault();
+    }, { passive: false });
+    function endDrag() {
+      if (!dragging) return;
+      dragging = false;
+      const panel = document.getElementById('signal-drawer');
+      const dy = Math.max(0, lastY - startY);
+      if (panel) {
+        panel.style.transition = '';
+        panel.style.transform = '';
+        panel.style.touchAction = '';
+      }
+      if (dy > DISMISS_THRESHOLD) window._sigCloseDrawer();
+    }
+    document.addEventListener('pointerup', endDrag);
+    document.addEventListener('pointercancel', endDrag);
+  })();
+
   function _sigDrawerContent(s) {
     return `
     <div class="sig-drawer-head">
