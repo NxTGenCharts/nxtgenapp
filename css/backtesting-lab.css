@@ -56,7 +56,10 @@
   .topbar-left{ flex:1;display:flex;align-items:center;gap:10px }
   .topbar-right{ display:flex;align-items:center;gap:6px }
   .brand-logo-img{ height:24px;max-width:130px }
-  .sb-toggle-btn{ width:36px;height:36px;border-radius:50%;background:var(--glass-2);border:1px solid var(--glass-border) }
+  /* Shape/hover/active now come from the single shared rule in
+     trash-toast-misc.css — kept as a rounded square on mobile too,
+     instead of the plain circle this used to force, so the control
+     looks the same whether the topbar is at desktop or mobile width. */
   .topbar-left .sep,
   .topbar-left .page-name{ display:none }
   .topbar-clock{ display:none }
@@ -191,49 +194,63 @@
   .form-textarea{ font-size:14px;padding:10px 12px;border-radius:var(--r-md) }
   .form-label{ font-size:10.5px;letter-spacing:0.04em }
 
-  /* ── Modal — compact ~60% bottom sheet, sits above bottom nav ── */
-  .modal-overlay{ align-items:flex-end;padding:0 }
+  /* ── Modal — compact, vertically-centered card (same pattern as the
+     Watchlist "New Week" modal) instead of a bottom sheet anchored to
+     the mobile nav dock's height. This is what makes it immune to the
+     nav-dock-gap bug below: it never reads the dock's height/position
+     at all, so it looks identical whether the dock is shown, hidden,
+     or mid-animation. Shared by every screen that opens a `.modal-overlay`
+     (New Trade, New Signal, signal review/update, backtesting report
+     settings, share, etc.) so the fix and the compact layout apply
+     everywhere at once instead of being patched per page. ── */
+  .modal-overlay{
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    box-sizing: border-box;
+    /* Sits above the floating nav dock (z-index 300) so it always
+       fully covers it — no more relying on a reserved-height gap that
+       goes stale the moment the dock auto-hides. */
+    z-index: 400;
+  }
   .modal{
-    width:100% !important;max-width:100% !important;
-    /* ~60% of screen height; never taller than the gap between topbar and nav */
-    height: 62vh;
-    max-height: calc(100dvh - var(--topbar) - 62px - env(safe-area-inset-bottom,0px) - 8px);
-    min-height: 340px;
-    margin: 0;
-    border-radius: var(--r-2xl) var(--r-2xl) 0 0;
-    position: fixed;
-    bottom: calc(62px + env(safe-area-inset-bottom,0px));
-    left: 0; right: 0;
+    width: 100% !important;
+    max-width: 480px !important;
+    height: auto;
+    /* dvh tracks the true visible viewport (browser chrome, dynamic
+       toolbars, etc.) instead of the stale vh unit. */
+    max-height: min(86vh, 86dvh);
+    margin: auto;
+    border-radius: var(--r-2xl);
+    position: relative;
+    top: auto; left: auto; right: auto; bottom: auto;
+    transform: none;
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    flex-shrink: 0;
     background: rgba(10,14,24,0.97);
     backdrop-filter: blur(60px) saturate(2.0);
     -webkit-backdrop-filter: blur(60px) saturate(2.0);
-    box-shadow: 0 -8px 48px rgba(0,0,0,0.65), 0 -1px 0 rgba(255,255,255,0.07);
-    animation: none !important; /* disable desktop slide-up on mobile */
+    box-shadow: 0 20px 60px rgba(0,0,0,0.45);
   }
   [data-theme="light"] .modal{
     background: rgba(252,254,255,0.99);
-    box-shadow: 0 -6px 32px rgba(0,0,0,0.14), 0 -1px 0 rgba(0,0,0,0.07);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.22);
   }
-  /* Drag handle pill */
-  .modal::before{
-    content:''; flex-shrink:0;
-    display:block; width:36px; height:4px; border-radius:var(--r-full);
-    background:rgba(255,255,255,0.18); margin:10px auto 0;
-  }
-  [data-theme="light"] .modal::before{ background:rgba(0,0,0,0.14) }
+  /* No drag-handle pill — that affordance belongs to an edge-anchored
+     sheet; a centered card reads as a dialog instead. */
+  .modal::before{ display:none; content:none; }
 
   /* Header: fixed height, never scrolls */
   .modal-head{
     flex-shrink: 0;
-    padding: 8px 16px 8px;
+    padding: 16px 18px 12px;
     border-bottom: 1px solid var(--glass-border);
     display: flex; align-items: center; justify-content: space-between;
     background: inherit;
   }
-  .modal-title { font-size: 14px !important; font-weight: 700 !important; }
+  .modal-title { font-size: 15px !important; font-weight: 700 !important; }
   .modal-close { padding: 4px 8px; font-size: 14px; }
 
   /* Body: scrollable — flex:1 + min-height:0 is the key combo */
@@ -244,7 +261,7 @@
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
-    padding: 10px 14px 4px;
+    padding: 12px 16px 4px;
   }
 
   /* Tight 2-col grid so all fields are visible with minimal scrolling */
@@ -262,11 +279,12 @@
     min-height: 44px; border-radius: var(--r-sm);
   }
 
-  /* Save bar: pinned, never scrolls */
+  /* Save bar: pinned, never scrolls, and always clears the home
+     indicator / gesture-nav area on notched phones. */
   .form-actions{
     flex-shrink: 0;
     background: inherit;
-    padding: 8px 14px calc(10px);
+    padding: 8px 16px calc(12px + env(safe-area-inset-bottom,0px));
     margin-top: 0;
     border-top: 1px solid var(--glass-border);
     display: flex;
@@ -296,16 +314,27 @@
     color: var(--blue);
   }
 
-  /* ── Detail panel ── */
+  /* ── Detail panel (Trade Details / Signal Details / review drawers) ──
+     Stays an edge-anchored bottom sheet, but now anchored to the true
+     bottom of the viewport rather than to the nav dock's height, so it
+     always fully covers the dock — whether the dock is shown, hidden,
+     or mid-transition — instead of leaving a transparent strip where
+     the dock used to be reserved. */
   .detail-panel{
     width:100% !important;left:0;right:0;border-left:none;
     border-top:1px solid var(--glass-border);
     top:auto;
-    height: 62vh;
-    max-height: calc(100dvh - var(--topbar) - 62px - env(safe-area-inset-bottom,0px) - 8px);
+    height: min(72vh, 72dvh);
+    max-height: calc(100dvh - var(--topbar) - 8px);
     min-height: 340px;
-    bottom: calc(62px + env(safe-area-inset-bottom,0px));
-    border-radius:var(--r-2xl) var(--r-2xl) 0 0;z-index:500;
+    bottom: 0;
+    /* Own safe-area padding replaces the old nav-height offset, so the
+       sheet's content — not empty space — extends to the true edge. */
+    padding-bottom: env(safe-area-inset-bottom,0px);
+    border-radius:var(--r-2xl) var(--r-2xl) 0 0;
+    /* Above the floating nav dock (300) so it's always fully covered
+       underneath, regardless of the dock's current animation state. */
+    z-index:400;
   }
   .detail-panel::before{
     content:'';position:absolute;top:10px;left:50%;transform:translateX(-50%);
@@ -313,8 +342,8 @@
     background:var(--glass-border-h);pointer-events:none;
   }
   .detail-panel.fullscreen{
-    width:100% !important;height:calc(100vh - var(--topbar));
-    border-radius:0;top:var(--topbar);bottom:0;
+    width:100% !important;height:calc(100dvh - var(--topbar));
+    border-radius:0;top:var(--topbar);bottom:0;padding-bottom:0;
   }
   .det-panel-header{ padding:14px 16px }
   #detail-content{ padding:14px 16px 100px }

@@ -337,7 +337,13 @@
 
 /* ════════════ RESPONSIVE ════════════════════ */
 /* ── Mobile hamburger — hidden on desktop ── */
-/* ── Sidebar toggle button (desktop + mobile) ── */
+/* ── Sidebar toggle button (desktop + mobile) ──
+   Box/shape lives here; the panel+chevron glyph itself (the actual
+   SVG in the topbar markup) is styled in css/header-sidebar-premium-v2.css,
+   which loads last and owns its colors/animation. Kept as one consistent
+   rounded-square shape at every breakpoint — see backtesting-lab.css,
+   which used to force a plain circle on mobile only; that override was
+   removed so the control doesn't change shape when the viewport does. */
 .mob-ham { display: none; } /* legacy — hidden */
 .sb-toggle-btn {
   width: 36px; height: 36px;
@@ -349,27 +355,25 @@
   transition: var(--t-fast);
   padding: 0;
 }
-.sb-toggle-btn:hover { background: var(--glass-2); border-color: var(--glass-border-h); }
-.sb-toggle-icon {
-  display: flex; flex-direction: column; gap: 4px;
-  width: 16px;
+/* Accent-tinted hover/active (rather than the same plain gray every
+   other glass icon button uses) so this control reads as its own
+   distinct affordance instead of blending into the topbar's row of
+   icon buttons (theme toggle, avatar, etc). */
+.sb-toggle-btn:hover {
+  background: rgba(96,165,250,0.10);
+  border-color: rgba(96,165,250,0.35);
 }
-.sb-toggle-icon span {
-  display: block; height: 2px; border-radius: 1px;
-  background: var(--text2); transition: all .22s ease;
-  transform-origin: center;
+.sb-toggle-btn.active {
+  background: rgba(96,165,250,0.08);
+  border-color: rgba(96,165,250,0.28);
 }
-/* Active (sidebar open) state — animate to X */
-.sb-toggle-btn.active .sb-toggle-icon span:nth-child(1) {
-  transform: translateY(6px) rotate(45deg);
-  background: var(--text);
+[data-theme="light"] .sb-toggle-btn:hover {
+  background: rgba(79,70,229,0.08);
+  border-color: rgba(79,70,229,0.28);
 }
-.sb-toggle-btn.active .sb-toggle-icon span:nth-child(2) {
-  opacity: 0; transform: scaleX(0);
-}
-.sb-toggle-btn.active .sb-toggle-icon span:nth-child(3) {
-  transform: translateY(-6px) rotate(-45deg);
-  background: var(--text);
+[data-theme="light"] .sb-toggle-btn.active {
+  background: rgba(79,70,229,0.06);
+  border-color: rgba(79,70,229,0.22);
 }
 .mob-overlay{ display:none }
 .sb-close-btn{ display:none }
