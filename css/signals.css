@@ -616,6 +616,51 @@
 }
 
 /* ══════════════════════════════════════════════════════════════
+   SIGNAL HEALTH SCORE — hero gauge card
+   ══════════════════════════════════════════════════════════════ */
+.sig-health-hero{
+  display:flex;align-items:center;gap:22px;
+  background:var(--glass-1);backdrop-filter:var(--blur-md);-webkit-backdrop-filter:var(--blur-md);
+  border:1px solid var(--glass-border);border-radius:var(--r-lg);padding:18px 22px;
+  margin-bottom:14px;position:relative;overflow:hidden;box-shadow:var(--shadow-sm);
+  opacity:0;transform:translateY(10px);animation:sig-card-in .42s var(--ease-out) forwards;
+}
+.sig-health-hero::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent 0%,var(--glass-shine) 50%,transparent 100%);
+}
+.sig-health-gauge-wrap{position:relative;width:120px;height:120px;flex-shrink:0}
+.sig-health-gauge-svg{width:120px;height:120px}
+.sig-health-gauge-arc{transition:stroke-dashoffset 1.1s var(--ease-out)}
+.sig-health-gauge-center{
+  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+}
+.sig-health-score-num{font-family:var(--font-head);font-size:26px;font-weight:800;letter-spacing:-.4px;font-variant-numeric:tabular-nums}
+.sig-health-score-num.green{color:var(--green)} .sig-health-score-num.teal{color:var(--teal)}
+.sig-health-score-num.gold{color:var(--gold)} .sig-health-score-num.red{color:var(--red)}
+.sig-health-score-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.sig-health-score-label.green{color:var(--green)} .sig-health-score-label.teal{color:var(--teal)}
+.sig-health-score-label.gold{color:var(--gold)} .sig-health-score-label.red{color:var(--red)}
+.sig-health-body{flex:1;min-width:0}
+.sig-health-title-row{margin-bottom:10px}
+.sig-health-title{display:block;font-family:var(--font-head);font-size:15px;font-weight:800;color:var(--text)}
+.sig-health-sub{display:block;font-size:11px;color:var(--text3);margin-top:2px}
+.sig-health-factors{display:grid;grid-template-columns:repeat(6,1fr);gap:9px}
+@media (max-width:1400px){.sig-health-factors{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:980px){
+  .sig-health-hero{flex-direction:column;align-items:stretch;text-align:center}
+  .sig-health-gauge-wrap{margin:0 auto}
+}
+@media (max-width:640px){
+  .sig-health-hero{padding:16px 14px}
+  .sig-health-gauge-wrap{width:96px;height:96px}
+  .sig-health-gauge-svg{width:96px;height:96px}
+  .sig-health-score-num{font-size:21px}
+  .sig-health-factors{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:420px){.sig-health-factors{grid-template-columns:1fr;gap:8px}}
+
+/* ══════════════════════════════════════════════════════════════
    ANALYTICS WIDGETS — animated hero grid (replaces flat stat cards)
    ══════════════════════════════════════════════════════════════ */
 .sig-widget{
