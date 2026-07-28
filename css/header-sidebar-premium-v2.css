@@ -348,57 +348,26 @@
   }
 }
 
+/* ═══════════ D. PANEL CLOSE (X) BUTTONS — retired everywhere ════════
+   Both the trade log's #detail-panel and the signals #signal-drawer
+   close on outside click (desktop) and swipe-down-to-dismiss (mobile),
+   so the on-panel X is redundant on every viewport now, not just
+   mobile — hidden here rather than removed from markup/JS so nothing
+   else that references these buttons has to change. */
+.det-panel-close,
+.sig-drawer-close{
+  display: none !important;
+}
+
 /* ═══════════════════════════════════════════════════════════════════
-   SIDEBAR TOGGLE — panel icon (replaces the generic hamburger)
-   One glyph, three parts, all animated with transform/opacity so the
-   icon morphs in place instead of swapping between two separate icons:
-     • sbt-frame     the app frame (static)
-     • sbt-rail-fill the sidebar column — fades in solid when open
-     • sbt-rail-line the divider between panel and content (static)
-     • sbt-chevron   flips 180° to show which way the click moves things
-   Loaded last, so this is the authoritative styling for #sb-toggle-btn —
-   the older hamburger-span rules in trash-toast-misc.css and
-   backtesting-lab.css are dead now (no <span> children left to match)
-   and were left in place rather than hunted down, to keep this change
-   isolated and low-risk.
+   SIDEBAR TOGGLE — simple chevron glyph
+   One small chevron that flips 180 degrees to show which way the click
+   moves things. Used by both #sb-toggle-btn (topbar) and the in-sidebar
+   close control (.sb-close-btn), so the two controls that show/hide
+   the left nav share one glyph.
    ═══════════════════════════════════════════════════════════════════ */
-.sb-toggle-icon{
-  display: block;
-  width: 18px; height: 18px;
-  overflow: visible;
-  color: var(--text2);
-  transition: color .18s ease;
-}
-.sb-toggle-btn:hover .sb-toggle-icon{ color: var(--text); }
-
-/* Frame + rail divider are the subdued "this is a panel" context —
-   kept at reduced opacity so they don't compete with the chevron. */
-.sb-toggle-icon .sbt-frame,
-.sb-toggle-icon .sbt-rail-line{
-  opacity: 0.55;
-  transition: stroke .18s ease, opacity .18s ease;
-}
-.sb-toggle-icon .sbt-rail-fill{
-  opacity: 0;
-  transition: opacity .2s cubic-bezier(.4,0,.2,1);
-}
-/* The chevron is the actual instruction ("click = sidebar moves this
-   way") so it stays full-strength color and a touch bolder than the
-   frame around it — the clear, unambiguous part of the glyph. */
-.sb-toggle-icon .sbt-chevron{
-  color: var(--text);
-  opacity: 1;
-  transform-origin: 14.5px 12px;
-  transition: transform .22s cubic-bezier(.4,0,.2,1);
-}
-
-/* Sidebar open (button carries .active, set by toggleSidebar()):
-   rail reads as filled/present, chevron points left = "click collapses". 
-   Sidebar collapsed: rail is hollow, chevron points right = "click expands". */
-.sb-toggle-btn.active .sb-toggle-icon .sbt-rail-fill{ opacity: .85; }
-.sb-toggle-btn.active .sb-toggle-icon .sbt-chevron{ transform: rotate(180deg); }
-
 .sb-toggle-btn{
+  width: 28px; height: 28px;
   transition: background .16s ease, border-color .16s ease,
               transform .12s cubic-bezier(.4,0,.2,1), box-shadow .16s ease;
 }
@@ -407,17 +376,29 @@
   outline: 2px solid var(--blue);
   outline-offset: 2px;
 }
+.sb-toggle-icon{
+  display: block;
+  width: 14px; height: 14px;
+  overflow: visible;
+  color: var(--text2);
+  transition: color .18s ease, transform .22s cubic-bezier(.4,0,.2,1);
+  transform-origin: center;
+}
+.sb-toggle-btn:hover .sb-toggle-icon{ color: var(--text); }
 [data-theme="light"] .sb-toggle-icon{ color: var(--text2); }
 [data-theme="light"] .sb-toggle-btn:hover .sb-toggle-icon{ color: var(--text); }
 
-/* ── In-sidebar close control — same glyph as #sb-toggle-btn above,
-   just permanently in the "open" pose (filled rail, chevron pointing
-   left) since this button only ever appears while the sidebar itself
-   is open on mobile. Replaces the old plain X so both controls that
-   show/hide the left nav share one visual language. ── */
-.sb-toggle-icon-close .sbt-rail-fill{ opacity: .85; }
-.sb-toggle-icon-close .sbt-chevron{ transform: rotate(180deg); transform-origin: 14.5px 12px; }
+/* Sidebar open (button carries .active, set by toggleSidebar()):
+   chevron points left = "click collapses".
+   Sidebar collapsed: chevron points right = "click expands". */
+.sb-toggle-btn.active .sb-toggle-icon{ transform: rotate(180deg); }
+
+/* In-sidebar close control -- same glyph as #sb-toggle-btn above, just
+   permanently in the "open" pose (chevron pointing left) since this
+   button only ever appears while the sidebar itself is open on mobile.
+   Replaces the old plain X so both controls that show/hide the left
+   nav share one visual language. */
+.sb-close-btn button{ width: 28px; height: 28px; }
+.sb-toggle-icon-close{ transform: rotate(180deg); }
 .sb-close-btn button:hover{ transform: scale(1.08); }
 .sb-close-btn button:hover .sb-toggle-icon-close{ color: var(--red); }
-.sb-close-btn button:hover .sb-toggle-icon-close .sbt-frame,
-.sb-close-btn button:hover .sb-toggle-icon-close .sbt-rail-line{ stroke: var(--red); }

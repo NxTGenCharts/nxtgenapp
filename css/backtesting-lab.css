@@ -341,14 +341,6 @@
     width:36px;height:4px;border-radius:var(--r-full);
     background:var(--glass-border-h);pointer-events:none;
   }
-  /* Mobile is dismissed by dragging the grab handle above, or by tapping
-     outside the sheet — the X button is redundant screen-estate here and
-     is hidden for every panel using this pattern (trade log's
-     #detail-panel, the signals #signal-drawer, etc). */
-  .detail-panel .det-panel-close,
-  .detail-panel .sig-drawer-close{
-    display:none;
-  }
   .detail-panel.fullscreen{
     width:100% !important;height:calc(100dvh - var(--topbar));
     border-radius:0;top:var(--topbar);bottom:0;padding-bottom:0;
