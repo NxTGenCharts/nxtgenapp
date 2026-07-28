@@ -648,8 +648,6 @@
     </div>
 
     <div id="sig-view-root"></div>
-
-    ${_sigIsAdmin() ? `<button id="sig-fab-new" onclick="_sigOpenModal()">${icn('ic-plus')}</button>` : ''}
     `;
   }
 
@@ -2066,14 +2064,16 @@
     if (ana && ana.classList.contains('open')) { window._sigCloseAnalyticsDrawer(); return; }
   });
 
-  // Drag-to-dismiss on mobile — same pattern already used for the
-  // single-signal drawer's bottom sheet (see initSignalDrawerSwipeToClose
-  // below), just wired to #sig-analytics-drawer. The panel has no visual
-  // grab-handle bar (removed — it duplicated the real close button), so
-  // the whole header is the drag zone; taps on the close button, search
-  // box, sort dropdown, or filter chips are excluded so they still work
-  // normally.
+  // Drag-to-dismiss on mobile — mirrors the exact pattern already proven
+  // out on the single-signal drawer (initSignalDrawerSwipeToClose,
+  // further below): a top zone measured from the panel's own bounding
+  // rect, not a specific child element, and touch-action toggled inline
+  // (not just via CSS) so touch drags are reliably captured instead of
+  // scrolling the page underneath. There's no visual grab-handle bar
+  // on this drawer (removed — it duplicated the real close button), so
+  // the zone is sized to roughly cover the header band.
   (function initSigAnalyticsDrawerSwipeToClose() {
+    const HANDLE_ZONE = 64;
     const DISMISS_THRESHOLD = 90;
     let startY = 0, lastY = 0, dragging = false;
 
@@ -2083,13 +2083,13 @@
 
     document.addEventListener('pointerdown', (e) => {
       const panel = document.getElementById('sig-analytics-drawer');
-      if (!panel || !isMobileSheet(panel)) return;
-      const head = panel.querySelector('.sig-ana-head');
-      if (!head || !head.contains(e.target)) return;
-      if (e.target.closest('button, select, input, a')) return; // let real controls keep working
+      if (!panel || !isMobileSheet(panel) || !panel.contains(e.target)) return;
+      const rect = panel.getBoundingClientRect();
+      if (e.clientY - rect.top > HANDLE_ZONE) return;
       dragging = true;
       startY = lastY = e.clientY;
       panel.style.transition = 'none';
+      panel.style.touchAction = 'none';
       panel.setPointerCapture?.(e.pointerId);
     });
     document.addEventListener('pointermove', (e) => {
@@ -2108,7 +2108,7 @@
       dragging = false;
       const panel = document.getElementById('sig-analytics-drawer');
       const dy = Math.max(0, lastY - startY);
-      if (panel) { panel.style.transition = ''; panel.style.transform = ''; }
+      if (panel) { panel.style.transition = ''; panel.style.transform = ''; panel.style.touchAction = ''; }
       if (dy > DISMISS_THRESHOLD) window._sigCloseAnalyticsDrawer();
     }
     document.addEventListener('pointerup', endDrag);
