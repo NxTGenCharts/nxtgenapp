@@ -629,6 +629,9 @@
       </div>
     </div>
 
+    <div id="sig-health-hero-host"></div>
+    <div id="sig-insights-host"></div>
+
     <div id="sig-kpi-wrap">
       <div class="sig-stats-grid" id="sig-stats-grid"></div>
     </div>
@@ -1219,10 +1222,14 @@
   function _sigUpdateKpiVisibility() {
     const wrap = document.getElementById('sig-kpi-wrap');
     const btn = document.getElementById('sig-kpi-expand-btn');
+    const heroHost = document.getElementById('sig-health-hero-host');
+    const insightsHost = document.getElementById('sig-insights-host');
     if (!wrap || !btn) return;
     const onDrafts = _sigView === 'drafts';
     const collapsed = onDrafts && !_sigKpiExpandedOnDrafts;
     wrap.style.display = collapsed ? 'none' : '';
+    if (heroHost) heroHost.style.display = collapsed ? 'none' : '';
+    if (insightsHost) insightsHost.style.display = collapsed ? 'none' : '';
     btn.style.display = onDrafts ? 'inline-flex' : 'none';
     btn.innerHTML = `${icn(_sigKpiExpandedOnDrafts ? 'ic-minus' : 'ic-chart-bar')} ${_sigKpiExpandedOnDrafts ? 'Hide' : 'Show'} performance stats`;
   }
@@ -1483,11 +1490,179 @@
     </div>`;
   }
 
+  // ── Signal Health Score (hero gauge) ─────────────────────────────
+  // Blends six existing metrics into one 0-100 score so the whole
+  // dashboard has a single at-a-glance "how am I doing" number, the
+  // way a health/readiness score works on a fitness tracker.
+  function _sigHealthScore(m) {
+    const clamp = (n) => Math.max(0, Math.min(100, n));
+    const winScore = clamp(m.winPct);
+    const rrScore = clamp((m.avgRR / 3) * 100);
+    const confScore = clamp(m.avgConf);
+    const completionScore = clamp(m.completionRate);
+    const accuracyScore = clamp(m.entryAccuracy);
+    const riskScore = clamp(100 - (m.avgRiskPct || 0) * 25);
+
+    const factors = [
+      { label: 'Win Rate', pct: winScore, display: `${m.winPct.toFixed(0)}%` },
+      { label: 'Risk:Reward', pct: rrScore, display: `1:${m.avgRR.toFixed(1)}` },
+      { label: 'Confidence', pct: confScore, display: `${m.avgConf.toFixed(0)}%` },
+      { label: 'Completion', pct: completionScore, display: `${m.completionRate.toFixed(0)}%` },
+      { label: 'Entry Accuracy', pct: accuracyScore, display: `${m.entryAccuracy.toFixed(0)}%` },
+      { label: 'Risk Control', pct: riskScore, display: `${(m.avgRiskPct || 0).toFixed(2)}%` },
+    ];
+
+    const score = clamp(
+      winScore * 0.25 + rrScore * 0.20 + confScore * 0.15 +
+      completionScore * 0.15 + accuracyScore * 0.15 + riskScore * 0.10
+    );
+
+    let label, tone;
+    if (score >= 85) { label = 'Excellent'; tone = 'green'; }
+    else if (score >= 70) { label = 'Good'; tone = 'teal'; }
+    else if (score >= 50) { label = 'Fair'; tone = 'gold'; }
+    else { label = 'Needs Attention'; tone = 'red'; }
+
+    return { score, label, tone, factors };
+  }
+
+  function _sigHealthGaugeSvg(score, tone) {
+    const r = 52, c = 2 * Math.PI * r;
+    const pct = Math.max(0, Math.min(100, score));
+    const offset = c * (1 - pct / 100);
+    const toneVar = { green: 'var(--green)', teal: 'var(--teal)', gold: 'var(--gold)', red: 'var(--red)' }[tone] || 'var(--blue)';
+    return `<svg class="sig-health-gauge-svg" viewBox="0 0 120 120">
+      <circle cx="60" cy="60" r="${r}" fill="none" stroke="var(--glass-border-h)" stroke-width="10"/>
+      <circle class="sig-health-gauge-arc" cx="60" cy="60" r="${r}" fill="none" stroke="${toneVar}" stroke-width="10"
+        stroke-linecap="round" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${c.toFixed(1)}"
+        data-final-offset="${offset.toFixed(1)}" transform="rotate(-90 60 60)"/>
+    </svg>`;
+  }
+
+  function _sigRenderHealthHero(m) {
+    const host = document.getElementById('sig-health-hero-host');
+    if (!host) return;
+    const h = _sigHealthScore(m);
+    host.innerHTML = `
+      <div class="sig-health-hero">
+        <div class="sig-health-gauge-wrap">
+          ${_sigHealthGaugeSvg(h.score, h.tone)}
+          <div class="sig-health-gauge-center">
+            <span class="sig-health-score-num ${h.tone}"><span class="sig-counting" data-target="${h.score.toFixed(0)}">0</span>%</span>
+            <span class="sig-health-score-label ${h.tone}">${h.label}</span>
+          </div>
+        </div>
+        <div class="sig-health-body">
+          <div class="sig-health-title-row">
+            <span class="sig-health-title">Overall Signal Health</span>
+            <span class="sig-health-sub">Blended from win rate, RR, confidence, completion, accuracy &amp; risk control</span>
+          </div>
+          <div class="sig-health-factors">
+            ${h.factors.map(f => _sigMiniBar(f.label, f.display, f.pct,
+              f.pct >= 70 ? 'green' : f.pct >= 45 ? 'gold' : 'red')).join('')}
+          </div>
+        </div>
+      </div>`;
+    // Animate the arc in on next frame so the transition actually fires.
+    requestAnimationFrame(() => {
+      const arc = host.querySelector('.sig-health-gauge-arc');
+      if (arc) arc.style.strokeDashoffset = arc.dataset.finalOffset;
+    });
+  }
+
+  // ── Today's Insights (auto-generated observations) ───────────────
+  // Reads the same _sigComputeMetrics() output every other card uses —
+  // no separate data source, no AI call — and turns it into a short
+  // list of plain-English observations. Pure function of current data,
+  // so it never says anything the numbers on screen don't back up.
+  function _sigGenerateInsights(m) {
+    const out = [];
+    const closed = m.closed;
+
+    if (m.bestSession !== '—' && closed.length >= 2) {
+      out.push({ tone: 'up', text: `${SESSION_LABEL[m.bestSession] || m.bestSession} session has the highest win rate at ${(m.bestSessionRate * 100).toFixed(0)}%.` });
+    }
+    if (m.bestPair !== '—' && closed.length >= 2) {
+      out.push({ tone: 'up', text: `${m.bestPair} is your best-performing pair at ${(m.bestRate * 100).toFixed(0)}% win rate.` });
+    }
+    if (m.winsDelta > 0) {
+      out.push({ tone: 'up', text: `Winning signals are up ${m.winsDelta} versus last week.` });
+    } else if (m.winsDelta < 0) {
+      out.push({ tone: 'down', text: `Winning signals are down ${Math.abs(m.winsDelta)} versus last week.` });
+    }
+    if (m.lossesDelta < 0) {
+      out.push({ tone: 'up', text: `Losing signals fell by ${Math.abs(m.lossesDelta)} compared to last week.` });
+    } else if (m.lossesDelta > 0) {
+      out.push({ tone: 'down', text: `Losing signals rose by ${m.lossesDelta} compared to last week.` });
+    }
+    if (closed.length >= 3) {
+      if (m.tpHitPct > m.slHitPct) {
+        out.push({ tone: 'up', text: `TP hit rate (${m.tpHitPct.toFixed(0)}%) is outperforming SL hit rate (${m.slHitPct.toFixed(0)}%).` });
+      } else if (m.slHitPct > m.tpHitPct) {
+        out.push({ tone: 'down', text: `SL hit rate (${m.slHitPct.toFixed(0)}%) currently exceeds TP hit rate (${m.tpHitPct.toFixed(0)}%).` });
+      }
+    }
+    if (m.avgConf > 0) {
+      out.push({ tone: m.avgConf >= 70 ? 'up' : 'neutral', text: `Average confidence score is ${m.avgConf.toFixed(0)}%${m.highConf ? ` (${m.highConf} high-confidence signal${m.highConf === 1 ? '' : 's'})` : ''}.` });
+    }
+    if (m.expiredCt === 0 && m.all.length > 0) {
+      out.push({ tone: 'up', text: 'No expired signals — clean execution discipline.' });
+    } else if (m.expiredCt > 0) {
+      out.push({ tone: 'down', text: `${m.expiredCt} signal${m.expiredCt === 1 ? '' : 's'} expired unfilled — consider tightening entry windows.` });
+    }
+    if (m.pending > 0) {
+      out.push({ tone: 'neutral', text: `${m.pending} signal${m.pending === 1 ? '' : 's'} still pending trigger.` });
+    }
+    if (m.breakevens > 0) {
+      out.push({ tone: 'neutral', text: `${m.breakevens} signal${m.breakevens === 1 ? '' : 's'} closed at breakeven this period.` });
+    }
+    const marketEntries = Object.entries(m.byMarket).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+    if (marketEntries.length) {
+      const [topMarket, topCount] = marketEntries[0];
+      const total = marketEntries.reduce((a, [, v]) => a + v, 0);
+      out.push({ tone: 'neutral', text: `${MARKET_LABEL[topMarket] || topMarket} makes up ${(topCount / total * 100).toFixed(0)}% of your signals.` });
+    }
+    return out;
+  }
+
+  function _sigInsightIcon(tone) {
+    if (tone === 'up') return icn('ic-trend-up');
+    if (tone === 'down') return icn('ic-trend-down');
+    return icn('ic-info');
+  }
+
+  function _sigRenderInsights(m) {
+    const host = document.getElementById('sig-insights-host');
+    if (!host) return;
+    const insights = _sigGenerateInsights(m);
+    if (!insights.length) {
+      host.innerHTML = `
+        <div class="sig-insights-panel">
+          <div class="sig-insights-head"><span class="sig-stat-icon purple">${icn('ic-zap')}</span><span class="sig-insights-title">Today's Insights</span></div>
+          <div class="sig-insights-empty">Publish and close a few signals — insights will appear here automatically.</div>
+        </div>`;
+      return;
+    }
+    host.innerHTML = `
+      <div class="sig-insights-panel">
+        <div class="sig-insights-head"><span class="sig-stat-icon purple">${icn('ic-zap')}</span><span class="sig-insights-title">Today's Insights</span></div>
+        <ul class="sig-insights-list">
+          ${insights.slice(0, 8).map((ins, i) => `
+            <li class="sig-insight-row ${ins.tone}" style="animation-delay:${(i * 0.04).toFixed(2)}s">
+              <span class="sig-insight-icon ${ins.tone}">${_sigInsightIcon(ins.tone)}</span>
+              <span class="sig-insight-text">${ins.text}</span>
+            </li>`).join('')}
+        </ul>
+      </div>`;
+  }
+
   function _sigRenderStats() {
     const grid = document.getElementById('sig-stats-grid');
     if (!grid) return;
     const m = _sigComputeMetrics();
     const hasApex = typeof pf3Mount === 'function' && typeof ApexCharts !== 'undefined';
+    _sigRenderHealthHero(m);
+    _sigRenderInsights(m);
 
     grid.innerHTML = [
       // 1 — Active Signals: pulse + trend spark
