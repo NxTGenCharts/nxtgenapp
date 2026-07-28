@@ -19,11 +19,11 @@
   --hp-glass-border:  rgba(148,163,184,0.16);
   --hp-glass-border-h:rgba(148,163,184,0.30);
 
-  --hp-cta-grad: linear-gradient(135deg, #8b5cf6 0%, #6d5bf6 42%, #4f46e5 100%);
-  --hp-cta-grad-h: linear-gradient(135deg, #9666ff 0%, #7566ff 42%, #5b52f0 100%);
-  --hp-cta-ring: 0 0 0 1px rgba(139,92,246,0.35);
-  --hp-cta-glow: 0 4px 14px rgba(79,70,229,0.35), 0 1px 3px rgba(0,0,0,0.2);
-  --hp-cta-glow-h: 0 8px 24px rgba(124,58,237,0.45), 0 2px 6px rgba(0,0,0,0.25);
+  --hp-cta-grad: linear-gradient(135deg, rgba(133,120,201,0.60) 0%, rgba(112,103,185,0.60) 45%, rgba(91,84,162,0.60) 100%);
+  --hp-cta-grad-h: linear-gradient(135deg, rgba(148,136,214,0.70) 0%, rgba(127,117,199,0.70) 45%, rgba(104,96,177,0.70) 100%);
+  --hp-cta-ring: 0 0 0 1px rgba(148,136,214,0.28);
+  --hp-cta-glow: 0 4px 14px rgba(91,84,162,0.26), 0 1px 3px rgba(0,0,0,0.18);
+  --hp-cta-glow-h: 0 8px 24px rgba(104,96,177,0.32), 0 2px 6px rgba(0,0,0,0.22);
 
   --hp-nav-grad: linear-gradient(135deg, rgba(124,58,237,0.16) 0%, rgba(79,70,229,0.12) 55%, rgba(96,165,250,0.07) 100%);
   --hp-nav-border: rgba(124,58,237,0.26);
@@ -36,11 +36,11 @@
   --hp-glass-border:  rgba(15,23,42,0.09);
   --hp-glass-border-h:rgba(15,23,42,0.16);
 
-  --hp-cta-grad: linear-gradient(135deg, #7c3aed 0%, #6366f1 45%, #4f46e5 100%);
-  --hp-cta-grad-h: linear-gradient(135deg, #8b4ff0 0%, #6f6bf5 45%, #5b52f0 100%);
-  --hp-cta-ring: 0 0 0 1px rgba(79,70,229,0.22);
-  --hp-cta-glow: 0 3px 10px rgba(79,70,229,0.22), 0 1px 2px rgba(15,23,42,0.08);
-  --hp-cta-glow-h: 0 8px 22px rgba(79,70,229,0.32), 0 2px 5px rgba(15,23,42,0.1);
+  --hp-cta-grad: linear-gradient(135deg, rgba(124,110,196,0.82) 0%, rgba(103,95,178,0.82) 45%, rgba(85,79,156,0.82) 100%);
+  --hp-cta-grad-h: linear-gradient(135deg, rgba(138,125,208,0.90) 0%, rgba(117,107,190,0.90) 45%, rgba(96,89,166,0.90) 100%);
+  --hp-cta-ring: 0 0 0 1px rgba(103,95,178,0.24);
+  --hp-cta-glow: 0 3px 10px rgba(103,95,178,0.18), 0 1px 2px rgba(15,23,42,0.08);
+  --hp-cta-glow-h: 0 8px 22px rgba(103,95,178,0.26), 0 2px 5px rgba(15,23,42,0.1);
 
   --hp-nav-grad: linear-gradient(135deg, rgba(124,58,237,0.11) 0%, rgba(79,70,229,0.09) 55%, rgba(79,70,229,0.045) 100%);
   --hp-nav-border: rgba(124,58,237,0.20);
@@ -119,6 +119,8 @@
   padding: 0 18px 0 14px;
   border-radius: 999px;
   background: var(--hp-cta-grad);
+  backdrop-filter: blur(14px) saturate(1.5);
+  -webkit-backdrop-filter: blur(14px) saturate(1.5);
   border: 1px solid rgba(255,255,255,0.16);
   color: #ffffff;
   font-weight: 650;
@@ -150,13 +152,13 @@
 .topbar-new-trade-btn.btn-primary:active,
 .sig-header-actions .btn-primary:active{
   transform: translateY(0) scale(0.965);
-  box-shadow: var(--hp-cta-ring), 0 1px 4px rgba(79,70,229,0.30), inset 0 1px 3px rgba(0,0,0,0.18);
+  box-shadow: var(--hp-cta-ring), 0 1px 4px rgba(91,84,162,0.30), inset 0 1px 3px rgba(0,0,0,0.18);
   transition-duration: 90ms;
 }
 .topbar-new-trade-btn.btn-primary:focus-visible,
 .sig-header-actions .btn-primary:focus-visible{
   outline: none;
-  box-shadow: var(--hp-cta-ring), var(--hp-cta-glow), 0 0 0 2px var(--bg2), 0 0 0 4px rgba(139,92,246,0.55);
+  box-shadow: var(--hp-cta-ring), var(--hp-cta-glow), 0 0 0 2px var(--bg2), 0 0 0 4px rgba(133,120,201,0.55);
 }
 
 /* ═══════════════ C. LIVE DATE & TIME — status widget ════════════════ */
