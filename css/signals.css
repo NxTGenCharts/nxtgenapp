@@ -292,6 +292,24 @@
   padding:10px 14px;text-align:left;font-size:9.5px;font-weight:700;color:var(--text3);
   text-transform:uppercase;letter-spacing:.09em;border-bottom:1px solid var(--glass-border);
   white-space:nowrap;background:var(--bg3);
+  position:sticky;top:var(--topbar,52px);z-index:2;
+}
+.sig-th-sortable{cursor:pointer;user-select:none;transition:var(--t-fast)}
+.sig-th-sortable:hover{color:var(--text)}
+.sig-th-sortable.active{color:var(--text)}
+.sig-th-sort-icn{display:inline-flex;vertical-align:middle;margin-left:4px;opacity:.35;transition:var(--t-fast)}
+.sig-th-sort-icn .icn{width:9px;height:9px}
+.sig-th-sort-icn.active{opacity:1;color:var(--blue)}
+.sig-table-toolbar{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:10px 14px;border-bottom:1px solid var(--glass-border);
+}
+.sig-table-count{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em}
+.sig-table-export-btn{padding:6px 12px;font-size:11.5px}
+.sig-table-export-btn .icn{width:12px;height:12px}
+@media (max-width:640px){
+  .sig-table-toolbar{padding:9px 10px}
+  .sig-table-export-btn span{display:none}
 }
 .sig-table-scroll td{
   padding:11px 14px;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border2);
@@ -579,6 +597,13 @@
 .sig-perf-val{grid-area:val;font-size:11px;font-weight:700;font-family:var(--font-mono);text-align:right;color:var(--text)}
 .sig-perf-val.green{color:var(--green)} .sig-perf-val.red{color:var(--red)}
 .sig-perf-sub{grid-area:sub;font-size:9.5px;color:var(--text3)}
+.sig-mini-tile-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.sig-mini-tile-row-wrap{grid-template-columns:repeat(4,1fr)}
+@media (max-width:640px){.sig-mini-tile-row,.sig-mini-tile-row-wrap{grid-template-columns:repeat(2,1fr)}}
+.sig-streak-strip{display:flex;flex-wrap:wrap;gap:5px;margin-top:12px}
+.sig-streak-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.sig-streak-dot.green{background:var(--green)}
+.sig-streak-dot.red{background:var(--red)}
 .sig-dist-bars-wide{height:70px}
 .sig-dist-bar.green{background:linear-gradient(180deg,var(--green),rgba(52,211,153,0.25))}
 .sig-dist-bar.red{background:linear-gradient(180deg,var(--red),rgba(248,113,113,0.25))}
