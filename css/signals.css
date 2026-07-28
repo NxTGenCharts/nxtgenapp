@@ -220,6 +220,17 @@
 .sig-badge-active .dot{animation:sig-pulse 1.4s ease-in-out infinite}
 @keyframes sig-pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 currentColor}50%{opacity:.5}}
 
+/* ── Closed status pill, tinted by outcome ────────────────────────
+   A "Closed" signal is still either a win, a loss, or a breakeven —
+   the pill (and its dot) should say so at a glance, using the same
+   green / red / gold tones as the row accent bar and result badge. */
+.sig-badge-closed-win{background:var(--green-dim);color:var(--green);border-color:rgba(52,211,153,0.35);box-shadow:var(--glow-green)}
+.sig-badge-closed-loss{background:var(--red-dim);color:var(--red);border-color:rgba(248,113,113,0.35);box-shadow:var(--glow-red)}
+.sig-badge-closed-breakeven{background:rgba(251,191,36,0.14);color:var(--gold);border-color:rgba(251,191,36,0.35);box-shadow:0 0 10px rgba(251,191,36,0.12)}
+.sig-badge-closed-win .dot,
+.sig-badge-closed-loss .dot,
+.sig-badge-closed-breakeven .dot{animation:sig-pulse 1.4s ease-in-out infinite}
+
 .sig-dir-badge{
   display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:var(--r-sm);
   font-size:12px;font-weight:800;letter-spacing:.03em;font-family:var(--font-mono);

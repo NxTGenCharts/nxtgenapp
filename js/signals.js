@@ -39,6 +39,19 @@
     tp1_hit: 'Ongoing', tp2_hit: 'Ongoing',
     stopped_out: 'Closed', cancelled: 'Cancelled', expired: 'Expired', closed: 'Closed'
   };
+  // A "Closed" status pill is a dead end either way — but it shouldn't *look*
+  // like one when the signal actually won. Tint the pill (and its dot) by
+  // the outcome: green for a win, red for a loss, gold for a breakeven —
+  // matching the same tones already used for the row accent bar / result
+  // badge — instead of the flat neutral "Closed" look for every outcome.
+  function _sigStatusBadgeClass(s) {
+    if (s.status === 'closed' || s.status === 'stopped_out') {
+      if (s.result === 'win') return 'sig-badge-closed-win';
+      if (s.result === 'loss') return 'sig-badge-closed-loss';
+      if (s.result === 'breakeven') return 'sig-badge-closed-breakeven';
+    }
+    return 'sig-badge-' + s.status;
+  }
   const CONF_LABEL = { low: 'Low', medium: 'Medium', high: 'High', very_high: 'Very High' };
   const TIMELINE_STEPS = ['waiting', 'active', 'tp1_hit', 'tp2_hit', 'closed'];
   // Only Cancelled and Closed take a signal out of "Ongoing" — every other
@@ -1707,7 +1720,7 @@
       return `
       <tr class="sig-row sig-row-tone-${statusTone}" onclick="_sigOpenDrawer('${s.id}')">
         <td onclick="event.stopPropagation()"><button class="sig-expand-btn ${expanded ? 'open' : ''}" onclick="_sigToggleRowExpand('${s.id}', event)">${icn('ic-chevron-right')}</button></td>
-        <td><span class="sig-badge sig-badge-${s.status}"><span class="dot"></span>${STATUS_LABEL[s.status]}</span></td>
+        <td><span class="sig-badge ${_sigStatusBadgeClass(s)}"><span class="dot"></span>${STATUS_LABEL[s.status]}</span></td>
         <td><div class="sig-pair-cell"><span class="sig-pair-flag">${s.pair.slice(0, 2)}</span>${s.pair}</div></td>
         <td><span class="sig-market-badge">${icn(MARKET_ICON[s.market])}${MARKET_LABEL[s.market]}</span></td>
         <td><span class="sig-dir-badge ${s.direction}">${s.direction === 'buy' ? '🟢 BUY' : '🔴 SELL'}</span></td>
@@ -1874,7 +1887,7 @@
           <span class="sig-dir-badge ${s.direction}">${s.direction === 'buy' ? '🟢 BUY' : '🔴 SELL'}</span>
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-          <span class="sig-badge sig-badge-${s.status}"><span class="dot"></span>${STATUS_LABEL[s.status]}</span>
+          <span class="sig-badge ${_sigStatusBadgeClass(s)}"><span class="dot"></span>${STATUS_LABEL[s.status]}</span>
           <span class="sig-market-badge">${icn(MARKET_ICON[s.market])}${MARKET_LABEL[s.market]}</span>
           ${_sigResultBadge(s)}
         </div>
@@ -2324,7 +2337,7 @@
           ${s.edited_at ? '<span class="sig-edited-badge">Edited</span>' : ''}
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <span class="sig-badge sig-badge-${s.status}"><span class="dot"></span>${STATUS_LABEL[s.status] || s.status}</span>
+          <span class="sig-badge ${_sigStatusBadgeClass(s)}"><span class="dot"></span>${STATUS_LABEL[s.status] || s.status}</span>
           ${s.archived ? '<span class="sig-badge sig-badge-archived"><span class="dot"></span>Archived</span>' : ''}
           <span class="sig-market-badge">${icn(MARKET_ICON[s.market])}${MARKET_LABEL[s.market]}</span>
           ${_sigOrderTypeBadge(s)}
@@ -2629,7 +2642,7 @@
       <div class="modal-body">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
           <span class="sig-body-text" style="margin:0">Current stage:</span>
-          <span class="sig-badge sig-badge-${s.status}"><span class="dot"></span>${STATUS_LABEL[s.status] || s.status}</span>
+          <span class="sig-badge ${_sigStatusBadgeClass(s)}"><span class="dot"></span>${STATUS_LABEL[s.status] || s.status}</span>
         </div>
         ${isTerminal ? `
           <div class="sig-body-text" style="margin-bottom:16px">This signal is already ${STATUS_LABEL[s.status].toLowerCase()}. You can still log a note below, but the stage won't change.</div>
