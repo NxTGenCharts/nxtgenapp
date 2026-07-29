@@ -148,6 +148,12 @@
   .acc-health-ring-wrap{width:76px;height:76px}
   .acc-health-grade{font-size:17px}
 }
+@media (max-width: 380px){
+  .acc-health-ring-wrap{width:64px;height:64px}
+  .acc-health-grade{font-size:14px}
+  .acc-health-score{font-size:8.5px}
+  .acc-health-label{font-size:8.5px}
+}
 
 /* — KPI Scorecard — */
 .acc-kpi-scorecard{
