@@ -292,7 +292,6 @@
   padding:10px 14px;text-align:left;font-size:9.5px;font-weight:700;color:var(--text3);
   text-transform:uppercase;letter-spacing:.09em;border-bottom:1px solid var(--glass-border);
   white-space:nowrap;background:var(--bg3);
-  position:sticky;top:var(--topbar,52px);z-index:2;
 }
 .sig-th-sortable{cursor:pointer;user-select:none;transition:var(--t-fast)}
 .sig-th-sortable:hover{color:var(--text)}
