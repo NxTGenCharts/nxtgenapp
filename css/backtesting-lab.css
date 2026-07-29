@@ -5096,13 +5096,13 @@ body {
   .cover-title { font-size: 20px; }
   
   .modal {
-    border-radius: 24px 24px 0 0;
+    border-radius: 24px;
     backdrop-filter: var(--vibrancy-2xl);
     -webkit-backdrop-filter: var(--vibrancy-2xl);
   }
   
   .detail-panel {
-    border-radius: 24px 24px 0 0;
+    border-radius: 24px;
     backdrop-filter: var(--vibrancy-2xl);
     -webkit-backdrop-filter: var(--vibrancy-2xl);
   }
