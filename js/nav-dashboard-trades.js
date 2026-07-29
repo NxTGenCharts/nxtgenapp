@@ -1912,9 +1912,24 @@ function openModal(prefill) {
   document.getElementById('m-tf').value = '30m > 3m';
   const tfCustom = document.getElementById('m-tf-custom');
   if (tfCustom) { tfCustom.style.display = 'none'; tfCustom.value = ''; }
-  // Account — populate dynamically from user's custom accounts list
+  // Account — populate dynamically from user's custom accounts list.
+  // If opened with a specific account (e.g. "Add Trade" from the Account
+  // Tracker detail view), lock the field so the trade can only be saved
+  // against that one account.
   const accSel = document.getElementById('m-acc');
-  accSel.innerHTML = _buildAccountOptions('PaperTrading');
+  const manageBtn = document.getElementById('m-acc-manage-btn');
+  const lockNote = document.getElementById('m-acc-lock-note');
+  if (prefill && prefill.account) {
+    accSel.innerHTML = _buildAccountOptions(prefill.account);
+    accSel.disabled = true;
+    if (manageBtn) manageBtn.style.display = 'none';
+    if (lockNote) { lockNote.textContent = 'Locked to ' + prefill.account; lockNote.style.display = ''; }
+  } else {
+    accSel.innerHTML = _buildAccountOptions('PaperTrading');
+    accSel.disabled = false;
+    if (manageBtn) manageBtn.style.display = '';
+    if (lockNote) lockNote.style.display = 'none';
+  }
   document.getElementById('m-rating').value = '★★★★★';
   document.getElementById('m-risk').value = '0.5%';
   document.getElementById('m-pretrade').value = '';

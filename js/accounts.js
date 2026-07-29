@@ -571,6 +571,14 @@ async function _toggleAccCardPnlMode(name) {
   _renderAccGrid();
 }
 
+// Opens the New Trade modal locked to whichever account is currently open
+// in the Account Tracker detail view — the account field is pre-selected
+// and disabled so the trade can only be logged against this one account.
+function accAddTradeForThis() {
+  if (!_accActiveName) return;
+  if (typeof openModal === 'function') openModal({ account: _accActiveName });
+}
+
 function accShowDetail(name) {
   const drawer = document.getElementById('acc-detail-drawer');
   const body   = document.getElementById('acc-detail-body');
@@ -628,6 +636,9 @@ function accShowDetail(name) {
         <div class="acc-hero-top">
           <span class="acc-hero-name">${name}</span>
           ${heroBadges}
+          <button class="btn btn-primary acc-hero-add-trade-btn" onclick="accAddTradeForThis()" title="Add a trade to ${name} only">
+            <svg class="icn" aria-hidden="true"><use href="#ic-plus"></use></svg> Add Trade
+          </button>
         </div>
         <div class="acc-hero-grid">
           <div class="acc-hero-stat"><div class="acc-hero-stat-label">Account Size</div><div class="acc-hero-stat-val">${sizeNote}</div></div>

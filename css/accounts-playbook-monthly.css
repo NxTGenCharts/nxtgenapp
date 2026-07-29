@@ -103,6 +103,9 @@
   background:radial-gradient(ellipse 70% 60% at 85% 15%,rgba(96,165,250,0.07) 0%,transparent 60%);
 }
 .acc-hero-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;position:relative;z-index:1}
+.acc-hero-add-trade-btn{margin-left:auto;font-size:11px;padding:6px 12px;display:inline-flex;align-items:center;gap:4px}
+.acc-hero-add-trade-btn .icn{width:12px;height:12px}
+@media (max-width:560px){.acc-hero-add-trade-btn{margin-left:0}}
 .acc-hero-name{font-family:var(--font-head);font-size:19px;font-weight:800;letter-spacing:-.02em}
 .acc-hero-badges{display:flex;gap:6px;flex-wrap:wrap}
 .acc-hero-badge{font-size:10px;font-weight:700;letter-spacing:.03em;padding:3px 9px;border-radius:var(--r-full);

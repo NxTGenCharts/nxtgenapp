@@ -1657,7 +1657,6 @@ function _wlBuildDailyGameplan(week) {
         <div class="wl-day-pairs-label" style="margin-top:16px"><span>Session Goal</span></div>
         <div class="wl-day-session-setup">
           <div class="wl-form-row">
-            <label class="wl-form-label">Session Goal</label>
             <input type="text" class="wl-form-input" value="${plan.sessionGoal || ''}" placeholder="e.g. Protect capital, one A+ setup only"
               onblur="_wlSaveDayField('${week.id}','${activeDay}','sessionGoal',this.value)">
           </div>

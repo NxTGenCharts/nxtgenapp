@@ -79,7 +79,7 @@ function pf3AccEnhanceDetail(name) {
     if (health.score !== null) {
       const col = _accGradeColor(health.grade);
       pf3Mount('pf3-acc-health-mount', {
-        chart: { type: 'radialBar', height: 104, width: 104, animations: { enabled: !pf3ReducedMotion(), speed: 700 } },
+        chart: { type: 'radialBar', height: 104, width: 104, sparkline: { enabled: true }, animations: { enabled: !pf3ReducedMotion(), speed: 700 } },
         series: [health.score],
         colors: [col],
         plotOptions: { radialBar: { hollow: { size: '68%' }, track: { background: 'rgba(255,255,255,0.06)' }, dataLabels: { show: false } } },
