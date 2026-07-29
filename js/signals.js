@@ -3889,6 +3889,11 @@
             <select class="form-select" id="sf-visibility"><option value="public" ${opt('public', s.visibility)}>Public</option><option value="premium" ${opt('premium', s.visibility)}>Premium</option><option value="private" ${opt('private', s.visibility)}>Private</option></select>
           </div>
 
+          <div class="form-field full">
+            <label class="form-label">Management Rules</label>
+            <div class="sig-mgmt-rules-box"><div class="sig-body-text">${MANAGEMENT_RULES_HTML}</div></div>
+            <div class="sig-form-hint">${icn('ic-info')} Standard house rule, applied automatically to every signal — not editable per-signal.</div>
+          </div>
           <div class="form-field full"><label class="form-label">Notes</label><textarea class="form-textarea" id="sf-notes" placeholder="Private notes — not shown publicly">${s.notes || ''}</textarea></div>
           <div class="form-field"><label class="form-label">Tags</label><input class="form-input" id="sf-tags" placeholder="breakout, htf-bias, news" value="${(s.tags || []).join(', ')}"></div>
           <div class="form-field"><label class="form-label">TradingView Link</label><input class="form-input" id="sf-tvlink" placeholder="https://tradingview.com/…" value="${s.tradingview_link || ''}"></div>
