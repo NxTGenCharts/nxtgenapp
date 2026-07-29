@@ -79,7 +79,7 @@ function _playChime(kind) {
 
 // ── Auto-save drafts — unfinished New Trade form persisted to localStorage ──
 const _DRAFT_KEY = 'nxtgen_trade_draft_v1';
-const _DRAFT_FIELDS = ['m-date','m-pair','m-pair-custom','m-pos','m-rr','m-pnl',
+const _DRAFT_FIELDS = ['m-date','m-pair','m-market','m-pos','m-rr','m-pnl',
   'm-outcome','m-kz','m-strat','m-strat-custom','m-tf','m-tf-custom','m-acc','m-rating','m-risk',
   'm-pretrade','m-notes','m-loss-reason'];
 let _draftSaveTimer = null;
@@ -118,7 +118,6 @@ function _restoreDraftIfAny() {
     const el = document.getElementById(id);
     if (el) el.value = d[id];
   });
-  if (d['m-pair-custom'])  document.getElementById('m-pair-custom').style.display  = 'block';
   if (d['m-strat-custom']) document.getElementById('m-strat-custom').style.display = 'block';
   if (d['m-tf-custom'])    document.getElementById('m-tf-custom').style.display    = 'block';
   if (d._modalMentalState) {

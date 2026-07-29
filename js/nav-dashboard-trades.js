@@ -1892,7 +1892,9 @@ function openLightboxById(tradeId, slot) {
 function openModal(prefill) {
   document.getElementById('m-date').value = localToday();
   document.getElementById('m-pair').value = 'GBPUSD';
-  document.getElementById('m-pair-custom').style.display = 'none';
+  const marketReset = document.getElementById('m-market');
+  if (marketReset) marketReset.value = 'forex';
+  if (typeof _tradeClosePairDropdown === 'function') _tradeClosePairDropdown();
   document.getElementById('m-pos').value = 'Buy';
   document.getElementById('m-rr').value = '';
   document.getElementById('m-pnl').value = '';
@@ -1988,10 +1990,6 @@ function _toggleModalCheck(i) {
   if (mcw) mcw.style.display = 'none';
   _checklistWarningAcked = false;
 }
-function syncCustomPair(val) {
-  const ci = document.getElementById('m-pair-custom');
-  if (val === '__custom__') { ci.style.display = 'block'; ci.focus(); } else ci.style.display = 'none';
-}
 function toggleLossReason(outcome) {
   const lrf = document.getElementById('loss-reason-field');
   if (lrf) lrf.style.display = outcome === 'Loss' ? 'block' : 'none';
@@ -2017,13 +2015,105 @@ function syncCustomTF(val) {
   if (val === '__custom__') { ci.style.display = 'block'; ci.focus(); } else ci.style.display = 'none';
 }
 function getPairValue() {
-  const sel = document.getElementById('m-pair').value;
-  if (sel === '__custom__') {
-    const cv = document.getElementById('m-pair-custom').value.trim().toUpperCase();
-    return cv || 'CUSTOM';
-  }
-  return sel;
+  const raw = (document.getElementById('m-pair').value || '').trim().toUpperCase();
+  return raw || 'CUSTOM';
 }
+
+// ══════════════════════════════════════════════════════════════
+// PAIR SYMBOL SEARCH — New Trade modal. Same `symbol-search` Edge
+// Function and dropdown styling as the New Signal modal's Pair
+// field (see js/signals.js). The field stays a completely normal
+// text input the whole time: nothing here blocks typing a symbol
+// by hand and just saving, so a slow network or an unresolved
+// symbol never gets in the way of logging the trade.
+// ══════════════════════════════════════════════════════════════
+const _TRADE_SEARCH_TYPE_TO_MARKET = { forex: 'forex', crypto: 'crypto', index: 'indices', commodity: 'commodities', stock: 'stocks', fund: 'stocks' };
+let _tradePairSearchToken = 0;
+
+window._tradePairSearchDebounced = _debounce(function () { _tradeRunPairSearch(); }, 250);
+
+async function _tradeRunPairSearch() {
+  const input = document.getElementById('m-pair');
+  const dd = document.getElementById('m-pair-dropdown');
+  if (!input || !dd) return;
+  const query = input.value.trim();
+  if (query.length < 2) { dd.style.display = 'none'; dd.innerHTML = ''; return; }
+
+  const market = document.getElementById('m-market')?.value || '';
+  const myToken = ++_tradePairSearchToken; // guards against a slower earlier request overwriting a faster later one
+  dd.style.display = 'block';
+  dd.innerHTML = `<div class="sig-pair-dd-status">Searching…</div>`;
+
+  let payload;
+  try {
+    const { data, error } = await sb.functions.invoke('symbol-search', { body: { query, market } });
+    if (error) throw error;
+    payload = data;
+  } catch (e) {
+    console.error('symbol search failed:', e);
+    if (myToken === _tradePairSearchToken) dd.innerHTML = `<div class="sig-pair-dd-status">Couldn't reach symbol search — just type the pair manually.</div>`;
+    return;
+  }
+  if (myToken !== _tradePairSearchToken) return; // a newer keystroke already superseded this response
+
+  _tradeRenderPairDropdown(payload?.results || []);
+}
+
+function _tradeRenderPairDropdown(results) {
+  const dd = document.getElementById('m-pair-dropdown');
+  if (!dd) return;
+  if (!results.length) { dd.innerHTML = `<div class="sig-pair-dd-status">No matches — you can still type the pair manually.</div>`; return; }
+
+  const preferred = results.filter(r => r.preferred);
+  const rest = results.filter(r => !r.preferred);
+  const TYPE_TAG = { forex: 'Forex', crypto: 'Crypto', index: 'Index', commodity: 'Commodity', stock: 'Stock', fund: 'Fund', cfd: 'CFD' };
+  const row = (r) => `
+    <div class="sig-pair-dd-row" onmousedown="event.preventDefault();_tradeSelectPairResult('${r.symbol.replace(/'/g, "\\'")}','${(r.type || '').replace(/'/g, "\\'")}')">
+      <div class="sig-pair-dd-main">
+        <span class="sig-pair-dd-symbol">${r.symbol}</span>
+        <span class="sig-pair-dd-desc">${(r.description || '').slice(0, 40)}${r.type && TYPE_TAG[r.type] ? ` · ${TYPE_TAG[r.type]}` : ''}</span>
+      </div>
+      ${r.exchange ? `<span class="sig-pair-dd-exchange ${r.preferred ? 'is-preferred' : ''}">${r.exchange}</span>` : ''}
+    </div>`;
+
+  let html = '';
+  if (preferred.length) {
+    html += `<div class="sig-pair-dd-section-label">Recommended</div>`;
+    html += preferred.map(row).join('');
+  }
+  if (rest.length) {
+    html += `<div class="sig-pair-dd-section-label">${preferred.length ? 'All sources' : 'Matches'} (${rest.length})</div>`;
+    html += `<div class="sig-pair-dd-more">${rest.slice(0, 6).map(row).join('')}</div>`;
+    if (rest.length > 6) {
+      html += `<div class="sig-pair-dd-showmore" onmousedown="event.preventDefault();_tradeExpandPairDropdown()">Show all ${rest.length} sources</div>`;
+      dd.dataset.allRestRows = rest.map(row).join('').replace(/"/g, '&quot;');
+    }
+  }
+  dd.innerHTML = html;
+}
+
+window._tradeExpandPairDropdown = function () {
+  const dd = document.getElementById('m-pair-dropdown');
+  if (!dd) return;
+  const more = dd.querySelector('.sig-pair-dd-more');
+  const btn = dd.querySelector('.sig-pair-dd-showmore');
+  if (more && dd.dataset.allRestRows) more.innerHTML = dd.dataset.allRestRows.replace(/&quot;/g, '"');
+  if (btn) btn.remove();
+};
+
+window._tradeSelectPairResult = function (symbol, type) {
+  const pairInput = document.getElementById('m-pair');
+  if (pairInput) pairInput.value = symbol;
+  const mappedMarket = _TRADE_SEARCH_TYPE_TO_MARKET[type];
+  const marketSelect = document.getElementById('m-market');
+  if (mappedMarket && marketSelect) marketSelect.value = mappedMarket;
+  _tradeClosePairDropdown();
+};
+
+window._tradeClosePairDropdown = function () {
+  const dd = document.getElementById('m-pair-dropdown');
+  if (dd) { dd.style.display = 'none'; dd.innerHTML = ''; }
+};
 
 async function saveTrade() {
   const dateVal = document.getElementById('m-date').value;
@@ -2124,7 +2214,9 @@ async function saveTrade() {
 
   closeModal();
   document.getElementById('m-pair').value = 'GBPUSD';
-  document.getElementById('m-pair-custom').style.display = 'none';
+  const marketAfterSave = document.getElementById('m-market');
+  if (marketAfterSave) marketAfterSave.value = 'forex';
+  if (typeof _tradeClosePairDropdown === 'function') _tradeClosePairDropdown();
   _clearDraft();
   _playChime('save');
   _refreshAll();

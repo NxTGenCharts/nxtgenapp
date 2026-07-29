@@ -2083,18 +2083,21 @@
     <div class="modal-body">
     <div class="form-grid modal-form-grid">
       <div class="form-field"><label class="form-label">Date</label><input type="date" class="form-input" id="m-date"></div>
-      <div class="form-field"><label class="form-label">Pair</label>
-        <div style="display:flex;gap:6px">
-          <select class="form-select" id="m-pair" onchange="syncCustomPair(this.value)" style="flex:1">
-            <option>GBPUSD</option><option>XAUUSD</option><option>EURUSD</option><option>GBPJPY</option>
-            <option>USDCAD</option><option>ES</option><option>EURGBP</option><option>USDJPY</option>
-            <option>NASDAQ</option><option>BTCUSDT</option><option>ETHUSDT</option><option>GBPAUD</option>
-            <option>AUDUSD</option><option>NZDUSD</option><option>EURJPY</option><option>CADJPY</option>
-            <option>GBPCAD</option><option>EURCAD</option><option>XAGUSD</option><option>US30</option>
-            <option value="__custom__"><svg class="icn" aria-hidden="true"><use href="#ic-edit"></use></svg> Custom pair…</option>
-          </select>
-          <input type="text" class="form-input" id="m-pair-custom" placeholder="e.g. AUDCAD" style="width:110px;display:none">
-        </div>
+      <div class="form-field sig-pair-field">
+        <label class="form-label">Pair</label>
+        <input type="text" class="form-input" id="m-pair" placeholder="EURUSD" value="GBPUSD" autocomplete="off"
+          oninput="_tradePairSearchDebounced()" onfocus="_tradePairSearchDebounced()" onblur="setTimeout(_tradeClosePairDropdown, 150)">
+        <div class="sig-pair-dropdown" id="m-pair-dropdown" style="display:none"></div>
+      </div>
+      <div class="form-field"><label class="form-label">Market</label>
+        <select class="form-select" id="m-market">
+          <option value="forex">Forex</option>
+          <option value="crypto">Crypto</option>
+          <option value="indices">Indices</option>
+          <option value="commodities">Commodities</option>
+          <option value="stocks">Stocks</option>
+          <option value="synthetic">Synthetic Indices</option>
+        </select>
       </div>
       <div class="form-field"><label class="form-label">Position</label>
         <select class="form-select" id="m-pos"><option>Buy</option><option>Sell</option></select>
@@ -2334,7 +2337,7 @@
 <!-- ══ App Script — split into ordered chunks (loaded in the exact same order as the old single app.js, so execution behaves identically) ══ -->
  <script src="realtime-sync.js"></script>
 <script src="js/core-utils-ai.js?v=202607202045"></script>
-<script src="js/nav-dashboard-trades.js?v=202607202045"></script>
+<script src="js/nav-dashboard-trades.js?v=202607291200"></script>
 <script src="js/watchlist.js?v=202607202045"></script>
 <script src="js/accounts.js?v=202607202045"></script>
 <script src="js/playbook.js?v=202607202045"></script>
@@ -2345,7 +2348,7 @@
 <script src="js/trash.js?v=202607202045"></script>
 <script src="js/core-modals-userbar.js?v=202607202045"></script>
 <script src="js/share-scores-logos.js?v=202607202045"></script>
-<script src="js/settings-fab-chat.js?v=202607202045"></script>
+<script src="js/settings-fab-chat.js?v=202607291200"></script>
 <script src="js/profile.js?v=202607202045"></script>
 <script src="js/profile-premium.js?v=202607211200"></script>
 <script src="js/dashboard-premium.js?v=202607211400"></script>
