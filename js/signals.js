@@ -31,6 +31,16 @@
     forex: 'Forex', crypto: 'Crypto', indices: 'Indices',
     commodities: 'Commodities', stocks: 'Stocks', synthetic: 'Synthetic Indices'
   };
+  // Standard trade-management policy — shown on every signal by default.
+  // This is a fixed house rule, not something set per-signal, so it's
+  // rendered directly rather than pulled from a stored field.
+  const MANAGEMENT_RULES_HTML = `
+    <p style="margin:0 0 8px">Once a trade reaches 2R, all users are expected to manage their positions by either:</p>
+    <ul style="margin:0 0 8px;padding-left:18px">
+      <li>Moving Stop Loss to Breakeven (BE) or Take Partials and holding the remaining position towards the full Take Profit (TP), or</li>
+      <li>Closing the trade at 2R and securing the profit.</li>
+    </ul>
+    <p style="margin:0">Trade management remains the responsibility of each user. Always manage risk according to your personal trading plan, account size and risk tolerance.</p>`;
   const STATUS_LABEL = {
     draft: 'Draft', scheduled: 'Scheduled',
     // Only Cancelled and Closed are terminal — every other stage is still
@@ -2433,11 +2443,7 @@
           <div class="sig-row-expand">
             <div class="sig-row-expand-col">
               <div class="sig-section-title" style="margin-top:0">${icn('ic-bulb')} Management Rules</div>
-              <div class="sig-body-text">${s.management_rules || '—'}</div>
-            </div>
-            <div class="sig-row-expand-col">
-              <div class="sig-section-title" style="margin-top:0">${icn('ic-target')} Confluences</div>
-              <div class="sig-confluence-list">${(s.confluences || []).map(c => `<span class="sig-confluence-chip">${c}</span>`).join('') || '<span class="sig-body-text">—</span>'}</div>
+              <div class="sig-body-text">${MANAGEMENT_RULES_HTML}</div>
             </div>
             <div class="sig-row-expand-col sig-row-expand-actions">
               <button class="btn btn-primary" onclick="event.stopPropagation();_sigOpenDrawer('${s.id}')">${icn('ic-eye')} Full details</button>
@@ -3257,14 +3263,11 @@
     </div>
     <div class="sig-ladder-rr">${icn('ic-scale')} Risk : Reward — 1:${s.risk_reward}</div>
 
-    <div class="sig-section-title">${icn('ic-warning')} Invalidation</div>
-    <div class="sig-body-text">${s.invalidation || '—'}</div>
-
     <div class="sig-section-title">${icn('ic-notebook')} Management Rules</div>
-    <div class="sig-body-text">${s.management_rules || '—'}</div>
+    <div class="sig-body-text">${MANAGEMENT_RULES_HTML}</div>
 
     <div class="sig-section-title">${icn('ic-clock')} Session &amp; Duration</div>
-    <div class="sig-body-text">${SESSION_LABEL[s.session] || (s.session || '—')} · Risk : Reward 1:${s.risk_reward}</div>
+    <div class="sig-body-text">${SESSION_LABEL[s.session] || (s.session || '—')}</div>
 
     <div class="sig-section-title">${icn('ic-speech')} Comments</div>
     <div id="sig-comments-${s.id}">${(s.comments || []).map(c => `
@@ -3697,7 +3700,7 @@
     const s = _sigAll.find(x => x.id === id);
     if (!s) return;
     // Lightweight text export (kept dependency-free). Swap for a PDF lib if you want a styled PDF.
-    const text = `NxTGen Signal — ${s.pair} ${s.direction.toUpperCase()}\n\nStatus: ${STATUS_LABEL[s.status]}\nOrder Type: ${ORDER_TYPE_LABEL[s.order_type] || 'Market Execution'}\nEntry: ${_fmtNum(s.entry)}\nStop Loss: ${_fmtNum(s.stop_loss)}\nTP1/TP2: ${_fmtNum(s.tp1)} / ${_fmtNum(s.tp2)}\nRisk:Reward: 1:${s.risk_reward}\nConfidence: ${CONF_LABEL[s.confidence]} (${s.confidence_score}%)\nSession: ${SESSION_LABEL[s.session] || (s.session || '—')}\n\nMarket outlook:\n${s.market_outlook || '—'}\n\nInvalidation:\n${s.invalidation || '—'}\n`;
+    const text = `NxTGen Signal — ${s.pair} ${s.direction.toUpperCase()}\n\nStatus: ${STATUS_LABEL[s.status]}\nOrder Type: ${ORDER_TYPE_LABEL[s.order_type] || 'Market Execution'}\nEntry: ${_fmtNum(s.entry)}\nStop Loss: ${_fmtNum(s.stop_loss)}\nTP1/TP2: ${_fmtNum(s.tp1)} / ${_fmtNum(s.tp2)}\nRisk:Reward: 1:${s.risk_reward}\nConfidence: ${CONF_LABEL[s.confidence]} (${s.confidence_score}%)\nSession: ${SESSION_LABEL[s.session] || (s.session || '—')}\n\nMarket outlook:\n${s.market_outlook || '—'}\n`;
     const blob = new Blob([text], { type: 'text/plain' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -3886,7 +3889,6 @@
             <select class="form-select" id="sf-visibility"><option value="public" ${opt('public', s.visibility)}>Public</option><option value="premium" ${opt('premium', s.visibility)}>Premium</option><option value="private" ${opt('private', s.visibility)}>Private</option></select>
           </div>
 
-          <div class="form-field full"><label class="form-label">Management Rules</label><textarea class="form-textarea" id="sf-mgmt">${s.management_rules || ''}</textarea></div>
           <div class="form-field full"><label class="form-label">Notes</label><textarea class="form-textarea" id="sf-notes" placeholder="Private notes — not shown publicly">${s.notes || ''}</textarea></div>
           <div class="form-field"><label class="form-label">Tags</label><input class="form-input" id="sf-tags" placeholder="breakout, htf-bias, news" value="${(s.tags || []).join(', ')}"></div>
           <div class="form-field"><label class="form-label">TradingView Link</label><input class="form-input" id="sf-tvlink" placeholder="https://tradingview.com/…" value="${s.tradingview_link || ''}"></div>
