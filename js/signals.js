@@ -3775,10 +3775,18 @@
     if (el) el.textContent = text;
   }
   async function _sigAutosaveTick() {
-    // Only silently autosave brand-new signals or drafts already in progress —
-    // never auto-drafts a signal that's currently live/published.
     if (!_sigModalState.dirty) return;
-    if (_sigModalState.mode === 'edit' && _sigModalState.editId && !_sigModalState.draftId) return;
+    // Editing an already-published signal never silently republishes the
+    // rest of the form — Entry/SL/etc changes are consequential (they
+    // notify subscribers) and only go out via an explicit "Update &
+    // Republish". But private Notes aren't public-facing at all, so they
+    // shouldn't be held hostage to that same button — without this,
+    // typing a note here and closing the modal (or coming back on another
+    // device) meant it was simply never saved. Autosave just that column.
+    if (_sigModalState.mode === 'edit' && _sigModalState.editId && !_sigModalState.draftId) {
+      await _sigAutosaveNotesOnly();
+      return;
+    }
     const pairVal = document.getElementById('sf-pair')?.value;
     if (!pairVal) return; // nothing worth saving yet
     _sigSetAutosaveLabel('Saving…');
@@ -3814,6 +3822,33 @@
     if (badge) badge.textContent = _sigAll.filter(s => s.is_draft && !s.archived).length || '';
   }
 
+  // Saves just the `notes` column for a signal that's already live —
+  // used both by the 4s autosave tick above and by blurring out of the
+  // Notes field, so a note is never lost to closing the modal early.
+  async function _sigAutosaveNotesOnly() {
+    const id = _sigModalState.editId;
+    if (!id) return;
+    const notesVal = document.getElementById('sf-notes')?.value ?? '';
+    _sigSetAutosaveLabel('Saving…');
+    const s = _sigAll.find(x => x.id === id);
+    if (s) s.notes = notesVal;
+    let ok = true;
+    if (_sigUsingSupabase && typeof sb !== 'undefined' && sb && _sigIsDbId(id)) {
+      const { error } = await sb.from('journal_signals').update({ notes: notesVal, updated_at: new Date().toISOString() }).eq('id', id).eq('owner_id', _currentUser.id);
+      if (error) { console.error('notes autosave failed:', error.message); ok = false; }
+    } else {
+      _saveDemoSignals();
+    }
+    _sigModalState.dirty = false;
+    if (!ok) { _sigSetAutosaveLabel('Save failed — will retry'); return; }
+    _sigSetAutosaveLabel('Notes saved ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+  }
+  window._sigNotesBlurSave = function () {
+    if (_sigModalState.mode === 'edit' && _sigModalState.editId && !_sigModalState.draftId && _sigModalState.dirty) {
+      _sigAutosaveNotesOnly();
+    }
+  };
+
   function _sigModalContent(existing) {
     const s = existing || {};
     const isEdit = _sigModalState.mode === 'edit';
@@ -3827,7 +3862,7 @@
           ${isEdit && s.edited_at ? '<span class="sig-edited-badge">Edited</span>' : ''}
         </div>
         <div style="display:flex;align-items:center;gap:12px">
-          <span id="sig-autosave-status" class="sig-autosave-status">${isEdit && !_sigModalState.draftId ? '' : 'Draft autosaves as you type'}</span>
+          <span id="sig-autosave-status" class="sig-autosave-status">${isEdit && !_sigModalState.draftId ? 'Notes save automatically' : 'Draft autosaves as you type'}</span>
           <button class="modal-close" onclick="_sigCloseModal()">${icn('ic-close')}</button>
         </div>
       </div>
@@ -3894,7 +3929,7 @@
             <div class="sig-mgmt-rules-box"><div class="sig-body-text">${MANAGEMENT_RULES_HTML}</div></div>
             <div class="sig-form-hint">${icn('ic-info')} Standard house rule, applied automatically to every signal — not editable per-signal.</div>
           </div>
-          <div class="form-field full"><label class="form-label">Notes</label><textarea class="form-textarea" id="sf-notes" placeholder="Private notes — not shown publicly">${s.notes || ''}</textarea></div>
+          <div class="form-field full"><label class="form-label">Notes</label><textarea class="form-textarea" id="sf-notes" placeholder="Private notes — not shown publicly" onblur="_sigNotesBlurSave()">${s.notes || ''}</textarea></div>
           <div class="form-field"><label class="form-label">Tags</label><input class="form-input" id="sf-tags" placeholder="breakout, htf-bias, news" value="${(s.tags || []).join(', ')}"></div>
           <div class="form-field"><label class="form-label">TradingView Link</label><input class="form-input" id="sf-tvlink" placeholder="https://tradingview.com/…" value="${s.tradingview_link || ''}"></div>
           <div class="form-field"><label class="form-label">Chart Screenshot</label><input class="form-input" id="sf-chart" type="file" accept="image/*">${s.chart_screenshot_url ? '<div class="sig-existing-shot">✓ Screenshot attached</div>' : ''}</div>
