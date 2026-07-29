@@ -426,6 +426,25 @@ function _pnlPctValue(t) {
   return 0;
 }
 
+// "Avg RR" used to be computed by parsing the R:R the user TYPED into the
+// trade form (e.g. "1:4" → 4) and averaging that across trades. That's the
+// ratio they were AIMING for, not what actually happened — ten trades all
+// logged as 1:4 average to exactly 4R even if every one of them was
+// actually closed early/partial and only returned 2.7-3.7%. This computes
+// the REALIZED R multiple instead: actual PnL% ÷ the % they actually risked
+// on that trade (the "Risk per Trade" field, t.risk, e.g. "0.5%"). Falls
+// back to the typed target ratio only when no risk% was logged for that
+// specific trade, so existing entries without a risk% don't just disappear
+// from the average — but a trade with a risk% on file always uses its
+// realized result, never the target.
+function _realizedRR(t) {
+  const riskPct = parseFloat(String(t.risk || '').replace('%', ''));
+  if (riskPct && !isNaN(riskPct) && riskPct > 0) {
+    return _pnlPctValue(t) / riskPct;
+  }
+  return _parseRR(t.rr); // no risk% on file for this trade — fall back to the typed target ratio
+}
+
 function getAccSizeForAccount(accountName) {
   const acc = _getCustomAccounts ? _getCustomAccounts().find(a => a.name === accountName) : null;
   return parseFloat(acc?.size) || 0;

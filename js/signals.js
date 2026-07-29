@@ -2130,6 +2130,7 @@
     if (!drawer || !_sigAnaState.type) return;
     const type = _sigAnaState.type;
     drawer.innerHTML = `${_sigAnaHeader(type)}${_sigAnaControls(type)}<div id="sig-ana-body"></div>`;
+    window.attachPanelResize?.('sig-analytics-drawer', 'sigAnalyticsDrawerWidth');
     _sigAnaRenderBody();
   }
 
@@ -2163,6 +2164,7 @@
       document.body.appendChild(drawer);
     }
     drawer.innerHTML = _sigAnaSkeleton(type);
+    window.attachPanelResize?.('sig-analytics-drawer', 'sigAnalyticsDrawerWidth');
     requestAnimationFrame(() => drawer.classList.add('open'));
     clearTimeout(_sigAnaLoadTimer);
     // Brief, deliberate loading state — the underlying filter/sort is
@@ -3082,6 +3084,7 @@
     }
     drawer.innerHTML = _sigDrawerContent(s);
     drawer.dataset.signalId = id;
+    window.attachPanelResize?.('signal-drawer', 'signalDrawerWidth');
     requestAnimationFrame(() => drawer.classList.add('open'));
     // Local/demo signals already have their updates & activity rendered
     // Updates & Activity are fetched fresh from Supabase every time the

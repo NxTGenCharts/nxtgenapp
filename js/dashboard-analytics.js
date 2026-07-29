@@ -56,7 +56,7 @@ function updateKPIs() {
     const _isPos = _showDollar ? (_totalDollars >= 0) : (_totalPct >= 0);
     _pnlValueEl.className = 'cal-an-value ' + (_isPos ? 'green' : 'red');
   }
-  const rrNums = trades.map(t => _parseRR(t.rr)).filter(x => x !== null);
+  const rrNums = trades.map(t => _realizedRR(t)).filter(x => x !== null);
   const avgRR = rrNums.length ? (rrNums.reduce((a, b) => a + b, 0) / rrNums.length).toFixed(1) : null;
   // Trades are stored newest-added-first (unshift), so reverse to oldest-added-first
   // BEFORE the stable date sort — otherwise same-day trades keep reverse-entry order,
@@ -192,14 +192,23 @@ function updateKPIs() {
     } else {
       // Session win rates
       const sessions = ['London', 'New York', 'Asian'];
-      const sessionStats = sessions.map(s => {
+      const allSessionStats = sessions.map(s => {
         const st = trades.filter(t => t.kz === s);
         const sw = st.filter(t => t.outcome === 'Win').length;
         return { name: s, n: st.length, wr: st.length ? (sw / st.length) * 100 : null };
-      }).filter(s => s.n >= 3);
+      });
+      const MIN_SESSION_SAMPLE = 3;
+      const sessionStats = allSessionStats.filter(s => s.n >= MIN_SESSION_SAMPLE);
       sessionStats.sort((a, b) => b.wr - a.wr);
       const bestSession  = sessionStats[0] || null;
       const worstSession = sessionStats.length > 1 ? sessionStats[sessionStats.length - 1] : null;
+      // Sessions with too few trades to be statistically meaningful, but whose
+      // win rate would otherwise have outranked bestSession — called out
+      // explicitly so "strongest edge" doesn't imply a comparison across every
+      // session when some were actually excluded.
+      const untestedStandouts = allSessionStats.filter(s =>
+        s.n > 0 && s.n < MIN_SESSION_SAMPLE && bestSession && s.wr > bestSession.wr
+      );
 
       // Rating performance
       const ratingStats = [3, 4, 5].map(r => {
@@ -213,12 +222,20 @@ function updateKPIs() {
 
       if (bestSession) {
         const bsWr = bestSession.wr.toFixed(1);
-        let msg = `<strong>${bestSession.name}</strong> session is your strongest edge at <strong>${bsWr}%</strong> win rate`;
+        let msg = `<strong>${bestSession.name}</strong> is your strongest edge among sessions with ${MIN_SESSION_SAMPLE}+ trades, at <strong>${bsWr}%</strong> win rate`;
         if (worstSession && worstSession.wr < bestSession.wr - 15) {
           msg += ` — consider reducing <strong>${worstSession.name}</strong> exposure (${worstSession.wr.toFixed(1)}% win rate)`;
         }
+        if (untestedStandouts.length) {
+          const stNames = untestedStandouts.map(s => `<strong>${s.name}</strong> (${s.wr.toFixed(0)}%, ${s.n} trade${s.n === 1 ? '' : 's'})`).join(' and ');
+          msg += `. ${stNames} ${untestedStandouts.length === 1 ? 'looks' : 'look'} strong too, but ${untestedStandouts.length === 1 ? "hasn't" : "haven't"} seen enough trades yet to call it an edge`;
+        }
         parts.push(msg);
+      } else if (untestedStandouts.length === 0 && allSessionStats.some(s => s.n > 0)) {
+        // No session has hit the sample-size threshold yet
+        parts.push(`Log ${MIN_SESSION_SAMPLE}+ trades in a single session to unlock a session-based edge insight`);
       }
+
 
       // Rating insight — find where performance drops
       if (ratingStats.length >= 2) {

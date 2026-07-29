@@ -189,7 +189,7 @@ function _accComputeAnalytics(name) {
   const largestLoss  = losses.length ? Math.min(...losses.map(dollars)) : null;
   const expectancy   = at.length ? netDollars / at.length : 0;
 
-  const rrVals = at.map(t => _parseRR(t.rr)).filter(v => v !== null && !isNaN(v));
+  const rrVals = at.map(t => _realizedRR(t)).filter(v => v !== null && !isNaN(v));
   const avgRR  = rrVals.length ? rrVals.reduce((a,b) => a+b, 0) / rrVals.length : null;
 
   // Cumulative balance curve + underwater drawdown series + per-day P&L
@@ -220,7 +220,7 @@ function _accComputeAnalytics(name) {
   const rollWR  = []; { let w = 0; at.forEach((t,i) => { if (t.outcome==='Win') w++; rollWR.push((w/(i+1))*100); }); }
   const rollPF  = []; { let gw=0, gl=0; at.forEach(t => { const d=dollars(t); if (d>0) gw+=d; else gl+=Math.abs(d); rollPF.push(gl>0 ? gw/gl : (gw>0?3:0)); }); }
   const rollExp = rollNet.map((v,i) => v/(i+1));
-  const rollRR  = []; { let s=0, n=0; at.forEach(t => { const r=_parseRR(t.rr); if (r!==null && !isNaN(r)) { s+=r; n++; } rollRR.push(n? s/n : 0); }); }
+  const rollRR  = []; { let s=0, n=0; at.forEach(t => { const r=_realizedRR(t); if (r!==null && !isNaN(r)) { s+=r; n++; } rollRR.push(n? s/n : 0); }); }
   const rollDD  = ddSeries.map(p => p.dd);
   const rollCount = at.map((_,i) => i+1);
 

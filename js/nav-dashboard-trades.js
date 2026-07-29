@@ -1259,80 +1259,125 @@ function toggleDetailSize(id) {
   panel.addEventListener('pointercancel', endDrag);
 })();
 
-// Drag-to-resize the detail panel's left edge — desktop only. Mobile uses the
+// Drag-to-resize any side panel's left edge — desktop only. Mobile uses the
 // full-width bottom sheet above, and fullscreen mode is a fixed 100vw state,
 // so both are excluded here rather than fighting over inline width.
-(function initDetailPanelResize() {
-  const panel = document.getElementById('detail-panel');
+//
+// This is a shared utility (not just for the trade log): every panel in the
+// app that reuses the `.detail-panel` slide-in component — trade log detail,
+// signals detail drawer, signals analytics drawer, etc. — gets the same
+// drag-to-resize behavior, each with its own remembered width. Panels that
+// exist in the DOM from page load are wired up immediately below; panels
+// that are created on demand (e.g. signal drawers built the first time
+// they're opened) call window.attachPanelResize(panelId, storageKey)
+// themselves right after creating the element. Calling it more than once
+// on the same panel is safe — it no-ops if a handle is already attached.
+const PANEL_RESIZE_MIN_WIDTH = 360;
+const PANEL_RESIZE_DEFAULT_WIDTH = 420;
+
+function _panelResizeIsDesktop() {
+  return window.matchMedia('(min-width: 769px)').matches;
+}
+function _panelResizeMaxWidth() {
+  // Leave room for the rest of the app so the panel can't swallow the whole viewport
+  return Math.max(PANEL_RESIZE_MIN_WIDTH, Math.min(900, window.innerWidth - 320));
+}
+function _panelResizeClamp(w) {
+  return Math.max(PANEL_RESIZE_MIN_WIDTH, Math.min(w, _panelResizeMaxWidth()));
+}
+function _panelResizeApplySavedWidth(panel, storageKey) {
+  if (!_panelResizeIsDesktop()) { panel.style.width = ''; return; }
+  const saved = parseInt(localStorage.getItem(storageKey), 10);
+  if (saved) panel.style.width = _panelResizeClamp(saved) + 'px';
+}
+
+// Registry of every panel that's been wired up, so the shared window
+// 'resize' handler below can re-clamp all of them at once instead of each
+// panel adding its own listener.
+const _panelResizeRegistry = new Map(); // id -> storageKey
+
+// Ensures a panel has its resize handle in the DOM and its saved width
+// applied. Safe to call every time a panel's content is (re)rendered —
+// e.g. right after setting drawer.innerHTML on every open — since it just
+// re-adds the handle element if a previous innerHTML wipe removed it.
+// Drag behavior itself is handled by the single delegated listener set
+// below, keyed off data-panel-id / data-storage-key on the handle, so it
+// keeps working even when the handle node gets recreated.
+window.attachPanelResize = function attachPanelResize(panelId, storageKey) {
+  const panel = document.getElementById(panelId);
   if (!panel) return;
+  const STORAGE_KEY = storageKey || (panelId + 'Width');
+  _panelResizeRegistry.set(panelId, STORAGE_KEY);
 
-  const MIN_WIDTH = 360;
-  const DEFAULT_WIDTH = 420;
-  const STORAGE_KEY = 'detailPanelWidth';
+  _panelResizeApplySavedWidth(panel, STORAGE_KEY);
 
-  function isDesktop() {
-    return window.matchMedia('(min-width: 769px)').matches;
-  }
-  function maxWidth() {
-    // Leave room for the rest of the app so the panel can't swallow the whole viewport
-    return Math.max(MIN_WIDTH, Math.min(900, window.innerWidth - 320));
-  }
-  function clamp(w) {
-    return Math.max(MIN_WIDTH, Math.min(w, maxWidth()));
-  }
-
-  function applySavedWidth() {
-    if (!isDesktop()) { panel.style.width = ''; return; }
-    const saved = parseInt(localStorage.getItem(STORAGE_KEY), 10);
-    if (saved) panel.style.width = clamp(saved) + 'px';
-  }
-  applySavedWidth();
-
-  window.addEventListener('resize', () => {
-    if (!isDesktop()) { panel.style.width = ''; return; }
-    const current = parseInt(panel.style.width, 10);
-    if (current) panel.style.width = clamp(current) + 'px';
-  });
-
-  let handle = panel.querySelector('.detail-panel-resize-handle');
+  let handle = panel.querySelector(':scope > .detail-panel-resize-handle');
   if (!handle) {
     handle = document.createElement('div');
     handle.className = 'detail-panel-resize-handle';
     handle.title = 'Drag to resize · double-click to reset';
     panel.prepend(handle);
   }
+  handle.dataset.panelId = panelId;
+  handle.dataset.storageKey = STORAGE_KEY;
+};
 
-  let dragging = false, startX = 0, startWidth = 0;
+window.addEventListener('resize', () => {
+  _panelResizeRegistry.forEach((storageKey, panelId) => {
+    const panel = document.getElementById(panelId);
+    if (!panel) return;
+    if (!_panelResizeIsDesktop()) { panel.style.width = ''; return; }
+    const current = parseInt(panel.style.width, 10);
+    if (current) panel.style.width = _panelResizeClamp(current) + 'px';
+  });
+});
 
-  handle.addEventListener('pointerdown', (e) => {
-    if (!isDesktop() || panel.classList.contains('fullscreen')) return;
-    dragging = true;
-    startX = e.clientX;
-    startWidth = panel.getBoundingClientRect().width;
-    panel.classList.add('resizing');
-    document.body.classList.add('detail-resizing');
-    handle.setPointerCapture?.(e.pointerId);
-    e.preventDefault();
-  });
-  handle.addEventListener('pointermove', (e) => {
-    if (!dragging) return;
-    const dx = startX - e.clientX; // dragging left widens the panel (it's anchored on the right)
-    panel.style.width = clamp(startWidth + dx) + 'px';
-  });
-  function endResize() {
-    if (!dragging) return;
-    dragging = false;
-    panel.classList.remove('resizing');
-    document.body.classList.remove('detail-resizing');
-    localStorage.setItem(STORAGE_KEY, Math.round(panel.getBoundingClientRect().width));
-  }
-  handle.addEventListener('pointerup', endResize);
-  handle.addEventListener('pointercancel', endResize);
-  handle.addEventListener('dblclick', () => {
-    panel.style.width = DEFAULT_WIDTH + 'px';
-    localStorage.setItem(STORAGE_KEY, DEFAULT_WIDTH);
-  });
-})();
+// Single delegated drag handler covering every panel's resize handle,
+// present or recreated at any point — avoids re-binding listeners to a
+// handle node that a caller's innerHTML reset may have thrown away.
+let _panelResizeDragging = null; // { panel, storageKey, startX, startWidth }
+document.addEventListener('pointerdown', (e) => {
+  const handle = e.target.closest?.('.detail-panel-resize-handle');
+  if (!handle) return;
+  const panel = document.getElementById(handle.dataset.panelId);
+  if (!panel || !_panelResizeIsDesktop() || panel.classList.contains('fullscreen')) return;
+  _panelResizeDragging = {
+    panel, storageKey: handle.dataset.storageKey,
+    startX: e.clientX, startWidth: panel.getBoundingClientRect().width
+  };
+  panel.classList.add('resizing');
+  document.body.classList.add('detail-resizing');
+  handle.setPointerCapture?.(e.pointerId);
+  e.preventDefault();
+});
+document.addEventListener('pointermove', (e) => {
+  if (!_panelResizeDragging) return;
+  const { panel, startX, startWidth } = _panelResizeDragging;
+  const dx = startX - e.clientX; // dragging left widens the panel (it's anchored on the right)
+  panel.style.width = _panelResizeClamp(startWidth + dx) + 'px';
+});
+function _panelResizeEndDrag() {
+  if (!_panelResizeDragging) return;
+  const { panel, storageKey } = _panelResizeDragging;
+  panel.classList.remove('resizing');
+  document.body.classList.remove('detail-resizing');
+  localStorage.setItem(storageKey, Math.round(panel.getBoundingClientRect().width));
+  _panelResizeDragging = null;
+}
+document.addEventListener('pointerup', _panelResizeEndDrag);
+document.addEventListener('pointercancel', _panelResizeEndDrag);
+document.addEventListener('dblclick', (e) => {
+  const handle = e.target.closest?.('.detail-panel-resize-handle');
+  if (!handle) return;
+  const panel = document.getElementById(handle.dataset.panelId);
+  if (!panel) return;
+  panel.style.width = PANEL_RESIZE_DEFAULT_WIDTH + 'px';
+  localStorage.setItem(handle.dataset.storageKey, PANEL_RESIZE_DEFAULT_WIDTH);
+});
+
+// Wire up the trade log detail panel immediately — it's present in the DOM
+// from page load, unlike the on-demand drawers in signals.js.
+window.attachPanelResize('detail-panel', 'detailPanelWidth');
 function toggleCheck(id, idx) {
   const s = getTS(id);
   if (!s.checklist) s.checklist = [];

@@ -104,7 +104,7 @@ function pf3WinRateBreakdown(list) {
   const wins = list.filter(t => t.outcome === 'Win');
   const losses = list.filter(t => t.outcome === 'Loss');
   const be = total - wins.length - losses.length;
-  const rrNums = list.map(t => _parseRR(t.rr)).filter(x => x !== null);
+  const rrNums = list.map(t => _realizedRR(t)).filter(x => x !== null);
   const avgRR = rrNums.length ? (rrNums.reduce((a, b) => a + b, 0) / rrNums.length) : null;
   const dollars = list.map(t => ({ t, d: pf3DollarsOf(t) }));
   const largestWin = dollars.filter(x => x.t.pnl > 0).sort((a, b) => b.d - a.d)[0];
@@ -151,7 +151,7 @@ function pf3ConsistencyRadarData(list) {
   const emoTagged = list.filter(t => t.emotion);
   const emotionalControl = emoTagged.length ? (emoTagged.filter(t => t.emotion === 'Focused').length / emoTagged.length) * 100 : null;
 
-  const rrNums = list.map(t => _parseRR(t.rr)).filter(x => x !== null);
+  const rrNums = list.map(t => _realizedRR(t)).filter(x => x !== null);
   let riskConsistency = null;
   if (rrNums.length >= 3) {
     const mean = rrNums.reduce((a, b) => a + b, 0) / rrNums.length;

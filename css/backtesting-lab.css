@@ -118,9 +118,15 @@
     backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
   }
   .mob-overlay.show{ display:block }
+  /* The topbar's #sb-toggle-btn already stays visible and functional while
+     the sidebar is open on mobile, so this in-sidebar close chevron was a
+     second control doing the same job. Left hidden here (matching the
+     project's existing pattern of hiding via CSS rather than removing
+     markup — see .det-panel-close / .sig-drawer-close in
+     header-sidebar-premium-v2.css) so nothing else that references it has
+     to change. */
   .sb-close-btn{
-    display:flex;align-items:center;justify-content:flex-end;
-    padding:8px 12px 6px;
+    display:none;
   }
   .sb-close-btn button{
     background:var(--glass-2);border:1px solid var(--glass-border);

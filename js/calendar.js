@@ -73,11 +73,7 @@ function _calParseRR(rrStr) {
 }
 // Approximate realized R-multiple: full planned R on a Win, -1R on a Loss, 0 on B.E.
 function _calAchievedR(t) {
-  const r = _calParseRR(t.rr);
-  if (r === null) return null;
-  if (t.outcome === 'Win') return r;
-  if (t.outcome === 'Loss') return -1;
-  return 0;
+  return _realizedRR(t);
 }
 function _calFollowed(t) { return String(t.followedPlan || 'Yes').toLowerCase() === 'yes'; }
 function _calWeekday(dateStr) { return new Date(dateStr + 'T12:00:00').getDay(); }
@@ -794,7 +790,7 @@ function renderCalAnalyticsCards(monthTrades, dayMap, totalUSD, winDays, lossDay
     const momPct = (momDelta !== null && Math.abs(prevTotalUSD) > 0.001) ? (momDelta / Math.abs(prevTotalUSD)) * 100 : null;
     const avgPerDay = tradingDaysCount ? totalUSD / tradingDaysCount : 0;
     const streakTxt = calStats && calStats.curStreakType
-      ? `${calStats.curStreakLen} ${calStats.curStreakType === 'win' ? 'winning' : calStats.curStreakType === 'loss' ? 'losing' : 'breakeven'} day${calStats.curStreakLen === 1 ? '' : 's'}`
+      ? `${calStats.curStreakLen}-day ${calStats.curStreakType === 'win' ? 'win' : calStats.curStreakType === 'loss' ? 'loss' : 'breakeven'} streak`
       : '—';
     const streakDot = calStats && calStats.curStreakType === 'win' ? 'green' : calStats && calStats.curStreakType === 'loss' ? 'red' : 'blue';
 
@@ -805,7 +801,7 @@ function renderCalAnalyticsCards(monthTrades, dayMap, totalUSD, winDays, lossDay
           <div class="cal-an-value ${_calNetVal >= 0 ? 'green' : 'red'}">${_calNetDisplay}</div>
           <div class="cal2-sub-row">
             ${momPct !== null ? `<span class="cal2-sub-chip ${momPct >= 0 ? 'green' : 'red'}">${momPct >= 0 ? '▲' : '▼'} ${Math.abs(momPct).toFixed(1)}% vs last mo.</span>` : `<span class="cal2-sub-chip muted">No prior month</span>`}
-            <span class="cal2-sub-chip ${streakDot}"><span class="cal2-sub-dot ${streakDot}"></span>${streakTxt}</span>
+            <span class="cal2-sub-chip ${streakDot}" title="Current streak — this month has ${winDays} winning day${winDays === 1 ? '' : 's'} in total"><span class="cal2-sub-dot ${streakDot}"></span>${streakTxt}</span>
             <span class="cal2-sub-chip muted">Avg/day ${fmtUSD(avgPerDay)}</span>
           </div>
         </div>

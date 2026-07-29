@@ -117,7 +117,7 @@ function pf3CalOpenWrPopover() {
   const wins = list.filter(t => t.outcome === 'Win').length;
   const losses = list.filter(t => t.outcome === 'Loss').length;
   const be = list.length - wins - losses;
-  const rrNums = list.map(t => _parseRR(t.rr)).filter(v => v !== null);
+  const rrNums = list.map(t => _realizedRR(t)).filter(v => v !== null);
   const avgRR = rrNums.length ? rrNums.reduce((a, b) => a + b, 0) / rrNums.length : null;
   const stats = [
     pf3Stat('Wins', wins), pf3Stat('Losses', losses), pf3Stat('Break-evens', be),
