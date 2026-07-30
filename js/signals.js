@@ -3756,6 +3756,15 @@
 
   let _sigPendingScreenshotDataUrl = null;
 
+  function _sigHandleScreenshotFile(file) {
+    if (!file) return;
+    if (file.type && !file.type.startsWith('image/')) { showToast('Please attach an image file', 'error'); return; }
+    if (file.size > 2 * 1024 * 1024) { showToast('Screenshot must be under 2MB', 'error'); return; }
+    const reader = new FileReader();
+    reader.onload = () => { _sigPendingScreenshotDataUrl = reader.result; _sigModalState.dirty = true; _sigSetAutosaveLabel('Unsaved changes'); showToast('Screenshot attached', 'success'); };
+    reader.readAsDataURL(file);
+  }
+
   function _sigBindAutosave() {
     const body = document.querySelector('#sig-modal-overlay .modal-body');
     if (!body) return;
@@ -3763,12 +3772,40 @@
     const fileInput = document.getElementById('sf-chart');
     if (fileInput) fileInput.addEventListener('change', () => {
       const file = fileInput.files && fileInput.files[0];
-      if (!file) return;
-      if (file.size > 2 * 1024 * 1024) { showToast('Screenshot must be under 2MB', 'error'); return; }
-      const reader = new FileReader();
-      reader.onload = () => { _sigPendingScreenshotDataUrl = reader.result; _sigModalState.dirty = true; _sigSetAutosaveLabel('Unsaved changes'); showToast('Screenshot attached', 'success'); };
-      reader.readAsDataURL(file);
+      _sigHandleScreenshotFile(file);
     });
+    // Drag-and-drop onto the same field — purely additive, the "Choose
+    // File" input above still works exactly as before either way.
+    const dropZone = document.getElementById('sf-chart-drop');
+    if (dropZone) {
+      let dragDepth = 0; // tracks nested dragenter/dragleave across the hint text etc.
+      dropZone.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+        dragDepth++;
+        dropZone.classList.add('drag-over');
+      });
+      dropZone.addEventListener('dragover', (e) => e.preventDefault());
+      dropZone.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dragDepth = Math.max(0, dragDepth - 1);
+        if (dragDepth === 0) dropZone.classList.remove('drag-over');
+      });
+      dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dragDepth = 0;
+        dropZone.classList.remove('drag-over');
+        const file = e.dataTransfer?.files && e.dataTransfer.files[0];
+        if (!file) return;
+        // Keep the underlying <input type="file"> in sync too, so it shows
+        // the dropped file's name just like a normal manual selection would.
+        try {
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          if (fileInput) fileInput.files = dt.files;
+        } catch (err) { /* DataTransfer construction unsupported — fine, we still have the file directly */ }
+        _sigHandleScreenshotFile(file);
+      });
+    }
   }
   function _sigSetAutosaveLabel(text) {
     const el = document.getElementById('sig-autosave-status');
@@ -3937,7 +3974,13 @@
           <div class="form-field full"><label class="form-label">Notes</label><textarea class="form-textarea" id="sf-notes" placeholder="Private notes — not shown publicly" onblur="_sigNotesBlurSave()">${s.notes || ''}</textarea></div>
           <div class="form-field"><label class="form-label">Tags</label><input class="form-input" id="sf-tags" placeholder="breakout, htf-bias, news" value="${(s.tags || []).join(', ')}"></div>
           <div class="form-field"><label class="form-label">TradingView Link</label><input class="form-input" id="sf-tvlink" placeholder="https://tradingview.com/…" value="${s.tradingview_link || ''}"></div>
-          <div class="form-field"><label class="form-label">Chart Screenshot</label><input class="form-input" id="sf-chart" type="file" accept="image/*">${s.chart_screenshot_url ? '<div class="sig-existing-shot">✓ Screenshot attached</div>' : ''}</div>
+          <div class="form-field full"><label class="form-label">Chart Screenshot</label>
+            <div class="sig-chart-drop" id="sf-chart-drop">
+              <input class="form-input" id="sf-chart" type="file" accept="image/*">
+              <span class="sig-chart-drop-hint">${icn('ic-upload')} or drag &amp; drop an image here</span>
+            </div>
+            ${s.chart_screenshot_url ? '<div class="sig-existing-shot">✓ Screenshot attached</div>' : ''}
+          </div>
         </div>
       </div>
       <div class="form-actions">

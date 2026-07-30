@@ -74,7 +74,7 @@
 <link rel="stylesheet" href="css/base-tokens-layout.css?v=202607271150">
 <link rel="stylesheet" href="css/dashboard-tradelog.css?v=202607202045">
 <link rel="stylesheet" href="css/watchlist.css?v=202607202045">
-<link rel="stylesheet" href="css/misc-components-1.css?v=202607202045">
+<link rel="stylesheet" href="css/misc-components-1.css?v=202607291415">
 <link rel="stylesheet" href="css/accounts-playbook-monthly.css?v=202607202045">
 <link rel="stylesheet" href="css/calendar.css?v=202607202045">
 <link rel="stylesheet" href="css/trash-toast-misc.css?v=202607271150">
@@ -82,8 +82,8 @@
 <link rel="stylesheet" href="css/misc-polish-2.css?v=202607202045">
 <link rel="stylesheet" href="css/ai-coach-and-late-misc.css?v=202607271135">
 <link rel="stylesheet" href="css/profile.css?v=202607202045">
-<link rel="stylesheet" href="css/final-misc.css?v=202607202045">
-<link rel="stylesheet" href="css/signals.css?v=202607291345">
+<link rel="stylesheet" href="css/final-misc.css?v=202607291415">
+<link rel="stylesheet" href="css/signals.css?v=202607291400">
 <link rel="stylesheet" href="css/premium-controls.css?v=202607202045">
 <link rel="stylesheet" href="css/profile-premium.css?v=202607211200">
 <link rel="stylesheet" href="css/dashboard-premium.css?v=202607211400">
@@ -1258,7 +1258,8 @@
 
         <!-- ══ CHAT PANEL ══ -->
         <div id="ai-chat-panel" style="display:none">
-          <div class="chat-container">
+          <div class="chat-container" id="chat-container"
+               ondragover="chatDragOver(event)" ondragleave="chatDragLeave(event)" ondrop="chatDrop(event)">
 
             <!-- Chat header -->
             <div class="chat-header">
@@ -2336,12 +2337,12 @@
 
 <!-- ══ App Script — split into ordered chunks (loaded in the exact same order as the old single app.js, so execution behaves identically) ══ -->
  <script src="realtime-sync.js"></script>
-<script src="js/core-utils-ai.js?v=202607202045"></script>
+<script src="js/core-utils-ai.js?v=202607291415"></script>
 <script src="js/nav-dashboard-trades.js?v=202607291200"></script>
 <script src="js/watchlist.js?v=202607202045"></script>
 <script src="js/accounts.js?v=202607202045"></script>
 <script src="js/playbook.js?v=202607202045"></script>
-<script src="js/backtesting-lab.js?v=202607202045"></script>
+<script src="js/backtesting-lab.js?v=202607291415"></script>
 <script src="js/dashboard-analytics.js?v=202607202045"></script>
 <script src="js/chart-slots.js?v=202607202045"></script>
 <script src="js/calendar.js?v=202607202045"></script>
@@ -2355,7 +2356,7 @@
 <script src="js/accounts-premium.js?v=202607211500"></script>
 <script src="js/tradelog-premium.js?v=202607220200"></script>
 <script src="js/calendar-premium.js?v=202607220200"></script>
-<script src="js/signals.js?v=202607291345"></script>
+<script src="js/signals.js?v=202607291400"></script>
 
 <!-- ══ MOBILE SIDEBAR OVERLAY ══ already present above ══ -->
 

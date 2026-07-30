@@ -436,6 +436,8 @@
   background-size:cover; background-position:center; position:relative; overflow:hidden;
 }
 .bt-screenshot-slot:hover { border-color:var(--gold); color:var(--gold); }
+.bt-screenshot-slot.drag-over { border-color:var(--blue); background-color:rgba(96,165,250,0.08); color:var(--blue); }
+.bt-screenshot-drop-hint { font-size:8.5px; color:var(--text3); opacity:.7; }
 .bt-screenshot-slot.filled { border-style:solid; color:transparent; }
 .bt-screenshot-slot.filled span { display:none; }
 

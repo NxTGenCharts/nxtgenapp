@@ -1997,6 +1997,25 @@ function chatHandleFiles(input) {
   input.value = '';
 }
 
+// Drag-and-drop onto the chat panel — purely additive alongside the
+// existing paperclip click-to-attach button.
+function chatDragOver(e) {
+  e.preventDefault();
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+  if (e.dataTransfer && !e.dataTransfer.types.includes('Files')) return;
+  e.currentTarget.classList.add('drag-over');
+}
+function chatDragLeave(e) {
+  if (e.currentTarget.contains(e.relatedTarget)) return; // still inside — a child element fired this
+  e.currentTarget.classList.remove('drag-over');
+}
+function chatDrop(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const files = Array.from(e.dataTransfer?.files || []).filter(f => f.type.startsWith('image/'));
+  if (files.length) _chatLoadImageFiles(files);
+}
+
 async function _chatLoadImageFiles(files) {
   for (const file of files) {
     const dataUrl = await new Promise(res => {

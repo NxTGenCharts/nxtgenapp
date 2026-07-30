@@ -1304,6 +1304,11 @@
   border-radius: var(--r-lg);
   overflow: hidden;
   position: relative;
+  transition: border-color .15s var(--ease-out), background-color .15s var(--ease-out);
+}
+.chat-container.drag-over {
+  border-color: var(--blue);
+  background-color: rgba(96,165,250,0.06);
 }
 
 /* Chat tab: make the whole AI page a fixed-height flex column so the

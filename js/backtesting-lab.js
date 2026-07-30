@@ -25,8 +25,11 @@ function _openTradeEntryModal(sessionId, tradeId, prefill) {
 
   const screenshotSlots = ['before', 'entry', 'exit', 'marked'].map(key => {
     const url = d.screenshots?.[key];
-    return `<div class="bt-screenshot-slot${url ? ' filled' : ''}" id="bt-shot-${key}" style="${url ? `background-image:url('${url}')` : ''}" onclick="document.getElementById('bt-shot-input-${key}').click()">
-      <span>${key[0].toUpperCase() + key.slice(1)}</span>
+    return `<div class="bt-screenshot-slot${url ? ' filled' : ''}" id="bt-shot-${key}" style="${url ? `background-image:url('${url}')` : ''}"
+      onclick="document.getElementById('bt-shot-input-${key}').click()"
+      ondragover="_btShotDragOver(event)" ondragenter="_btShotDragEnter(event)"
+      ondragleave="_btShotDragLeave(event)" ondrop="_btShotDrop(event,'${key}')">
+      <span>${key[0].toUpperCase() + key.slice(1)}</span>${url ? '' : '<span class="bt-screenshot-drop-hint">or drop</span>'}
       <input type="file" accept="image/*" id="bt-shot-input-${key}" style="display:none" onchange="_btHandleScreenshotPick(this,'${key}')">
     </div>`;
   }).join('');
@@ -120,6 +123,10 @@ function _btAutoCalc() {
 
 async function _btHandleScreenshotPick(input, key) {
   const file = input.files?.[0]; if (!file) return;
+  await _btUploadScreenshotToSlot(key, file);
+}
+
+async function _btUploadScreenshotToSlot(key, file) {
   const slot = document.getElementById('bt-shot-' + key);
   if (slot) { slot.querySelector('span').textContent = 'Uploading…'; }
   const url = await _btUploadScreenshot(file);
@@ -127,6 +134,29 @@ async function _btHandleScreenshotPick(input, key) {
   const overlay = document.getElementById('bt-trade-edit-overlay');
   if (overlay) { overlay._btScreenshots = overlay._btScreenshots || {}; overlay._btScreenshots[key] = url; }
   if (slot) { slot.style.backgroundImage = `url('${url}')`; slot.classList.add('filled'); }
+}
+
+// Drag-and-drop onto a screenshot slot — purely additive alongside the
+// existing click-to-choose file input above.
+function _btShotDragOver(e) {
+  e.preventDefault();
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+}
+function _btShotDragEnter(e) {
+  e.preventDefault();
+  if (e.dataTransfer && !e.dataTransfer.types.includes('Files')) return;
+  e.currentTarget.classList.add('drag-over');
+}
+function _btShotDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+function _btShotDrop(e, key) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const file = e.dataTransfer?.files && e.dataTransfer.files[0];
+  if (!file) return;
+  if (file.type && !file.type.startsWith('image/')) { showToast('Please drop an image file', 'error'); return; }
+  _btUploadScreenshotToSlot(key, file);
 }
 
 async function _btSaveTradeModal(sessionId, tradeId) {
