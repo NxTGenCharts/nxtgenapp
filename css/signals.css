@@ -1455,3 +1455,70 @@ select.form-input option,select.form-select option{background:var(--bg2, #1a2035
 .sig-pair-dd-showmore:hover{text-decoration:underline}
 .sig-mgmt-rules-box{border:1px solid var(--glass-border);border-radius:10px;padding:10px 12px;background:var(--glass-0)}
 .sig-mgmt-rules-box .sig-body-text{margin:0}
+
+/* ── Live broker price (Signal Details panel) ────────────────────
+   Reuses the same design tokens as the rest of the drawer (.sig-ladder,
+   .sig-drawer-dates, etc) — a compact "terminal" readout for the exact
+   price the signal-monitor Edge Function is evaluating that signal
+   against. States: live | reconnecting | connecting | closed. */
+.sig-live-price{
+  border-radius:var(--r-lg);border:1px solid var(--glass-border);
+  background:var(--glass-1);padding:12px 14px;margin:14px 0;
+}
+.sig-live-price-top{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.sig-live-price-status{display:flex;align-items:center;gap:6px}
+.sig-live-price-status-label{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text2)}
+.sig-live-price-caption{font-size:10.5px;color:var(--text3);font-weight:600}
+.sig-live-price-dot{width:7px;height:7px;border-radius:50%;background:var(--text3);flex-shrink:0}
+
+/* Value — the visual focus. Tabular numerals + fixed decimals (set in
+   JS via _sigFmtPrice) so the digit width never jumps between ticks. */
+.sig-live-price-value{
+  font-family:var(--font-mono);font-size:26px;font-weight:800;letter-spacing:-0.3px;
+  color:var(--text);font-variant-numeric:tabular-nums;line-height:1.15;margin:6px 0 2px;
+}
+.sig-live-price-meta{font-size:10.5px;color:var(--text3)}
+
+.sig-live-price-distances{
+  display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:10px;padding-top:10px;
+  border-top:1px solid var(--border2);
+}
+.sig-live-price-dist-row{display:flex;align-items:center;gap:6px;font-size:11px;font-family:var(--font-mono)}
+.sig-live-price-dist-row .k{color:var(--text3);font-weight:600}
+.sig-live-price-dist-row .v{font-weight:800;font-variant-numeric:tabular-nums}
+.sig-live-price-dist-row .v.pos{color:var(--green)}
+.sig-live-price-dist-row .v.neg{color:var(--red)}
+
+/* Live — green, pulsing dot (reduced-motion respected below) */
+.sig-live-price[data-state="live"]{border-color:rgba(52,211,153,0.28);background:rgba(52,211,153,0.05)}
+.sig-live-price[data-state="live"] .sig-live-price-dot{background:var(--green)}
+.sig-live-price[data-state="live"] .sig-live-price-status-label{color:var(--green)}
+
+/* Reconnecting — amber, static dot (no pulse — the feed isn't fresh) */
+.sig-live-price[data-state="reconnecting"]{border-color:rgba(251,191,36,0.28);background:rgba(251,191,36,0.05)}
+.sig-live-price[data-state="reconnecting"] .sig-live-price-dot{background:var(--gold)}
+.sig-live-price[data-state="reconnecting"] .sig-live-price-status-label{color:var(--gold)}
+
+/* Connecting — neutral, static dot */
+.sig-live-price[data-state="connecting"] .sig-live-price-dot{background:var(--text3)}
+.sig-live-price[data-state="connecting"] .sig-live-price-value{color:var(--text3)}
+
+/* Closed — no status dot at all, plain final-price snapshot */
+.sig-live-price[data-state="closed"]{background:var(--glass-1)}
+.sig-live-price[data-state="closed"] .sig-live-price-value{color:var(--text2)}
+
+@media (prefers-reduced-motion: no-preference){
+  .sig-live-price[data-state="live"] .sig-live-price-dot{
+    box-shadow:0 0 0 0 var(--green-glow);animation:sig-live-price-pulse 1.8s ease-out infinite;
+  }
+}
+@keyframes sig-live-price-pulse{
+  0%{box-shadow:0 0 0 0 var(--green-glow)}
+  70%{box-shadow:0 0 0 6px rgba(52,211,153,0)}
+  100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}
+}
+
+@media (max-width:480px){
+  .sig-live-price-value{font-size:22px}
+  .sig-live-price-distances{gap:6px 12px}
+}
