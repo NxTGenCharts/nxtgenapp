@@ -2318,6 +2318,15 @@
     if (h < 24) return h.toFixed(0) + 'h ago';
     return Math.round(h / 24) + 'd ago';
   }
+  // Date a signal was actually taken (entered) — falls back to when it was
+  // published/created if it hasn't been entered yet (e.g. still waiting).
+  function _sigDateTaken(s) {
+    return s.entered_at || s.published_at || s.created_at || null;
+  }
+  function _sigFmtDate(ts) {
+    if (!ts) return '—';
+    return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
 
   function _sigConfBadge(s) {
     return `<div class="sig-conf">
@@ -2373,7 +2382,7 @@
     rr: s => +s.risk_reward || 0,
     confidence: s => +s.confidence_score || 0,
     session: s => SESSION_LABEL[s.session] || s.session || '',
-    date: s => s.created_at || 0,
+    date: s => _sigDateTaken(s) || 0,
     result: s => s.result || '',
     pips: s => _sigEffectiveMath(s).pips,
     profit: s => _sigEffectiveMath(s).profit_percent,
@@ -2407,7 +2416,7 @@
   window._sigExportTableCsv = function () {
     const rows = _sigApplyTableSort(_sigFilteredSignals());
     if (!rows.length) { showToast('Nothing to export', 'info'); return; }
-    const header = ['Status', 'Pair', 'Market', 'Direction', 'Entry', 'Stop Loss', 'TP1', 'TP2', 'Order Type', 'Risk:Reward', 'Confidence', 'Session', 'Created', 'Result', 'Pips', 'Profit %'];
+    const header = ['Status', 'Pair', 'Market', 'Direction', 'Entry', 'Stop Loss', 'TP1', 'TP2', 'Order Type', 'Risk:Reward', 'Confidence', 'Session', 'Date Taken', 'Created', 'Result', 'Pips', 'Profit %'];
     const csvRows = rows.map(s => {
       const em = _sigEffectiveMath(s);
       return [
@@ -2415,6 +2424,7 @@
         s.entry, s.stop_loss, s.tp1, s.tp2 || '', ORDER_TYPE_LABEL[s.order_type] || s.order_type,
         '1:' + s.risk_reward, s.confidence_score != null ? s.confidence_score + '%' : '',
         SESSION_LABEL[s.session] || s.session || '',
+        _sigDateTaken(s) ? new Date(_sigDateTaken(s)).toISOString() : '',
         s.created_at ? new Date(s.created_at).toISOString() : '',
         s.result || '', _sigHasOutcome(s) ? em.pips.toFixed(1) : '', _sigHasOutcome(s) ? em.profit_percent : '',
       ];
@@ -2466,7 +2476,7 @@
         <td>${_sigRrViz(s)}</td>
         <td>${_sigConfBadge(s)}</td>
         <td>${SESSION_LABEL[s.session] || (s.session || '—')}</td>
-        <td>${_timeAgo(s.created_at)}</td>
+        <td title="${_sigDateTaken(s) ? new Date(_sigDateTaken(s)).toLocaleString() : ''}">${_sigFmtDate(_sigDateTaken(s))}</td>
         <td>${_sigResultBadge(s)}</td>
         <td class="${em.pips > 0 ? 'sig-pips-pos' : em.pips < 0 ? 'sig-pips-neg' : ''}">${_sigHasOutcome(s) ? (em.pips > 0 ? '+' : '') + em.pips.toFixed(1) : '—'}</td>
         <td class="${em.profit_percent > 0 ? 'sig-pips-pos' : em.profit_percent < 0 ? 'sig-pips-neg' : ''}">${_sigHasOutcome(s) ? (em.profit_percent > 0 ? '+' : '') + em.profit_percent + '%' : '—'}</td>
@@ -2491,7 +2501,7 @@
           <thead><tr>
             <th></th>${_sigTh('Status', 'status')}${_sigTh('Pair', 'pair')}${_sigTh('Market', 'market')}${_sigTh('Direction', 'direction')}${_sigTh('Entry', 'entry')}<th>SL</th>
             <th>TP1</th><th>TP2</th><th>Order</th>${_sigTh('RR', 'rr')}${_sigTh('Confidence', 'confidence')}${_sigTh('Session', 'session')}
-            ${_sigTh('Date', 'date')}${_sigTh('Result', 'result')}${_sigTh('Pips', 'pips')}${_sigTh('Profit %', 'profit')}<th>Actions</th>
+            ${_sigTh('Date Taken', 'date')}${_sigTh('Result', 'result')}${_sigTh('Pips', 'pips')}${_sigTh('Profit %', 'profit')}<th>Actions</th>
           </tr></thead>
           <tbody>${body}</tbody>
         </table>
