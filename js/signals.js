@@ -3868,10 +3868,15 @@
       </div>
       <div class="modal-body">
         ${!isEdit ? `
-        <div class="sig-template-bar">
-          <button type="button" class="glass-btn glass-btn-cancel" onclick="_sigUseLastSignal()">${icn('ic-copy')} Use Last Signal</button>
-          <button type="button" class="glass-btn glass-btn-cancel" onclick="_sigOpenTemplatePicker(event)">${icn('ic-notebook')} Create from Template</button>
-          <button type="button" class="glass-btn glass-btn-cancel" onclick="_sigSaveAsTemplate()">${icn('ic-save')} Save as Template</button>
+        <div class="sig-quick-actions">
+          <div class="sig-quick-actions-head">
+            <span class="sig-quick-actions-label">Quick Start</span>
+            <button type="button" class="sig-tpl-link" onclick="_sigSaveAsTemplate()">${icn('ic-save')} Save as Template</button>
+          </div>
+          <div class="sig-tpl-grid">
+            <button type="button" class="sig-tpl-btn" onclick="_sigUseLastSignal()">${icn('ic-copy')} Use Last Signal</button>
+            <button type="button" class="sig-tpl-btn" onclick="_sigOpenTemplatePicker(event)">${icn('ic-notebook')} Create from Template</button>
+          </div>
         </div>` : ''}
         <div class="form-grid">
           <div class="form-field sig-pair-field">

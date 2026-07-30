@@ -1155,7 +1155,30 @@ select.form-input option,select.form-select option{background:var(--bg2, #1a2035
 .sig-notif-ts{font-size:10px;color:var(--text3)}
 
 /* ── Template quick actions (New Signal modal) ───────────────── */
-.sig-template-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;padding-bottom:14px;border-bottom:1px dashed var(--glass-border)}
+.sig-quick-actions{margin-bottom:14px;padding-bottom:14px;border-bottom:1px dashed var(--glass-border)}
+.sig-quick-actions-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.sig-quick-actions-label{font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3)}
+.sig-tpl-link{
+  display:inline-flex;align-items:center;gap:5px;background:none;border:none;padding:2px 0;
+  font-size:11.5px;font-weight:600;color:var(--text2);cursor:pointer;transition:var(--t-fast);
+  font-family:var(--font-body);
+}
+.sig-tpl-link:hover{color:var(--blue)}
+.sig-tpl-link .icn{width:13px;height:13px}
+.sig-tpl-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sig-tpl-btn{
+  display:flex;align-items:center;justify-content:center;gap:6px;min-height:38px;
+  padding:9px 10px;border-radius:var(--r-md);font-size:12px;font-weight:600;letter-spacing:0.1px;line-height:1.25;
+  border:1px solid var(--glass-border);background:var(--glass-1);color:var(--text2);
+  cursor:pointer;transition:var(--t-fast);text-align:center;white-space:normal;
+  font-family:var(--font-body);
+}
+.sig-tpl-btn:hover{background:var(--glass-2);color:var(--text);border-color:var(--glass-border-h);transform:translateY(-1px)}
+.sig-tpl-btn:active{transform:scale(0.97)}
+.sig-tpl-btn .icn{width:14px;height:14px;flex-shrink:0}
+@media (max-width:340px){
+  .sig-tpl-grid{grid-template-columns:1fr}
+}
 
 /* ── Publish review modal ────────────────────────────────────── */
 .sig-review-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
