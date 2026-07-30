@@ -453,9 +453,19 @@ async function evaluateSignal(s: SignalRow, price: number, source: string) {
   }
 
   // ── TP2 hit → mark completed (terminal, matches the manual "Close" outcome) ──
+  // NOTE: this must write status:"closed" (not "tp2_hit") — "tp2_hit" is a
+  // live *stage* the client treats as still "Ongoing"/"Active" (see
+  // ONGOING_STATUSES / SIG_LIVE_STATUSES in signals.js), it is never itself
+  // a terminal status. Writing "tp2_hit" here left closed_at set but the
+  // row still counted as an open/active signal forever — the dashboard
+  // kept showing it under Active Signals with an "Ongoing" pill even
+  // though the completion email had already gone out. tp2_hit_at is still
+  // recorded below so the timeline/stepper keeps showing TP1 → TP2 as
+  // reached milestones (see _sigStepReached in signals.js), it's just no
+  // longer what determines whether the signal is open or closed.
   if (!s.tp2_hit_at && isTp2Hit(s, price)) {
     const { data } = await sb.from("journal_signals")
-      .update({ status: "tp2_hit", tp2_hit_at: new Date().toISOString(), result: "win", closed_at: new Date().toISOString() })
+      .update({ status: "closed", tp2_hit_at: new Date().toISOString(), result: "win", closed_at: new Date().toISOString() })
       .eq("id", s.id).is("tp2_hit_at", null)
       .select("id");
     if (data && data.length) {
@@ -463,7 +473,11 @@ async function evaluateSignal(s: SignalRow, price: number, source: string) {
       const wrote = await logAutoUpdate(s.id, "tp2_hit", "tp2_hit", note, price);
       if (wrote) {
         await logActivity(s.id, s.owner_id, note);
-        await broadcast(s.id, s.pair, s.direction, "status_changed", `${s.pair}: ${note}`);
+        // Explicit "tp2_hit" event_type (not the generic "status_changed")
+        // so notify-subscribers renders the "Take Profit 2 Hit" email
+        // template regardless of the row's now-"closed" status — see the
+        // matching eventType branch added to resolveEmailKind().
+        await broadcast(s.id, s.pair, s.direction, "tp2_hit", `${s.pair}: ${note}`);
       }
     }
     return;
