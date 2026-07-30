@@ -69,6 +69,12 @@
   // an open, in-progress signal.
   const ONGOING_STATUSES = ['waiting', 'active', 'partial', 'breakeven', 'tp1_hit', 'tp2_hit'];
   const ENTERED_STATUSES = ['active', 'partial', 'breakeven', 'tp1_hit', 'tp2_hit'];
+  // Statuses the signal-monitor Edge Function still actively polls each
+  // tick (see OPEN_STATUSES in supabase/functions/market-data-proxy/
+  // 2-signal-monitor.index.ts). tp2_hit is intentionally excluded here —
+  // the engine treats it as terminal (closed_at gets set the same tick),
+  // so there's no live feed left to show once a signal reaches it.
+  const SIG_LIVE_STATUSES = ['waiting', 'active', 'partial', 'breakeven', 'tp1_hit'];
   // Order execution type — is this a live market fill or a pending (resting) order?
   const ORDER_TYPE_LABEL = {
     market: 'Market Execution', buy_limit: 'Buy Limit', sell_limit: 'Sell Limit',
@@ -572,6 +578,26 @@
     if (idx === -1) return; // not loaded on this page/view — nothing to patch
     _sigAll[idx] = _sigFromDbRow({ ..._sigAll[idx], ...row });
   }
+  // A row UPDATE from the monitor fires every tick (see evaluateSignal in
+  // 2-signal-monitor.index.ts, which always writes monitor_last_price /
+  // monitor_last_checked_at / monitor_source even when no milestone
+  // condition fires that tick). Comparing against everything BUT those
+  // three observability columns tells us whether this tick is "just a
+  // price update" or an actual state change (status, a TP/SL/BE
+  // milestone, an edit, etc). Price-only ticks get a cheap, targeted
+  // patch of just the live-price card; anything else still goes through
+  // the full refresh path exactly as before.
+  const SIG_NON_PRICE_FIELDS = [
+    'status', 'result', 'closed_at', 'entered_at', 'breakeven_at', 'tp1_hit_at', 'tp2_hit_at',
+    'entry', 'stop_loss', 'tp1', 'tp2', 'visibility', 'archived', 'is_draft', 'edited_at',
+  ];
+  function _sigIsPriceOnlyTick(before, after) {
+    if (!before || !after) return false;
+    const samePriceless = SIG_NON_PRICE_FIELDS.every(f => (before[f] ?? null) === (after[f] ?? null));
+    const priceChanged = before.monitor_last_price !== after.monitor_last_price
+      || before.monitor_last_checked_at !== after.monitor_last_checked_at;
+    return samePriceless && priceChanged;
+  }
   function _sigWatchLiveUpdates() {
     if (_sigLiveWatchStarted) return;
     _sigLiveWatchStarted = true;
@@ -588,7 +614,21 @@
       try {
         sb.channel('sig-live-status')
           .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'journal_signals' }, (payload) => {
+            const before = _sigAll.find(x => x.id === payload.new.id);
+            const priceOnlyTick = _sigIsPriceOnlyTick(before, payload.new);
             _sigApplyRowPatch(payload.new);
+            if (priceOnlyTick) {
+              // Cheap path: update only the open drawer's live-price card
+              // (if that's even the signal in question) — never touch the
+              // stats grid or the table/cards/calendar view for a tick
+              // that changed nothing they display.
+              const drawer = document.getElementById('signal-drawer');
+              if (drawer && drawer.classList.contains('open') && drawer.dataset.signalId === payload.new.id) {
+                const s = _sigAll.find(x => x.id === payload.new.id);
+                if (s) _sigUpdateLivePriceCard(s);
+              }
+              return;
+            }
             refresh();
           })
           .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'journal_signal_updates' }, (payload) => {
@@ -3102,6 +3142,11 @@
     drawer.dataset.signalId = id;
     window.attachPanelResize?.('signal-drawer', 'signalDrawerWidth');
     requestAnimationFrame(() => drawer.classList.add('open'));
+    // One ticker per open drawer — starting always tears down whatever
+    // was running before, so switching signals or reopening the panel
+    // repeatedly never accumulates intervals.
+    if (_sigIsLiveTrackedStatus(s)) _sigStartLivePriceTicker(id);
+    else _sigStopLivePriceTicker();
     // Local/demo signals already have their updates & activity rendered
     // Updates & Activity are fetched fresh from Supabase every time the
     // drawer opens, so the panel always reflects what's actually saved in
@@ -3158,6 +3203,7 @@
   window._sigCloseDrawer = function () {
     const d = document.getElementById('signal-drawer');
     if (d) { d.classList.remove('open'); delete d.dataset.signalId; }
+    _sigStopLivePriceTicker();
   };
 
   // Close the drawer when clicking/tapping anywhere outside of it — the
@@ -3228,6 +3274,187 @@
     document.addEventListener('pointercancel', endDrag);
   })();
 
+  // ══════════════════════════════════════════════════════════════
+  // LIVE BROKER PRICE — Signal Details panel
+  //
+  // Reuses the exact price the signal-monitor Edge Function already
+  // fetches and evaluates entry/TP/SL/breakeven against. That function
+  // writes `monitor_last_price` / `monitor_last_checked_at` /
+  // `monitor_source` onto the signal row on EVERY tick (see
+  // evaluateSignal() in 2-signal-monitor.index.ts) — regardless of
+  // whether a milestone actually fires — specifically so a consumer
+  // like this card always has a fresh number to show. No separate
+  // price feed, no client-side polling of any vendor API: this is
+  // purely a read of columns the backend already maintains, delivered
+  // to the browser over the Realtime channel the page already
+  // subscribes to (see _sigWatchLiveUpdates below).
+  // ══════════════════════════════════════════════════════════════
+
+  // How stale `monitor_last_checked_at` can get before the card stops
+  // calling itself "LIVE" — kept just above the monitor's own 1-minute
+  // cron interval so normal tick-to-tick jitter never falsely trips
+  // "reconnecting".
+  const SIG_LIVE_FRESH_MS = 90000;
+
+  function _sigIsLiveTrackedStatus(s) {
+    return SIG_LIVE_STATUSES.includes(s.status) && !s.archived && !s.is_draft;
+  }
+  // Whether the panel has anything at all worth rendering — either the
+  // signal is still being monitored, or it's terminal but did carry a
+  // last-known price at some point (so we can show a final snapshot
+  // instead of just disappearing).
+  function _sigShouldShowLiveCard(s) {
+    if (s.is_draft) return false;
+    if (_sigIsLiveTrackedStatus(s)) return true;
+    return s.monitor_last_price != null;
+  }
+
+  // Decimal precision is derived from the signal's own entry/SL/TP
+  // values — i.e. the precision whoever built the signal actually used,
+  // which already reflects the instrument's real tick size — rather
+  // than a hardcoded per-symbol table that would need maintaining and
+  // would inevitably miss something (indices, synthetics, etc).
+  function _sigPriceDecimals(s) {
+    let maxDec = 0;
+    [s.entry, s.stop_loss, s.tp1, s.tp2].forEach(v => {
+      if (v === null || v === undefined || v === '') return;
+      const str = String(v);
+      const dot = str.indexOf('.');
+      if (dot >= 0) maxDec = Math.max(maxDec, str.length - dot - 1);
+    });
+    if (maxDec > 0) return Math.min(maxDec, 5);
+    if (s.market === 'forex') return /JPY/i.test(s.pair || '') ? 3 : 5;
+    return 2;
+  }
+  function _sigFmtPrice(v, dec) {
+    if (v === null || v === undefined || isNaN(+v)) return '—';
+    return (+v).toFixed(dec);
+  }
+  // Mirrors effectiveStop() in the monitor Edge Function exactly — once
+  // breakeven has fired, the level that actually protects the trade is
+  // entry, not the original stop, and the distance shown here must
+  // agree with what the backend is actually protecting.
+  function _sigEffectiveStopClient(s) {
+    return s.breakeven_at ? s.entry : s.stop_loss;
+  }
+  // Same directional convention the monitor uses to evaluate every
+  // trigger (see currentRR: (price - entry) * dir) — positive means
+  // still-to-travel in the winning direction, negative means already
+  // eaten into the risk side. Deliberately not an independent trigger
+  // calculation — purely a display of distance using the identical sign
+  // convention, so it can never disagree with what actually closes a
+  // trade.
+  function _sigLiveDistance(s, level, price) {
+    if (level == null || price == null || isNaN(+level) || isNaN(+price)) return null;
+    const dir = s.direction === 'buy' ? 1 : -1;
+    return (+level - price) * dir;
+  }
+  function _sigLiveFeedState(s) {
+    if (!_sigIsLiveTrackedStatus(s)) return 'closed';
+    if (s.monitor_last_price == null) return 'connecting';
+    const checkedAt = s.monitor_last_checked_at ? new Date(s.monitor_last_checked_at).getTime() : 0;
+    return (Date.now() - checkedAt) <= SIG_LIVE_FRESH_MS ? 'live' : 'stale';
+  }
+  function _sigLiveFreshText(ts) {
+    if (!ts) return '—';
+    const diff = Date.now() - new Date(ts).getTime();
+    if (diff < 8000) return 'Just now';
+    if (diff < 60000) return Math.max(1, Math.round(diff / 1000)) + 's ago';
+    if (diff < 3600000) return Math.round(diff / 60000) + 'm ago';
+    return _timeAgo(new Date(ts).getTime());
+  }
+  function _sigLiveDistanceRows(s, price, dec) {
+    if (price == null) return '';
+    const items = [];
+    if (s.tp1 != null && !s.tp1_hit_at) items.push(['TP1 Distance', s.tp1]);
+    if (s.tp2 != null) items.push(['TP2 Distance', s.tp2]);
+    items.push([s.breakeven_at ? 'SL Distance (BE)' : 'SL Distance', _sigEffectiveStopClient(s)]);
+    const rows = items.map(([label, level]) => {
+      const d = _sigLiveDistance(s, level, price);
+      if (d == null) return '';
+      const cls = d > 0 ? 'pos' : d < 0 ? 'neg' : '';
+      return `<div class="sig-live-price-dist-row"><span class="k">${label}</span><span class="v ${cls}">${d > 0 ? '+' : ''}${_sigFmtPrice(d, dec)}</span></div>`;
+    }).join('');
+    return rows ? `<div class="sig-live-price-distances">${rows}</div>` : '';
+  }
+
+  function _sigLivePriceCardHtml(s) {
+    const dec = _sigPriceDecimals(s);
+    const state = _sigLiveFeedState(s);
+    const price = s.monitor_last_price != null ? +s.monitor_last_price : null;
+
+    if (state === 'closed') {
+      return `
+      <div class="sig-live-price" id="sig-live-price-${s.id}" data-state="closed">
+        <div class="sig-live-price-top"><span class="sig-live-price-caption">Final Market Price</span></div>
+        <div class="sig-live-price-value sig-mono">${_sigFmtPrice(price, dec)}</div>
+        <div class="sig-live-price-meta">Signal closed</div>
+      </div>`;
+    }
+    if (state === 'connecting') {
+      return `
+      <div class="sig-live-price" id="sig-live-price-${s.id}" data-state="connecting">
+        <div class="sig-live-price-top">
+          <span class="sig-live-price-status"><span class="sig-live-price-dot" aria-hidden="true"></span><span class="sig-live-price-status-label">CONNECTING</span></span>
+          <span class="sig-live-price-caption">Current Market Price</span>
+        </div>
+        <div class="sig-live-price-value sig-mono" aria-live="polite" aria-atomic="true">—</div>
+        <div class="sig-live-price-meta">Waiting for the next price update…</div>
+      </div>`;
+    }
+    if (state === 'stale') {
+      return `
+      <div class="sig-live-price" id="sig-live-price-${s.id}" data-state="reconnecting">
+        <div class="sig-live-price-top">
+          <span class="sig-live-price-status"><span class="sig-live-price-dot" aria-hidden="true"></span><span class="sig-live-price-status-label">RECONNECTING</span></span>
+          <span class="sig-live-price-caption">Live price temporarily unavailable</span>
+        </div>
+        <div class="sig-live-price-value sig-mono">${_sigFmtPrice(price, dec)}</div>
+        <div class="sig-live-price-meta">Last known price · ${_sigLiveFreshText(s.monitor_last_checked_at)}</div>
+      </div>`;
+    }
+    // state === 'live'
+    return `
+    <div class="sig-live-price" id="sig-live-price-${s.id}" data-state="live">
+      <div class="sig-live-price-top">
+        <span class="sig-live-price-status"><span class="sig-live-price-dot" aria-hidden="true"></span><span class="sig-live-price-status-label">LIVE</span></span>
+        <span class="sig-live-price-caption">Current Market Price</span>
+      </div>
+      <div class="sig-live-price-value sig-mono" aria-live="polite" aria-atomic="true">${_sigFmtPrice(price, dec)}</div>
+      <div class="sig-live-price-meta">Last update: ${_sigLiveFreshText(s.monitor_last_checked_at)}</div>
+      ${_sigLiveDistanceRows(s, price, dec)}
+    </div>`;
+  }
+
+  // Targeted DOM patch — replaces only the live-price card markup, never
+  // the surrounding drawer. Called both on a fresh Realtime price tick
+  // and from the freshness ticker below; if the card isn't in the DOM
+  // (drawer closed, or open on a different signal) this is a no-op.
+  function _sigUpdateLivePriceCard(s) {
+    const host = document.getElementById('sig-live-price-' + s.id);
+    if (!host) return;
+    host.outerHTML = _sigLivePriceCardHtml(s);
+  }
+
+  // Keeps the "Last update: Xs ago" text (and the live→reconnecting
+  // transition) moving even between Realtime ticks, without hitting the
+  // network. Single interval, always torn down before a new one starts
+  // and whenever the drawer closes/switches signals — never stacks.
+  let _sigLivePriceTickTimer = null;
+  function _sigStopLivePriceTicker() {
+    if (_sigLivePriceTickTimer) { clearInterval(_sigLivePriceTickTimer); _sigLivePriceTickTimer = null; }
+  }
+  function _sigStartLivePriceTicker(id) {
+    _sigStopLivePriceTicker();
+    _sigLivePriceTickTimer = setInterval(() => {
+      const drawer = document.getElementById('signal-drawer');
+      if (!drawer || !drawer.classList.contains('open') || drawer.dataset.signalId !== id) { _sigStopLivePriceTicker(); return; }
+      const s = _sigAll.find(x => x.id === id);
+      if (!s) { _sigStopLivePriceTicker(); return; }
+      _sigUpdateLivePriceCard(s);
+    }, 5000);
+  }
+
   function _sigDrawerContent(s) {
     return `
     <div class="sig-drawer-head">
@@ -3254,6 +3481,8 @@
       <span>${icn('ic-clock')} Expires ${s.expires_at ? _timeAgo(s.expires_at) : '—'}</span>
       ${s.edited_at ? `<span>${icn('ic-history')} Edited ${_timeAgo(s.edited_at)} by ${s.edited_by || 'You'}</span>` : ''}
     </div>
+
+    ${_sigShouldShowLiveCard(s) ? _sigLivePriceCardHtml(s) : ''}
 
     ${_sigRenderTimeline(s)}
 
