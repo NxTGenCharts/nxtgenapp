@@ -17,7 +17,7 @@
   function planMaxTradesPerDay() {
     // Best-effort read from the trader's own rules text; falls back to null
     // (meaning: unknown, don't claim a limit was breached).
-    const rules = (window._pbData && _pbData.rules) || (typeof RULES !== 'undefined' ? RULES : []);
+    const rules = (typeof _pbData !== 'undefined' && _pbData && _pbData.rules) || (typeof RULES !== 'undefined' ? RULES : []);
     const hit = (rules || []).find(r => /max\s*2\s*trades\/?day|max\s*\d+\s*trades\s*per\s*day/i.test(r));
     if (!hit) return null;
     const m = hit.match(/(\d+)\s*trades/i);
@@ -25,8 +25,8 @@
   }
 
   function safeDisplayName() {
-    const p = window._profileData || {};
-    return p.display_name || p.fname || (window._currentUser && _currentUser.email ? _currentUser.email.split('@')[0] : 'Trader');
+    const p = (typeof _profileData !== 'undefined' && _profileData) || {};
+    return p.display_name || p.fname || (typeof _currentUser !== 'undefined' && _currentUser && _currentUser.email ? _currentUser.email.split('@')[0] : 'Trader');
   }
 
   function greetingWord() {
@@ -159,7 +159,7 @@
     }
 
     /* Risk status — best-effort, transparent about what it can/can't verify */
-    const dailyLossRule = ((window._pbData && _pbData.rules) || (typeof RULES !== 'undefined' ? RULES : []))
+    const dailyLossRule = ((typeof _pbData !== 'undefined' && _pbData && _pbData.rules) || (typeof RULES !== 'undefined' ? RULES : []))
       .find(r => /max\s*daily\s*loss/i.test(r));
     const todayPnl = todayTrades.reduce((a, t) => a + _pnlPctValue(t), 0);
     const dailyLossPct = dailyLossRule ? (dailyLossRule.match(/-?\s*(\d+(\.\d+)?)\s*%/) || [])[1] : null;
@@ -346,7 +346,7 @@
   async function readinessLoad(dateKey) {
     _readiChecked = [];
     _readiRowId = null;
-    if (!window._currentUser || typeof sb === 'undefined') { _readiLoadedFor = dateKey; return; }
+    if (typeof _currentUser === 'undefined' || !_currentUser || typeof sb === 'undefined') { _readiLoadedFor = dateKey; return; }
     try {
       const { data, error } = await sb
         .from('ai_coach_daily_checks')
@@ -363,7 +363,7 @@
   }
 
   async function readinessSave(dateKey) {
-    if (!window._currentUser || typeof sb === 'undefined') return;
+    if (typeof _currentUser === 'undefined' || !_currentUser || typeof sb === 'undefined') return;
     try {
       const row = { user_id: _currentUser.id, check_date: dateKey, checked: _readiChecked, updated_at: new Date().toISOString() };
       if (_readiRowId) {
