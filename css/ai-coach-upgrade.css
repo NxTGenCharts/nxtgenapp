@@ -1,0 +1,98 @@
+/* ══════════════════════════════════════════════════════
+   AI COACH UPGRADE — Coaching Snapshot / Header / Readiness
+   Additive stylesheet. Reuses existing tokens from
+   base-tokens-layout.css. Does not modify any existing rule.
+   ══════════════════════════════════════════════════════ */
+
+/* ── Header ── */
+.coach-hd{
+  background:linear-gradient(135deg,var(--bg3),var(--bg4));
+  border:1px solid var(--border);
+  border-radius:var(--r-lg,16px);
+  padding:16px 18px;
+  margin-bottom:12px;
+}
+.coach-hd-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.coach-hd-label{font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.14em;margin-bottom:4px}
+.coach-hd-greet{font-family:var(--font-head,inherit);font-size:19px;font-weight:800;color:var(--text);letter-spacing:-0.4px;line-height:1.25}
+.coach-hd-sum{font-size:12.5px;color:var(--text2);margin-top:6px;line-height:1.55;max-width:640px}
+.coach-hd-conf{
+  display:inline-flex;align-items:center;gap:5px;font-size:10px;color:var(--text3);
+  border:1px solid var(--border);border-radius:var(--r-full,999px);padding:3px 9px;white-space:nowrap;
+}
+.coach-hd-conf .dot{width:6px;height:6px;border-radius:50%;background:var(--text3)}
+.coach-hd-conf.high .dot{background:var(--green)}
+.coach-hd-conf.med .dot{background:var(--gold)}
+.coach-hd-conf.low .dot{background:var(--text3)}
+.coach-hd-focus{
+  margin-top:12px;display:flex;align-items:flex-start;gap:10px;
+  background:var(--glass-1);border:1px solid var(--border);border-radius:12px;padding:10px 12px;
+}
+.coach-hd-focus .ico{font-size:14px;line-height:1;margin-top:1px;color:var(--purple)}
+.coach-hd-focus-label{font-size:9px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:.1em;margin-bottom:2px}
+.coach-hd-focus-txt{font-size:12.5px;color:var(--text);line-height:1.5}
+
+/* ── Coaching Snapshot grid ── */
+.snap-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+  gap:10px;margin-bottom:14px;
+}
+.snap-card{
+  background:var(--bg3);border:1px solid var(--border);border-radius:12px;
+  padding:11px 12px;cursor:pointer;transition:border-color .15s ease,transform .15s ease;
+}
+.snap-card:hover{border-color:var(--glass-border-h);transform:translateY(-1px)}
+.snap-card:focus-visible{outline:2px solid var(--border-focus);outline-offset:2px}
+.snap-card-top{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.snap-card-label{font-size:9.5px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em}
+.snap-card-val{font-size:14px;font-weight:800;color:var(--text);margin-top:5px;line-height:1.2}
+.snap-card-sub{font-size:11px;color:var(--text2);margin-top:4px;line-height:1.45}
+.snap-badge{display:inline-flex;align-items:center;gap:4px;font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:var(--r-full,999px)}
+.snap-badge .dot{width:5px;height:5px;border-radius:50%}
+.snap-badge.green{color:var(--green);background:var(--green-dim)}
+.snap-badge.green .dot{background:var(--green)}
+.snap-badge.red{color:var(--red);background:var(--red-dim)}
+.snap-badge.red .dot{background:var(--red)}
+.snap-badge.gold{color:var(--gold);background:var(--gold-glow)}
+.snap-badge.gold .dot{background:var(--gold)}
+.snap-badge.blue{color:var(--blue);background:var(--blue-dim)}
+.snap-badge.blue .dot{background:var(--blue)}
+.snap-badge.grey{color:var(--text3);background:var(--glass-1)}
+.snap-badge.grey .dot{background:var(--text3)}
+.snap-card-basis{font-size:10px;color:var(--text3);margin-top:6px;padding-top:6px;border-top:1px dashed var(--border2);line-height:1.4}
+
+/* Snapshot detail popover (simple inline expand) */
+.snap-card.expanded{border-color:var(--glass-border-h)}
+.snap-card-detail{display:none;margin-top:8px;font-size:11px;color:var(--text2);line-height:1.55;border-top:1px solid var(--border2);padding-top:8px}
+.snap-card.expanded .snap-card-detail{display:block}
+
+/* ── Readiness checklist (Daily Brief) ── */
+.readi-wrap{
+  background:var(--bg3);border:1px solid var(--border);border-radius:12px;
+  padding:12px 14px;margin-bottom:12px;
+}
+.readi-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.readi-title{font-size:11.5px;font-weight:700;color:var(--text);letter-spacing:-0.1px}
+.readi-count{font-size:10.5px;color:var(--text3)}
+.readi-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:6px}
+.readi-item{
+  display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:9px;
+  background:var(--glass-1);border:1px solid transparent;cursor:pointer;
+  font-size:11.5px;color:var(--text2);user-select:none;transition:background .12s ease,color .12s ease;
+}
+.readi-item:hover{background:var(--glass-2)}
+.readi-item.checked{background:var(--green-dim);color:var(--text);border-color:rgba(52,211,153,0.25)}
+.readi-check{
+  width:15px;height:15px;border-radius:5px;border:1.5px solid var(--text3);flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:10px;color:transparent;
+}
+.readi-item.checked .readi-check{border-color:var(--green);background:var(--green);color:#08160f}
+.readi-verdict{margin-top:10px;padding-top:10px;border-top:1px dashed var(--border2);font-size:12px;color:var(--text);line-height:1.55}
+.readi-verdict strong{color:var(--purple)}
+
+@media (max-width:640px){
+  .snap-grid{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+  .coach-hd{padding:14px}
+  .coach-hd-greet{font-size:17px}
+  .readi-list{grid-template-columns:1fr}
+}

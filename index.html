@@ -81,6 +81,7 @@
 <link rel="stylesheet" href="css/backtesting-lab.css?v=202607291200">
 <link rel="stylesheet" href="css/misc-polish-2.css?v=202607202045">
 <link rel="stylesheet" href="css/ai-coach-and-late-misc.css?v=202607271135">
+<link rel="stylesheet" href="css/ai-coach-upgrade.css?v=202607311000">
 <link rel="stylesheet" href="css/profile.css?v=202607202045">
 <link rel="stylesheet" href="css/final-misc.css?v=202607291415">
 <link rel="stylesheet" href="css/signals.css?v=202607291500">
@@ -1183,12 +1184,26 @@
         <!-- ══ COACH PANEL ══ -->
         <div id="ai-coach-panel">
 
-        <!-- Cover -->
-        <div class="cover ai-cover">
+        <!-- Cover (kept as a static fallback; JS-populated header renders below it) -->
+        <div class="cover ai-cover" style="display:none">
           <div class="cover-label">NxTGen Intelligence · Powered by Claude</div>
           <div class="cover-title">AI Trading Coach</div>
           <div class="cover-sub">Chart analysis · Pattern recognition · Psychology · Daily, weekly &amp; monthly reviews</div>
         </div>
+
+        <!-- CoachHeader: personalized greeting, AI summary, focus for today, data-confidence -->
+        <div class="coach-hd" id="ai-coach-header">
+          <div class="coach-hd-top">
+            <div>
+              <div class="coach-hd-label">NxTGen Intelligence · Powered by Claude</div>
+              <div class="coach-hd-greet">AI Trading Coach</div>
+              <div class="coach-hd-sum">Chart analysis · Pattern recognition · Psychology · Daily, weekly &amp; monthly reviews</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CoachingSnapshot: readiness, trend, strength, improvement area, risk, discipline -->
+        <div id="ai-coaching-snapshot"></div>
 
         <!-- Mode selector tabs -->
         <div class="ai-mode-bar">
@@ -1203,6 +1218,9 @@
 
         <!-- Context panel — changes per mode -->
         <div class="ai-context-panel" id="ai-context-panel"></div>
+
+        <!-- Daily Brief readiness checklist (visible only in daily mode) -->
+        <div class="readi-wrap" id="ai-daily-readiness" style="display:none"></div>
 
         <!-- Chart upload (only visible in chart mode) -->
         <div class="ai-chart-upload-wrap" id="ai-chart-upload-wrap" style="display:none">
@@ -2353,6 +2371,7 @@
 <script src="js/profile.js?v=202607202045"></script>
 <script src="js/profile-premium.js?v=202607211200"></script>
 <script src="js/dashboard-premium.js?v=202607211400"></script>
+<script src="js/ai-coach-upgrade.js?v=202607311000"></script>
 <script src="js/accounts-premium.js?v=202607211500"></script>
 <script src="js/tradelog-premium.js?v=202607220200"></script>
 <script src="js/calendar-premium.js?v=202607220200"></script>
