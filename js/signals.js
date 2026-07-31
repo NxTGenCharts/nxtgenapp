@@ -490,20 +490,56 @@
 
   // ══════════════════════════════════════════════════════════════
   // DATA LOADING (Supabase-first, demo fallback)
+  //
+  // The local/demo dataset exists for exactly one reason: letting the
+  // Signals page be explorable before `journal_signals` has been
+  // migrated yet. It must NEVER stand in for real data once real data
+  // has been shown — a dropped connection (phone locked overnight, wifi
+  // blip, laptop asleep) is not the same thing as "this table doesn't
+  // exist", and silently substituting fabricated trades in that case is
+  // a data-integrity bug, not a graceful fallback. So: demo data is only
+  // returned when the table is provably missing (Postgres 42P01 /
+  // "does not exist") AND this session has never successfully loaded
+  // real signals. Anything else — offline, timeout, a transient RLS/
+  // auth hiccup — throws, so the caller keeps whatever was already on
+  // screen and can retry instead of overwriting it with fake trades.
   // ══════════════════════════════════════════════════════════════
+  let _sigEverConnected = false; // true once a real Supabase load has ever succeeded this session
   async function _loadSignals() {
     if (typeof sb !== 'undefined' && sb) {
       try {
         const { data, error } = await sb.from('journal_signals').select('*').order('created_at', { ascending: false }).limit(500);
-        if (!error && data) {
-          _sigUsingSupabase = true;
-          return data.map(_sigFromDbRow);
+        if (error) throw error;
+        _sigUsingSupabase = true;
+        _sigEverConnected = true;
+        return data.map(_sigFromDbRow);
+      } catch (e) {
+        const tableMissing = e && (e.code === '42P01' || /relation .* does not exist/i.test(e.message || ''));
+        if (tableMissing && !_sigEverConnected) {
+          console.warn('journal_signals table not found yet — showing local demo data.');
+        } else {
+          console.error('load signals failed:', (e && e.message) || e);
+          throw e; // let the caller decide how to handle a real/transient failure
         }
-        if (error) console.error('load signals error:', error.message);
-      } catch (e) { /* table probably doesn't exist yet — fall through to demo */ }
+      }
     }
     _sigUsingSupabase = false;
     return _loadDemoSignals();
+  }
+
+  // Small, non-spammy connectivity notice — fires once when a load fails
+  // after we'd previously been connected, and once again when it recovers,
+  // instead of a toast on every failed 20-30s retry.
+  let _sigConnLost = false;
+  function _sigNoteConnLost() {
+    if (_sigConnLost) return;
+    _sigConnLost = true;
+    if (typeof showToast === 'function') showToast("Couldn't reach the server — showing your last synced signals. Retrying…", 'error');
+  }
+  function _sigNoteConnRestored() {
+    if (!_sigConnLost) return;
+    _sigConnLost = false;
+    if (typeof showToast === 'function') showToast('Back online — signals are up to date.', 'success');
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -516,7 +552,26 @@
       _sigInitDone = true;
       page.innerHTML = _sigPageShell();
     }
-    _sigAll = await _loadSignals();
+    try {
+      _sigAll = await _loadSignals();
+      _sigNoteConnRestored();
+    } catch (e) {
+      // Load failed (most likely offline) and it wasn't the "table
+      // doesn't exist yet" case — never fall back to demo data here.
+      // Keep whatever's already in _sigAll (real data from a previous
+      // successful load, or simply empty on a first-ever offline visit)
+      // and let the realtime/poll watchers below retry in the background.
+      _sigNoteConnLost();
+      if (!_sigAll || !_sigAll.length) {
+        _sigRenderStats();
+        _sigUpdateKpiVisibility();
+        _sigRenderActiveView();
+      }
+      _sigWatchNotifications();
+      _sigWatchLiveUpdates();
+      _sigWatchOnlineEvent();
+      return;
+    }
     // One-time self-heal for signals stuck on "waiting" whose order type
     // isn't actually a pending (resting) type — a leftover from before
     // edits reconciled status with order type (e.g. a Buy Limit that got
@@ -534,6 +589,7 @@
     _sigRefreshNotifBadge();
     _sigWatchNotifications();
     _sigWatchLiveUpdates();
+    _sigWatchOnlineEvent();
     if (!_sigUsingSupabase) {
       const badge = document.getElementById('sig-demo-badge');
       if (badge) badge.style.display = 'inline-flex';
@@ -598,6 +654,30 @@
       || before.monitor_last_checked_at !== after.monitor_last_checked_at;
     return samePriceless && priceChanged;
   }
+  let _sigOnlineWatchStarted = false;
+  function _sigWatchOnlineEvent() {
+    if (_sigOnlineWatchStarted) return;
+    _sigOnlineWatchStarted = true;
+    window.addEventListener('online', async () => {
+      if (!(typeof sb !== 'undefined' && sb)) return;
+      try {
+        _sigAll = await _loadSignals();
+        _sigNoteConnRestored();
+        _sigRenderStats();
+        _sigRenderActiveView();
+        const drawer = document.getElementById('signal-drawer');
+        if (drawer && drawer.classList.contains('open') && drawer.dataset.signalId) {
+          window._sigOpenDrawer(drawer.dataset.signalId);
+        }
+      } catch (e) {
+        // Browser says "online" but the request still failed (e.g. a
+        // captive portal) — leave _sigAll untouched, the 30s poll and
+        // the next 'online' event will keep trying.
+        console.error('reconnect load failed:', e);
+      }
+    });
+  }
+
   function _sigWatchLiveUpdates() {
     if (_sigLiveWatchStarted) return;
     _sigLiveWatchStarted = true;
@@ -610,7 +690,7 @@
         if (openId) { window._sigOpenDrawer(openId); }
       }
     };
-    if (_sigUsingSupabase && typeof sb !== 'undefined' && sb) {
+    if (typeof sb !== 'undefined' && sb) {
       try {
         sb.channel('sig-live-status')
           .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'journal_signals' }, (payload) => {
@@ -641,11 +721,17 @@
     // Fallback poll — cheap (just re-fetches the signal list) and
     // guarantees the UI self-heals even if Realtime is misconfigured
     // or momentarily disconnected. Uses the same _loadSignals() the
-    // page's own init calls, so demo/local mode is unaffected.
+    // page's own init calls, so demo/local mode is unaffected. Gated on
+    // `sb` existing at all (not on the last attempt having succeeded) —
+    // otherwise a first load that failed offline would never retry.
+    // A failure here NEVER touches _sigAll: _loadSignals() now throws
+    // instead of quietly handing back fabricated demo signals, so the
+    // catch below intentionally does nothing but note the outage —
+    // whatever real data is already on screen stays exactly as it was.
     setInterval(async () => {
-      if (!_sigUsingSupabase) return;
-      try { _sigAll = await _loadSignals(); refresh(); }
-      catch (e) { console.error('live status poll failed:', e); }
+      if (!(typeof sb !== 'undefined' && sb)) return;
+      try { _sigAll = await _loadSignals(); _sigNoteConnRestored(); refresh(); }
+      catch (e) { console.error('live status poll failed (keeping last known data):', e); _sigNoteConnLost(); }
     }, 30000);
   }
 
@@ -4623,7 +4709,11 @@
     _sigBroadcastSignalEvent({ ...final, id }, 'published', `${final.pair} ${final.direction === 'buy' ? 'BUY' : 'SELL'} signal published`);
     // Requirement: never trust local state alone — reload the live list
     // straight from the database so what's on screen matches what's saved.
-    _sigAll = await _loadSignals();
+    // The write above already succeeded, so if this reload fails (e.g. a
+    // connection drop right after publishing) keep the optimistic local
+    // state rather than losing the just-published signal or, worse,
+    // replacing it with fabricated demo data.
+    try { _sigAll = await _loadSignals(); } catch (e) { console.error('post-publish reload failed, keeping local state:', e); }
     _sigCloseReviewModal();
     _sigCloseModal();
     _sigRenderStats();
@@ -4654,7 +4744,7 @@
     }
     if (!ok) return;
     _sigLogActivity(id, 'scheduled', 'Scheduled for ' + new Date(ts).toLocaleString());
-    _sigAll = await _loadSignals();
+    try { _sigAll = await _loadSignals(); } catch (e) { console.error('post-schedule reload failed, keeping local state:', e); }
     _sigCloseReviewModal();
     _sigCloseModal();
     _sigRenderStats();
