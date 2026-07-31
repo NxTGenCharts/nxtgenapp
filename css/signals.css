@@ -1525,3 +1525,61 @@ select.form-input option,select.form-select option{background:var(--bg2, #1a2035
   .sig-live-price-value{font-size:22px}
   .sig-live-price-distances{gap:6px 12px}
 }
+
+/* ── Live market price (New/Edit Signal modal, under Entry) ──────
+   Compact by design — this sits inside a single form-field, so it
+   never widens the modal or forces the two-column grid to wrap.
+   Same color language as .sig-live-price (green=live, amber=stale,
+   muted=loading/unavailable) but as a single flexible row instead
+   of a full card. */
+.sf-live-price{
+  display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;
+  margin-top:7px;padding:6px 9px;border-radius:var(--r-md);
+  border:1px solid var(--glass-border);background:var(--glass-1);
+  font-size:11px;line-height:1.3;
+}
+.sf-live-price-dot{width:6px;height:6px;border-radius:50%;background:var(--text3);flex-shrink:0}
+.sf-live-price-status{display:flex;align-items:center;gap:5px}
+.sf-live-price-badge{
+  font-size:9px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text2);
+}
+.sf-live-price-text{color:var(--text2);font-weight:500;display:inline-flex;align-items:center;gap:4px}
+.sf-live-price-value{font-weight:800;color:var(--text)}
+.sf-live-price-synced{
+  display:inline-flex;align-items:center;gap:3px;font-size:9.5px;font-weight:700;
+  color:var(--green);white-space:nowrap;
+}
+.sf-live-price-synced .icn{width:10px;height:10px}
+.sf-live-price-meta{font-size:9.5px;color:var(--text3);white-space:nowrap}
+.sf-live-price-refresh{
+  margin-left:auto;flex-shrink:0;width:22px;height:22px;border-radius:var(--r-sm);
+  display:flex;align-items:center;justify-content:center;
+  background:transparent;border:1px solid var(--glass-border);color:var(--text3);
+  cursor:pointer;transition:var(--t-fast);padding:0;
+}
+.sf-live-price-refresh:hover{color:var(--text);border-color:var(--border2);background:var(--glass-2)}
+.sf-live-price-refresh .icn{width:12px;height:12px}
+
+/* Live — green pulsing dot, same convention as the drawer card */
+.sf-live-price[data-state="live"]{border-color:rgba(52,211,153,0.25);background:rgba(52,211,153,0.05)}
+.sf-live-price[data-state="live"] .sf-live-price-dot{background:var(--green)}
+.sf-live-price[data-state="live"] .sf-live-price-badge{color:var(--green)}
+@media (prefers-reduced-motion: no-preference){
+  .sf-live-price[data-state="live"] .sf-live-price-dot{
+    box-shadow:0 0 0 0 var(--green-glow);animation:sig-live-price-pulse 1.8s ease-out infinite;
+  }
+}
+
+/* Stale — last known price shown, amber accent, no pulse */
+.sf-live-price[data-state="stale"]{border-color:rgba(251,191,36,0.25);background:rgba(251,191,36,0.05)}
+.sf-live-price[data-state="stale"] .sf-live-price-dot{background:var(--gold)}
+.sf-live-price[data-state="stale"] .sf-live-price-badge{color:var(--gold)}
+
+/* Loading / unavailable — quiet, neutral, never blocks the form */
+.sf-live-price[data-state="loading"] .sf-live-price-text,
+.sf-live-price[data-state="unavailable"] .sf-live-price-text{color:var(--text3);font-weight:600}
+
+@media (max-width:480px){
+  .sf-live-price{font-size:10.5px;padding:6px 8px}
+  .sf-live-price-meta{display:none} /* keep the compact row from wrapping awkwardly on very narrow screens */
+}
