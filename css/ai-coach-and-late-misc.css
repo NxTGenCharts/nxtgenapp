@@ -617,7 +617,7 @@ body {
   }
   .wl-week-scroll { gap: 5px; }
   .wl-week-chip { padding: 4px 9px; font-size: 10px; }
-  .wl-add-week-btn { width: 100%; text-align: center; padding: 6px 12px; }
+  .wl-week-bar .wl-add-week-btn { width: 100%; text-align: center; padding: 6px 12px; }
 }
 
 /* ── Monthly Review: clickable Loss Audit / Pair Breakdown rows ── */

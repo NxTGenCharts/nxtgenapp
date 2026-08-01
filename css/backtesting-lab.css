@@ -420,7 +420,7 @@
   .modal-form-grid{ grid-template-columns:1fr }
   .form-grid{ grid-template-columns:1fr }
   .det-tab{ padding:5px 10px;font-size:11px }
-  .dash-layout{ padding:10px 10px 80px }
+  .dash-layout{ padding:0 0 80px }
   .dash-cal-panel .cal-day{ min-height:40px;padding:2px 3px }
   .dash-cal-panel .cal-kpi-val{ font-size:12px }
   .dash-cal-panel .cal-kpi-label{ font-size:7px }
