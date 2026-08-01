@@ -3004,9 +3004,13 @@ async function _goalsSave() {
 }
 
 function buildGoals() {
-  // Personal bests from live trades
-  const pbTbody = document.getElementById('goals-pb-tbody');
-  if (pbTbody) {
+  _goalsRenderOverview();
+  _goalsRenderInsights();
+  _goalsRenderUpcoming();
+
+  // Personal bests from live trades — premium card grid
+  const pbGrid = document.getElementById('goals-pb-cards');
+  if (pbGrid) {
     const wins = trades.filter(t => t.pnl > 0);
     const bigWin = wins.length ? wins.reduce((a, b) => _pnlPctValue(b) > _pnlPctValue(a) ? b : a, wins[0]) : null;
     // Best month
@@ -3021,12 +3025,19 @@ function buildGoals() {
     const rrAll = trades.map(t => { const v = _parseRR(t.rr); return v !== null ? {v,t} : null; }).filter(Boolean);
     const bestRR = rrAll.length ? rrAll.reduce((a,b)=>b.v>a.v?b:a,rrAll[0]) : null;
 
-    pbTbody.innerHTML = [
-      bigWin  ? `<tr><td>Biggest Win %</td><td class="outcome-win mono">${_pnlLabel(bigWin)}</td><td>${bigWin.date}</td><td class="bold">${bigWin.pair}</td></tr>` : '',
-      bestMonthKey ? `<tr><td>Best Month PnL</td><td class="outcome-win mono">+${monthMap[bestMonthKey].toFixed(1)}%</td><td>${bestMonthKey}</td><td>—</td></tr>` : '',
-      maxStreak ? `<tr><td>Longest Win Streak</td><td class="outcome-win mono">${maxStreak} trades</td><td>—</td><td>—</td></tr>` : '',
-      bestRR  ? `<tr><td>Best R:R Achieved</td><td class="outcome-win mono">1:${bestRR.v}</td><td>${bestRR.t.date}</td><td class="bold">${bestRR.t.pair}</td></tr>` : '',
-    ].filter(Boolean).join('') || '<tr><td colspan="4" style="color:var(--text3);text-align:center;font-style:italic">Log trades to see personal bests</td></tr>';
+    const cards = [
+      bigWin ? { label: 'Biggest Win %', icon: 'trend-up', val: _pnlLabel(bigWin), meta: `${bigWin.date} · ${bigWin.pair}` } : null,
+      bestMonthKey ? { label: 'Best Month PnL', icon: 'chart-line', val: `+${monthMap[bestMonthKey].toFixed(1)}%`, meta: bestMonthKey } : null,
+      maxStreak ? { label: 'Longest Win Streak', icon: 'fire', val: `${maxStreak} trades`, meta: 'Consecutive wins' } : null,
+      bestRR ? { label: 'Best R:R Achieved', icon: 'target', val: `1:${bestRR.v}`, meta: `${bestRR.t.date} · ${bestRR.t.pair}` } : null,
+    ].filter(Boolean);
+
+    pbGrid.innerHTML = cards.length ? cards.map(c => `
+      <div class="goals-pb-card">
+        <div class="goals-pb-label"><svg class="icn" aria-hidden="true" width="12" height="12"><use href="#ic-${c.icon}"></use></svg>${c.label}</div>
+        <div class="goals-pb-val">${c.val}</div>
+        <div class="goals-pb-meta">${c.meta}</div>
+      </div>`).join('') : '<div class="goals-pb-empty">Log trades to see personal bests</div>';
   }
 
   // Goals groups
@@ -3071,6 +3082,7 @@ function buildGoals() {
               </div>
             </div>`;
             }
+            if (item.type && item.type !== 'binary') return _goalTypedCardHtml(gi, ii, item);
             return `
             <div class="cl-item${item.done?' checked':''}"
                  draggable="true"
@@ -3084,6 +3096,8 @@ function buildGoals() {
               <span class="cl-drag-handle${_goalClickSrc && _goalClickSrc.gi===gi && _goalClickSrc.ii===ii ? ' selected' : ''}" onclick="goalHandleClick(event,${gi},${ii})" title="Drag, or click and click another to swap">⠿</span>
               <div class="cl-box">${item.done?'✓':''}</div>
               <span class="cl-text">${item.t}</span>
+              ${item.priority ? `<span class="goal-badge priority-${item.priority}" style="margin-right:6px">${item.priority}</span>` : ''}
+              ${item.deadline ? `<span class="goal-badge deadline" style="margin-right:6px">${item.deadline}</span>` : ''}
               <div class="acc-ms-actions">
                 <button class="wl-week-btn" style="font-size:10px;padding:2px 7px" onclick="goalStartEdit(${gi},${ii});event.stopPropagation()"><svg class="icn" aria-hidden="true"><use href="#ic-edit"></use></svg></button>
                 <button class="wl-week-btn danger" style="font-size:10px;padding:2px 7px" onclick="goalDeleteItem(${gi},${ii});event.stopPropagation()"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>
@@ -3102,6 +3116,7 @@ function buildGoals() {
   }
 
   // Affirmations
+  _affFeaturedRender();
   const affEl = document.getElementById('affirmations');
   if (affEl) {
     if (!_goalsData.affirmations || _goalsData.affirmations.length === 0) {
@@ -3359,7 +3374,370 @@ function _renderGoalsProgress() {
   fill.style.width = percent + '%';
 }
 
+/* ═══════════════════════════════════════════════════
+   GOALS UPGRADE — typed goals, auto-tracking, overview,
+   insights, upcoming milestones, new-goal modal.
+   All new item fields are optional and backward-compatible:
+   legacy {t, done} items keep rendering exactly as before.
+   ═══════════════════════════════════════════════════ */
+
+const GOAL_AUTO_METRICS = {
+  win_rate:    { label: 'Win rate %',        types: ['percentage'] },
+  trade_count: { label: 'Trade count',       types: ['count','numeric'] },
+  avg_rr:      { label: 'Average R:R',       types: ['numeric'] },
+};
+
+function _goalAutoCurrent(item) {
+  if (item.tracking !== 'auto' || !item.autoMetric) return null;
+  if (!trades || !trades.length) return { value: null, insufficient: true };
+  if (item.autoMetric === 'win_rate') {
+    return { value: +((trades.filter(t=>t.outcome==='Win').length / trades.length) * 100).toFixed(1), insufficient: false };
+  }
+  if (item.autoMetric === 'trade_count') {
+    return { value: trades.length, insufficient: false };
+  }
+  if (item.autoMetric === 'avg_rr') {
+    const rrAll = trades.map(t => _parseRR(t.rr)).filter(v => v !== null);
+    if (!rrAll.length) return { value: null, insufficient: true };
+    return { value: +(rrAll.reduce((a,b)=>a+b,0) / rrAll.length).toFixed(2), insufficient: false };
+  }
+  return { value: null, insufficient: true };
+}
+
+function _goalEffectiveCurrent(item) {
+  const auto = _goalAutoCurrent(item);
+  if (auto) return auto.insufficient ? null : auto.value;
+  return typeof item.current === 'number' ? item.current : 0;
+}
+
+function _goalStatus(item) {
+  const current = _goalEffectiveCurrent(item);
+  const target = typeof item.target === 'number' ? item.target : null;
+  if (item.done || (target != null && current != null && current >= target)) return 'complete';
+  if (!item.deadline) return null; // no basis to claim on-track/at-risk/behind without a deadline
+  const days = Math.ceil((new Date(item.deadline) - new Date(localToday())) / 86400000);
+  const pct = target ? Math.min(100, ((current||0) / target) * 100) : 0;
+  if (days < 0) return 'behind';
+  if (days <= 7 && pct < 80) return 'atrisk';
+  return 'ontrack';
+}
+
+const _GOAL_STATUS_LABEL = { ontrack: 'On Track', atrisk: 'At Risk', behind: 'Behind', complete: 'Completed' };
+
+function _goalTypedCardHtml(gi, ii, item) {
+  const auto = _goalAutoCurrent(item);
+  const current = _goalEffectiveCurrent(item);
+  const target = typeof item.target === 'number' ? item.target : null;
+  const unit = item.unit || '';
+  const pct = target ? Math.min(100, Math.round(((current||0) / target) * 100)) : 0;
+  const status = _goalStatus(item);
+  const insufficientAuto = auto && auto.insufficient;
+
+  const progressLabel = insufficientAuto
+    ? 'Insufficient data — log more trades to compute this automatically'
+    : target != null
+      ? `${current ?? 0}${unit} of ${target}${unit} (${pct}%)`
+      : `${current ?? 0}${unit}`;
+
+  return `
+  <div class="goal-card">
+    <div class="goal-card-top">
+      <span class="cl-drag-handle" draggable="true"
+            ondragstart="goalDragStart(event,${gi},${ii})" ondragover="goalDragOver(event)"
+            ondragenter="goalDragEnter(event,${gi},${ii})" ondragleave="goalDragLeave(event)"
+            ondrop="goalDrop(event,${gi},${ii})" ondragend="goalDragEnd(event)">⠿</span>
+      <span class="goal-card-title">${item.t}${item.cat ? ` <span style="color:var(--text3);font-weight:400">· ${item.cat}</span>` : ''}</span>
+      <div class="goal-card-actions">
+        ${(!auto) ? `<button class="wl-week-btn" style="font-size:10px;padding:2px 7px" onclick="goalUpdateProgress(${gi},${ii})">Update</button>` : ''}
+        <button class="wl-week-btn" style="font-size:10px;padding:2px 7px" onclick="goalStartEdit(${gi},${ii})"><svg class="icn" aria-hidden="true"><use href="#ic-edit"></use></svg></button>
+        <button class="wl-week-btn danger" style="font-size:10px;padding:2px 7px" onclick="goalDeleteItem(${gi},${ii})"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>
+      </div>
+    </div>
+    <div class="goal-card-badges">
+      ${status ? `<span class="goal-badge status-${status}">${_GOAL_STATUS_LABEL[status]}</span>` : ''}
+      ${item.priority ? `<span class="goal-badge priority-${item.priority}">${item.priority} priority</span>` : ''}
+      ${item.deadline ? `<span class="goal-badge deadline">Due ${item.deadline}</span>` : ''}
+      <span class="goal-badge auto">${auto ? 'Auto-tracked' : 'Manually tracked'}</span>
+    </div>
+    <div class="goal-card-progress">
+      <div class="goal-card-progress-label"><span>${progressLabel}</span></div>
+      <div class="goal-card-progress-bar"><div class="goal-card-progress-fill" style="width:${insufficientAuto ? 0 : pct}%"></div></div>
+    </div>
+    ${item.notes ? `<div class="goal-card-notes">"${item.notes}"</div>` : ''}
+  </div>`;
+}
+
+async function goalUpdateProgress(gi, ii) {
+  const item = _goalsData.groups[gi].items[ii];
+  const val = prompt(`Current progress for "${item.t}"${item.unit ? ` (${item.unit})` : ''}:`, item.current ?? 0);
+  if (val === null) return;
+  const num = parseFloat(val);
+  if (isNaN(num)) { showToast?.('Enter a valid number', 'danger'); return; }
+  item.current = num;
+  if (typeof item.target === 'number' && num >= item.target) item.done = true;
+  buildGoals();
+  await _goalsSave();
+}
+
+/* ── Overview cards ── */
+function _goalsRenderOverview() {
+  const el = document.getElementById('goals-overview');
+  if (!el) return;
+  const allItems = _goalsData.groups.flatMap(g => g.items);
+  const total = allItems.length;
+  const done = allItems.filter(i => i.done || _goalStatus(i) === 'complete').length;
+  const pct = total ? Math.round((done / total) * 100) : 0;
+
+  // Ring in header too
+  const ring = document.getElementById('goals-hd-ring');
+  const ringSvg = `<svg viewBox="0 0 44 44" class="goals-ov-ring">
+      <circle cx="22" cy="22" r="18" fill="none" stroke="var(--border2)" stroke-width="4"></circle>
+      <circle cx="22" cy="22" r="18" fill="none" stroke="var(--purple)" stroke-width="4"
+              stroke-dasharray="${(pct/100*113.1).toFixed(1)} 113.1" stroke-linecap="round" transform="rotate(-90 22 22)"></circle>
+    </svg>`;
+  if (ring) ring.innerHTML = `${ringSvg}<div><div style="font-size:16px;font-weight:800;color:var(--text)">${pct}% Complete</div><div style="font-size:11px;color:var(--text3)">${done} of ${total} goal${total===1?'':'s'} completed</div></div>`;
+
+  if (!total) {
+    el.innerHTML = `<div class="goals-panel" style="text-align:center;padding:24px 14px">
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">Start building your trading roadmap</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Create measurable goals for funding, consistency, profitability, risk management, and trading discipline.</div>
+      <button class="wl-add-week-btn" onclick="goalOpenNewGoalModal(0)">Create Your First Goal</button>
+    </div>`;
+    return;
+  }
+
+  const active = total - done;
+  // Current focus: nearest deadline among incomplete items, else first incomplete item
+  const incomplete = allItems.filter(i => !(i.done || _goalStatus(i) === 'complete'));
+  let focus = null;
+  const withDeadline = incomplete.filter(i => i.deadline).sort((a,b) => a.deadline.localeCompare(b.deadline));
+  focus = withDeadline[0] || incomplete[0] || null;
+
+  // Health: worst status across active items with a deadline (else "insufficient data")
+  const statuses = incomplete.map(_goalStatus).filter(Boolean);
+  let health = 'Insufficient Data';
+  if (statuses.includes('behind')) health = 'Behind';
+  else if (statuses.includes('atrisk')) health = 'At Risk';
+  else if (statuses.length) health = 'On Track';
+  else if (!incomplete.length) health = 'Completed';
+
+  el.innerHTML = `
+    <div class="goals-overview">
+      <div class="goals-ov-card">
+        <div class="goals-ov-label">Overall Progress</div>
+        <div class="goals-ov-val">${pct}%</div>
+        <div class="goals-ov-sub">${done} of ${total} goals completed</div>
+      </div>
+      <div class="goals-ov-card">
+        <div class="goals-ov-label">Active Goals</div>
+        <div class="goals-ov-val">${active}</div>
+        <div class="goals-ov-sub">${done} completed · ${active} remaining</div>
+      </div>
+      <div class="goals-ov-card">
+        <div class="goals-ov-label">Current Focus</div>
+        <div class="goals-ov-val" style="font-size:13px">${focus ? focus.t : 'No active goals'}</div>
+        <div class="goals-ov-sub">${focus && focus.deadline ? `Due ${focus.deadline}` : focus ? 'No deadline set' : ''}</div>
+      </div>
+      <div class="goals-ov-card">
+        <div class="goals-ov-label">Goal Health</div>
+        <div class="goals-ov-val" style="font-size:15px">${health}</div>
+        <div class="goals-ov-sub">${statuses.length ? `Based on ${statuses.length} active goal${statuses.length===1?'':'s'} with deadlines` : 'Add deadlines to track health'}</div>
+      </div>
+    </div>`;
+}
+
+/* ── Rule-based insights (no fabricated claims) ── */
+function _goalsRenderInsights() {
+  const el = document.getElementById('goals-insights');
+  if (!el) return;
+  const allItems = _goalsData.groups.flatMap(g => g.items.map(i => ({...i})));
+  if (!allItems.length) { el.innerHTML = ''; return; }
+
+  const insights = [];
+  const totalDone = allItems.filter(i => i.done || _goalStatus(i) === 'complete').length;
+  const remaining = allItems.length - totalDone;
+  if (remaining > 0 && remaining <= 3) insights.push(`You are ${remaining} goal${remaining===1?'':'s'} away from completing everything on this page.`);
+
+  _goalsData.groups.forEach(g => {
+    const gTotal = g.items.length;
+    if (!gTotal) return;
+    const gDone = g.items.filter(i => i.done || _goalStatus(i)==='complete').length;
+    const gPct = Math.round((gDone/gTotal)*100);
+    if (gDone > 0 && gDone < gTotal) insights.push(`Your "${g.q}" goals are currently ${gPct}% complete.`);
+  });
+
+  const soon = allItems.filter(i => !i.done && i.deadline).map(i => ({ ...i, days: Math.ceil((new Date(i.deadline) - new Date(localToday()))/86400000) }))
+    .filter(i => i.days >= 0 && i.days <= 14);
+  if (soon.length >= 1) insights.push(`${soon.length} goal${soon.length===1?' is' : 's are'} approaching ${soon.length===1?'its':'their'} deadline within 14 days.`);
+
+  const overdue = allItems.filter(i => !i.done && i.deadline && new Date(i.deadline) < new Date(localToday()));
+  if (overdue.length) insights.push(`${overdue.length} goal${overdue.length===1?' is':'s are'} past its deadline and not marked complete.`);
+
+  el.innerHTML = insights.length ? `
+    <div class="goals-panel">
+      <div class="goals-panel-title">Insights</div>
+      ${insights.map(t => `<div class="goals-insight-row"><span class="dot"></span>${t}</div>`).join('')}
+    </div>` : '';
+}
+
+/* ── Upcoming milestones (real deadlines only) ── */
+function _goalsRenderUpcoming() {
+  const el = document.getElementById('goals-upcoming');
+  if (!el) return;
+  const allItems = _goalsData.groups.flatMap(g => g.items);
+  const upcoming = allItems.filter(i => !i.done && i.deadline).sort((a,b) => a.deadline.localeCompare(b.deadline)).slice(0, 6);
+  if (!upcoming.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <div class="goals-panel">
+      <div class="goals-panel-title">Upcoming</div>
+      ${upcoming.map(i => `<div class="goals-upcoming-row"><span class="goals-upcoming-date">${i.deadline}</span><span>${i.t}</span></div>`).join('')}
+    </div>`;
+}
+
+/* ── New Goal modal (progressive disclosure by type) ── */
+function _ngTypeChange() {
+  const type = document.getElementById('ng-type')?.value;
+  const numeric = ['numeric','percentage','count','streak'].includes(type);
+  const numWrap = document.getElementById('ng-numeric-wrap');
+  const trackWrap = document.getElementById('ng-tracking-wrap');
+  if (numWrap) numWrap.style.display = numeric ? '' : 'none';
+  if (trackWrap) trackWrap.style.display = numeric ? '' : 'none';
+  _ngTrackingChange();
+}
+function _ngTrackingChange() {
+  const type = document.getElementById('ng-type')?.value;
+  const tracking = document.getElementById('ng-tracking')?.value;
+  const autoWrap = document.getElementById('ng-auto-wrap');
+  if (!autoWrap) return;
+  autoWrap.style.display = (tracking === 'auto') ? '' : 'none';
+  const sel = document.getElementById('ng-autometric');
+  if (sel && tracking === 'auto') {
+    sel.innerHTML = Object.entries(GOAL_AUTO_METRICS).filter(([,m]) => m.types.includes(type))
+      .map(([k,m]) => `<option value="${k}">${m.label}</option>`).join('') || '<option value="">No auto metric available for this type</option>';
+  }
+}
+
+function goalOpenNewGoalModal(gi) {
+  if (!_goalsData.groups.length) { _goalsData.groups.push({ q: 'General', items: [] }); gi = 0; }
+  if (gi == null || gi < 0 || gi >= _goalsData.groups.length) gi = 0;
+  const groupOptions = _goalsData.groups.map((g, i) => `<option value="${i}" ${i===gi?'selected':''}>${g.q}</option>`).join('');
+
+  openGlassModal({
+    icon: '<svg class="icn icn-blue" aria-hidden="true"><use href="#ic-target"></use></svg>',
+    title: 'New Goal',
+    confirmLabel: 'Create Goal',
+    confirmClass: 'glass-btn-restore',
+    body: `
+      <div class="gform-row full"><div class="gform-field"><label>Goal Title</label><input type="text" id="ng-title" placeholder="e.g. Reach $1,000 in payouts" autofocus></div></div>
+      <div class="gform-row">
+        <div class="gform-field"><label>Group</label><select id="ng-group">${groupOptions}</select></div>
+        <div class="gform-field"><label>Category</label><input type="text" id="ng-cat" placeholder="e.g. Funding"></div>
+      </div>
+      <div class="gform-row">
+        <div class="gform-field"><label>Goal Type</label>
+          <select id="ng-type" onchange="_ngTypeChange()">
+            <option value="binary">Binary (done / not done)</option>
+            <option value="numeric">Numeric target</option>
+            <option value="percentage">Percentage target</option>
+            <option value="count">Trade-count target</option>
+            <option value="streak">Streak (days)</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+        <div class="gform-field"><label>Priority</label>
+          <select id="ng-priority"><option value="medium" selected>Medium</option><option value="high">High</option><option value="low">Low</option></select>
+        </div>
+      </div>
+      <div id="ng-numeric-wrap" style="display:none">
+        <div class="gform-row">
+          <div class="gform-field"><label>Target</label><input type="number" id="ng-target" placeholder="e.g. 1000"></div>
+          <div class="gform-field"><label>Current</label><input type="number" id="ng-current" placeholder="0" value="0"></div>
+        </div>
+        <div class="gform-row"><div class="gform-field"><label>Unit</label><input type="text" id="ng-unit" placeholder="e.g. $, %, trades, days"></div></div>
+      </div>
+      <div id="ng-tracking-wrap" style="display:none">
+        <div class="gform-row">
+          <div class="gform-field"><label>Tracking Method</label>
+            <select id="ng-tracking" onchange="_ngTrackingChange()"><option value="manual" selected>Manual</option><option value="auto">Automatic (from your trades)</option></select>
+          </div>
+          <div class="gform-field" id="ng-auto-wrap" style="display:none"><label>Auto Metric</label><select id="ng-autometric"></select></div>
+        </div>
+      </div>
+      <div class="gform-row">
+        <div class="gform-field"><label>Deadline</label><input type="date" id="ng-deadline"></div>
+      </div>
+      <div class="gform-row full"><div class="gform-field"><label>Notes</label><textarea id="ng-notes" placeholder="Optional notes…"></textarea></div></div>
+      <div class="gform-hint">Automatic tracking is only available for win rate, trade count, and average R:R — everything else is tracked manually via the Update button.</div>
+    `,
+    onConfirm: async () => {
+      const title = document.getElementById('ng-title')?.value.trim() || 'Untitled Goal';
+      const groupIdx = parseInt(document.getElementById('ng-group')?.value ?? gi, 10);
+      const type = document.getElementById('ng-type')?.value || 'binary';
+      const item = { t: title, done: false };
+      const cat = document.getElementById('ng-cat')?.value.trim();
+      const priority = document.getElementById('ng-priority')?.value;
+      const deadline = document.getElementById('ng-deadline')?.value;
+      const notes = document.getElementById('ng-notes')?.value.trim();
+      if (cat) item.cat = cat;
+      if (priority) item.priority = priority;
+      if (deadline) item.deadline = deadline;
+      if (notes) item.notes = notes;
+      if (type !== 'binary') {
+        item.type = type;
+        const target = parseFloat(document.getElementById('ng-target')?.value);
+        const current = parseFloat(document.getElementById('ng-current')?.value);
+        if (!isNaN(target)) item.target = target;
+        item.current = isNaN(current) ? 0 : current;
+        const unit = document.getElementById('ng-unit')?.value.trim();
+        if (unit) item.unit = unit;
+        const tracking = document.getElementById('ng-tracking')?.value;
+        if (tracking === 'auto') {
+          const metric = document.getElementById('ng-autometric')?.value;
+          if (metric) { item.tracking = 'auto'; item.autoMetric = metric; }
+        }
+      }
+      _goalsData.groups[groupIdx].items.push(item);
+      buildGoals();
+      await _goalsSave();
+    },
+  });
+  setTimeout(_ngTypeChange, 0);
+}
+
+/* ── Featured affirmation ── */
+let _affFeaturedIdx = null;
+function _affFeaturedRender() {
+  const el = document.getElementById('aff-featured');
+  if (!el) return;
+  const list = _goalsData.affirmations || [];
+  if (!list.length) { el.innerHTML = ''; return; }
+  if (_affFeaturedIdx === null) {
+    const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(),0,0)) / 86400000);
+    _affFeaturedIdx = dayOfYear % list.length;
+  }
+  _affFeaturedIdx = ((_affFeaturedIdx % list.length) + list.length) % list.length;
+  el.innerHTML = `
+    <div class="aff-featured">
+      <div class="aff-featured-label">Today's Trading Mindset</div>
+      <div class="aff-featured-text">"${list[_affFeaturedIdx]}"</div>
+      <div class="aff-featured-sub">Consistency is built through execution, not emotion.</div>
+      <div class="aff-featured-controls">
+        <button class="wl-week-btn" onclick="affFeaturedShuffle()">Show another</button>
+      </div>
+    </div>`;
+}
+function affFeaturedShuffle() {
+  const list = _goalsData.affirmations || [];
+  if (list.length < 2) return;
+  let next;
+  do { next = Math.floor(Math.random() * list.length); } while (next === _affFeaturedIdx);
+  _affFeaturedIdx = next;
+  _affFeaturedRender();
+}
+
 function goalsAddGroup() {
+
+
   const name = prompt('Goal group name (e.g. Q3 2026 <svg class="icn icn-blue" aria-hidden="true"><use href="#ic-dot"></use></svg>):');
   if (!name) return;
   _goalsData.groups.push({ q: name, items: [] });
@@ -3375,11 +3753,7 @@ function goalsDeleteGroup(gi) {
 }
 
 function goalsAddItem(gi) {
-  const text = prompt('Goal text:');
-  if (!text) return;
-  _goalsData.groups[gi].items.push({ t: text, done: false });
-  buildGoals();
-  _goalsSave();
+  goalOpenNewGoalModal(gi);
 }
 
 // ═══════════════════════════════════════════════════

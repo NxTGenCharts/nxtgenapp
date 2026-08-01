@@ -84,6 +84,7 @@
 <link rel="stylesheet" href="css/ai-coach-upgrade.css?v=202607311000">
 <link rel="stylesheet" href="css/ai-chat-upgrade.css?v=202607311100">
 <link rel="stylesheet" href="css/ai-chat-history.css?v=202607311200">
+<link rel="stylesheet" href="css/goals-upgrade.css?v=202608011300">
 <link rel="stylesheet" href="css/profile.css?v=202607202045">
 <link rel="stylesheet" href="css/final-misc.css?v=202607291415">
 <link rel="stylesheet" href="css/signals.css?v=202607291500">
@@ -961,11 +962,31 @@
     ═══════════════════════════════════════════════ -->
     <div class="page" id="page-goals">
       <div class="page-inner">
-        <div class="cover">
-          <div class="cover-label">Set It · Track It · Achieve It</div>
-          <div class="cover-title">Goals & Milestones</div>
-          <div class="cover-sub">Review every quarter · 2026 Trading Plan</div>
+        <!-- Compact header (was oversized empty cover) -->
+        <div class="goals-hd">
+          <div class="goals-hd-top">
+            <div>
+              <div class="goals-hd-eyebrow">Set It · Track It · Achieve It</div>
+              <div class="goals-hd-title">Goals &amp; Milestones</div>
+              <div class="goals-hd-sub">Turn your trading objectives into measurable progress.</div>
+            </div>
+            <div class="goals-hd-actions">
+              <button class="wl-week-btn" onclick="document.getElementById('goals-list').scrollIntoView({behavior:'smooth',block:'start'})">Manage Groups</button>
+              <button class="wl-add-week-btn" onclick="goalOpenNewGoalModal(0)">+ New Goal</button>
+            </div>
+          </div>
+          <div class="goals-hd-ring-row" id="goals-hd-ring"></div>
         </div>
+
+        <!-- Overview cards: overall progress, active goals, current focus, health -->
+        <div id="goals-overview"></div>
+
+        <!-- Rule-based insights -->
+        <div id="goals-insights"></div>
+
+        <!-- Upcoming deadlines -->
+        <div id="goals-upcoming"></div>
+
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
           <div class="sec-head" style="margin-bottom:0" id="goals-section-head">Goals</div>
           <button class="wl-add-week-btn" onclick="goalsAddGroup()">＋ Add Group</button>
@@ -981,16 +1002,12 @@
         </div>
         <div id="goals-list"></div>
         <div class="sec-head">Personal Bests <span style="font-size:10px;color:var(--text3);font-weight:400;font-family:var(--font-mono)">· computed from your trades</span></div>
-        <div class="data-table-wrap">
-        <table class="data-table">
-          <thead><tr><th>Metric</th><th>Record</th><th>Date</th><th>Pair</th></tr></thead>
-          <tbody id="goals-pb-tbody"></tbody>
-        </table>
-        </div>
+        <div class="goals-pb-grid" id="goals-pb-cards"></div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-          <div class="sec-head" style="margin-bottom:0">Morning Affirmations</div>
+          <div class="sec-head" style="margin-bottom:0">Daily Trading Mindset</div>
           <button class="wl-add-week-btn" onclick="affAddItem()">＋ Add</button>
         </div>
+        <div id="aff-featured"></div>
         <div id="affirmations"></div>
       </div>
     </div>
