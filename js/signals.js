@@ -1843,11 +1843,10 @@
         `${m.totalPips >= 0 ? '+' : ''}<span class="sig-counting" data-target="${m.totalPips.toFixed(0)}">${m.totalPips.toFixed(0)}</span>`,
         `<div id="sig-w-pips-spark" class="sig-widget-apex"></div>`,
         'pips'),
-      // 9 — Total R: progress gauge
-      _sigWidgetShell('sig-w-totalr', 'sig-widget-ring-card', 'Total R', 'ic-scale', m.totalR >= 0 ? 'green' : 'red',
-        `${m.totalR >= 0 ? '+' : ''}<span class="sig-counting" data-target="${m.totalR.toFixed(1)}">${m.totalR.toFixed(1)}</span>R`,
-        `<div id="sig-w-totalr-ring" class="sig-widget-ring sig-widget-ring-solo"></div>`,
-        'totalr'),
+      // 9 — Signals Win Rate: percentage ring (wins ÷ closed win+loss signals)
+      _sigWidgetShell('sig-w-totalr', 'sig-widget-ring-card', 'Signals Win Rate', 'ic-target', m.winPct >= 50 ? 'green' : 'red',
+        `<span class="sig-counting" data-target="${m.winPct.toFixed(0)}">${m.winPct.toFixed(0)}</span>%`,
+        `<div id="sig-w-totalr-ring" class="sig-widget-ring sig-widget-ring-solo"></div>`),
       // 10 — Breakevens: signals that reached (or closed at) breakeven.
       // Replaces Open Positions, which just duplicated Active Signals.
       _sigWidgetShell('sig-w-breakeven', '', 'Breakevens', 'ic-scale', 'gold',
@@ -1899,7 +1898,7 @@
     ring('sig-w-win-ring', m.winPct, c.green, 54);
     ring('sig-w-acc-ring', m.weekAcc, m.weekAcc >= 50 ? c.green : c.red, 62);
     ring('sig-w-rr-ring', Math.min(100, (m.avgRR / 5) * 100), c.gold, 62);
-    ring('sig-w-totalr-ring', Math.min(100, Math.max(2, (Math.abs(m.totalR) / 20) * 100)), m.totalR >= 0 ? c.green : c.red, 62);
+    ring('sig-w-totalr-ring', m.winPct, m.winPct >= 50 ? c.green : c.red, 62);
     ring('sig-w-closed-ring', m.completionRate, c.purple, 54);
   }
 
