@@ -199,37 +199,37 @@ window._renderAccGrid = function (...args) {
 
   const profiles = (list) => list.map(a => _accRiskProfile(a.name));
 
-  const activeVisible   = _accSectionVisible('active');
-  const archivedVisible = _accSectionVisible('archived');
+  const activeVisible = _accSectionVisible('active');
 
-  const sectionToggleBtn = (section, visible) => `
-    <button class="acc-section-toggle-btn" title="${visible ? 'Hide' : 'Show'} ${section} accounts"
-      onclick="event.stopPropagation();_accToggleSection('${section}')">
-      <svg class="icn" aria-hidden="true" style="transform:rotate(${visible ? 90 : 0}deg);transition:transform .15s"><use href="#ic-chevron-right"></use></svg>
-      ${visible ? 'Hide' : 'Show'}
-    </button>`;
-
-  let html = `<div class="acch-grid-head">
-      <span class="acch-grid-title">Active (${active.length})</span>
-      ${sectionToggleBtn('active', activeVisible)}
-    </div>`;
-  html += activeVisible
+  let html = activeVisible
     ? `<div class="acch-grid">${active.length ? profiles(active).map(renderCard).join('') : '<div class="acc-empty">No active accounts yet — click <strong>Manage Accounts</strong> to add one.</div>'}</div>`
-    : '';
-
-  if (archived.length) {
-    html += `<div class="acch-grid-head" style="margin-top:18px">
-      <span class="acch-grid-title">Archived (${archived.length})</span>
-      ${sectionToggleBtn('archived', archivedVisible)}
-    </div>`;
-    html += archivedVisible ? `<div class="acch-grid">${profiles(archived).map(renderCard).join('')}</div>` : '';
-  }
+    : `<div class="acc-empty">Active accounts hidden. <button class="acc-section-toggle-btn" onclick="_accToggleSection('active')">Show</button></div>`;
 
   if (!active.length && !archived.length) {
     html = `<div class="acc-empty">No accounts yet — click <strong><svg class="icn" aria-hidden="true"><use href="#ic-settings"></use></svg> Manage Accounts</strong> to add one.</div>`;
   }
 
   grid.innerHTML = html;
+
+  // Archived Accounts render into their own section at the bottom of the page
+  const archMount = document.getElementById('acc-archived-section');
+  if (archMount) {
+    if (!archived.length) {
+      archMount.innerHTML = '';
+    } else {
+      const archivedVisible = _accSectionVisible('archived');
+      archMount.innerHTML = `
+        <div class="acch-grid-head" style="margin-top:24px">
+          <span class="acch-grid-title">Archived Accounts (${archived.length})</span>
+          <button class="acc-section-toggle-btn" title="${archivedVisible ? 'Hide' : 'Show'} archived accounts"
+            onclick="_accToggleSection('archived')">
+            <svg class="icn" aria-hidden="true" style="transform:rotate(${archivedVisible ? 90 : 0}deg);transition:transform .15s"><use href="#ic-chevron-right"></use></svg>
+            ${archivedVisible ? 'Hide' : 'Show'}
+          </button>
+        </div>
+        ${archivedVisible ? `<div class="acch-grid">${profiles(archived).map(renderCard).join('')}</div>` : ''}`;
+    }
+  }
 };
 
 function accAddTradeFor(name) {
@@ -428,48 +428,182 @@ function _renderPayoutSummary() {
   </div>`;
 }
 
-// ── Account detail view — inject a Risk & Payout section ───────────────
+// ── Account detail view — rebuild into tabs (Overview / Risk / Trades /
+//    Payouts / Settings), reusing the nodes the original render produced
+//    so none of the existing hero/KPI/equity-curve/trade-log logic is
+//    duplicated — we just regroup it after the fact.
 const _accUpgOrigShowDetail = window.accShowDetail;
 window.accShowDetail = function (name, ...rest) {
   const r = _accUpgOrigShowDetail.call(this, name, ...rest);
-  requestAnimationFrame(() => _accInjectRiskPanel(name));
+  requestAnimationFrame(() => _accEnhanceDetailView(name));
   return r;
 };
 
-function _accInjectRiskPanel(name) {
-  const container = document.querySelector('#acc-detail-body .acc-an');
-  if (!container) return;
-  const existing = document.getElementById('acch-detail-risk');
-  if (existing) existing.remove();
-
+function _accRiskPanelHtml(name) {
   const p = _accRiskProfile(name);
   const riskUnset = p.accSize <= 0;
+  return `
+    <div class="acch-detail-risk">
+      <div class="acc-an-sec-head" style="margin-top:0">Risk &amp; Payout</div>
+      <div class="acch-detail-risk-grid">
+        <div class="acch-detail-risk-col">
+          ${_accBarHtml('Daily Drawdown', riskUnset ? 'Set account size' : `$${p.dailyUsed.toFixed(2)} / $${p.dailyLimit.toFixed(2)} used`, p.dailyPct, { unset: riskUnset })}
+          ${_accBarHtml('Maximum Drawdown', riskUnset ? 'Set account size' : `$${p.maxUsed.toFixed(2)} / $${p.maxLimit.toFixed(2)} used`, p.maxPct, { unset: riskUnset })}
+        </div>
+        <div class="acch-detail-risk-col">
+          ${_accBarHtml('Profit Target', riskUnset ? 'Set account size' : `$${p.targetCurrent.toFixed(2)} / $${p.targetGoal.toFixed(2)}`, p.targetPct, { unset: riskUnset, color: 'var(--blue)' })}
+          ${_accBarHtml('Payout Goal', p.payoutGoal > 0 ? `$${p.payoutCurrent.toFixed(2)} / $${p.payoutGoal.toFixed(2)}` : 'Not set', p.payoutPct, { unset: p.payoutGoal <= 0, color: 'var(--gold)' })}
+        </div>
+      </div>
+      <div class="acch-detail-risk-meta">
+        <div><span class="k">Trading Days</span><span class="v">${p.r.minTradingDays > 0 ? `${p.m.tradingDays} / ${p.r.minTradingDays} required` : (p.m.tradingDays || '—')}</span></div>
+        <div><span class="k">Payout Eligibility</span><span class="v" style="color:${p.payoutEligible ? 'var(--teal)' : 'var(--text2)'}">${p.payoutEligible ? 'Eligible now' : (p.payoutGoal > 0 ? 'Not yet eligible' : 'No threshold set')}</span></div>
+        <div><span class="k">Next Payout Date</span><span class="v">${p.r.nextPayoutDate ? new Date(p.r.nextPayoutDate).toLocaleDateString() : '—'}</span></div>
+        <div><span class="k">Firm</span><span class="v">${p.r.firm || '—'}</span></div>
+      </div>
+      <button class="acch-act-btn" style="margin-top:10px" onclick="_openAccRiskSettings('${name.replace(/'/g, "\\'")}')"><svg class="icn" aria-hidden="true"><use href="#ic-settings"></use></svg> Edit Risk &amp; Payout Settings</button>
+    </div>`;
+}
 
-  const panel = document.createElement('div');
-  panel.id = 'acch-detail-risk';
-  panel.className = 'acch-detail-risk';
-  panel.innerHTML = `
-    <div class="acc-an-sec-head">Risk &amp; Payout</div>
-    <div class="acch-detail-risk-grid">
-      <div class="acch-detail-risk-col">
-        ${_accBarHtml('Daily Drawdown', riskUnset ? 'Set account size' : `$${p.dailyUsed.toFixed(2)} / $${p.dailyLimit.toFixed(2)} used`, p.dailyPct, { unset: riskUnset })}
-        ${_accBarHtml('Maximum Drawdown', riskUnset ? 'Set account size' : `$${p.maxUsed.toFixed(2)} / $${p.maxLimit.toFixed(2)} used`, p.maxPct, { unset: riskUnset })}
-      </div>
-      <div class="acch-detail-risk-col">
-        ${_accBarHtml('Profit Target', riskUnset ? 'Set account size' : `$${p.targetCurrent.toFixed(2)} / $${p.targetGoal.toFixed(2)}`, p.targetPct, { unset: riskUnset, color: 'var(--blue)' })}
-        ${_accBarHtml('Payout Goal', p.payoutGoal > 0 ? `$${p.payoutCurrent.toFixed(2)} / $${p.payoutGoal.toFixed(2)}` : 'Not set', p.payoutPct, { unset: p.payoutGoal <= 0, color: 'var(--gold)' })}
-      </div>
+function _accPayoutsTabHtml(name) {
+  const rows = (_accData.payouts || []).filter(p => p.account === name).sort((a, b) => b.date.localeCompare(a.date));
+  const total = rows.filter(p => p.status === 'Received').reduce((s, p) => s + parseFloat(p.amount || 0), 0);
+  if (!rows.length) {
+    return `<div class="acch-payout-empty">
+      <svg class="icn" aria-hidden="true"><use href="#ic-receipt"></use></svg>
+      <div><strong>No payouts recorded for ${name}</strong><div class="acch-ov-health-sub">Add a payout once this account pays out.</div></div>
+      <button class="wl-add-week-btn" onclick="accClosePayoutModalIfOpen();accAddPayout()">＋ Add Payout</button>
+    </div>`;
+  }
+  return `
+    <div class="acch-ov-row" style="grid-template-columns:1fr 1fr;margin-bottom:14px">
+      <div class="acch-ov-chip"><div class="acch-ov-chip-label">Total Received</div><div class="acch-ov-chip-val">$${total.toLocaleString()}</div></div>
+      <div class="acch-ov-chip"><div class="acch-ov-chip-label">Payouts Logged</div><div class="acch-ov-chip-val">${rows.length}</div></div>
     </div>
-    <div class="acch-detail-risk-meta">
-      <div><span class="k">Trading Days</span><span class="v">${p.r.minTradingDays > 0 ? `${p.m.tradingDays} / ${p.r.minTradingDays} required` : (p.m.tradingDays || '—')}</span></div>
-      <div><span class="k">Payout Eligibility</span><span class="v" style="color:${p.payoutEligible ? 'var(--teal)' : 'var(--text2)'}">${p.payoutEligible ? 'Eligible now' : (p.payoutGoal > 0 ? 'Not yet eligible' : 'No threshold set')}</span></div>
-      <div><span class="k">Next Payout Date</span><span class="v">${p.r.nextPayoutDate ? new Date(p.r.nextPayoutDate).toLocaleDateString() : '—'}</span></div>
-      <div><span class="k">Firm</span><span class="v">${p.r.firm || '—'}</span></div>
+    <div class="data-table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Date</th><th>Amount</th><th>Status</th><th>Method</th></tr></thead>
+        <tbody>
+          ${rows.map(p => `<tr>
+            <td class="mono">${p.date}</td>
+            <td class="outcome-win mono">$${parseFloat(p.amount).toLocaleString()}</td>
+            <td><span class="pill ${p.status==='Received'?'pill-green':'pill-gold'}">${p.status}</span></td>
+            <td style="color:var(--text3)">${p.paymentMethod || '—'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
     </div>
-    <button class="acch-act-btn" style="margin-top:10px" onclick="_openAccRiskSettings('${name.replace(/'/g, "\\'")}')"><svg class="icn" aria-hidden="true"><use href="#ic-settings"></use></svg> Edit Risk &amp; Payout Settings</button>
-  `;
+    <button class="wl-add-week-btn" style="margin-top:10px" onclick="accAddPayout()">＋ Add Payout</button>`;
+}
+
+function _accSettingsTabHtml(name) {
+  const list = _getCustomAccounts();
+  const idx = list.findIndex(a => a.name === name);
+  const acc = list[idx] || {};
+  const r = _accRiskDefaults(acc);
+  const accSize = parseFloat(acc.size) || 0;
+  const mt5On = !!acc.mt5?.enabled;
+  const mt5Status = acc.mt5?.lastSyncStatus || 'never';
+  const isArchived = acc.status === 'archived';
+  const row = (k, v) => `<div class="acch-settings-row"><span class="k">${k}</span><span class="v">${v}</span></div>`;
+  return `
+    <div class="acch-settings-block">
+      <div class="acch-settings-title">Account</div>
+      ${row('Firm', r.firm || '—')}
+      ${row('Type', acc.type || '—')}
+      ${acc.type === 'Challenge' ? row('Phase', acc.challengePhase || 'Phase 1') : ''}
+      ${row('Account Size', accSize > 0 ? '$' + accSize.toLocaleString() : 'Not set')}
+      ${row('Platform', r.platform || '—')}
+      ${row('PnL Display', (acc.pnlMode || '$') === '$' ? '$ USD' : '% Pct')}
+      <button class="acch-act-btn" style="margin-top:8px" onclick="_openManageAccounts()"><svg class="icn" aria-hidden="true"><use href="#ic-edit"></use></svg> Edit Name / Type / Size</button>
+    </div>
+    <div class="acch-settings-block">
+      <div class="acch-settings-title">Rules &amp; Payout</div>
+      ${row('Daily Loss Limit', r.dailyLossLimitPct + '%')}
+      ${row('Max Loss Limit', r.maxLossLimitPct + '%')}
+      ${row('Profit Target', r.profitTargetPct + '%')}
+      ${row('Payout Threshold', r.payoutThreshold > 0 ? '$' + r.payoutThreshold.toLocaleString() : 'Not set')}
+      ${row('Min Trading Days', r.minTradingDays || '—')}
+      <button class="acch-act-btn" style="margin-top:8px" onclick="_openAccRiskSettings('${name.replace(/'/g, "\\'")}')"><svg class="icn" aria-hidden="true"><use href="#ic-settings"></use></svg> Edit Rules &amp; Payout</button>
+    </div>
+    <div class="acch-settings-block">
+      <div class="acch-settings-title">MT5 Connection</div>
+      ${row('Status', mt5On ? ({ok:'Live',error:'Sync Error',syncing:'Syncing…'}[mt5Status] || 'Pending') : 'Not connected')}
+      <button class="acch-act-btn" style="margin-top:8px" onclick="mt5OpenModal('${name.replace(/'/g, "\\'")}')"><svg class="icn" aria-hidden="true"><use href="#ic-plug"></use></svg> ${mt5On ? 'Manage MT5' : 'Connect MT5'}</button>
+    </div>
+    <div class="acch-settings-block">
+      <div class="acch-settings-title">Danger Zone</div>
+      <button class="acch-act-btn" onclick="if(${idx}>=0){_toggleArchiveAccount(${idx});accCloseDetail();}">
+        <svg class="icn" aria-hidden="true"><use href="#ic-archive"></use></svg> ${isArchived ? 'Restore Account' : 'Archive Account'}
+      </button>
+    </div>`;
+}
+
+function accClosePayoutModalIfOpen() { /* placeholder kept for symmetry with accAddPayout's own overlay toggling */ }
+
+function _accEnhanceDetailView(name) {
+  const container = document.querySelector('#acc-detail-body .acc-an');
+  if (!container) return;
+
   const hero = container.querySelector('.acc-hero');
-  (hero || container).insertAdjacentElement('afterend', panel);
+  if (!hero) return;
+
+  const chal        = container.querySelector('.acc-chal-card');
+  const secHeads     = Array.from(container.querySelectorAll('.acc-an-sec-head'));
+  const perfHead      = secHeads.find(h => h.textContent.trim() === 'Performance Scorecard');
+  const kpiScorecard   = container.querySelector('.acc-kpi-scorecard');
+  const eqSection      = container.querySelector('.acc-eq-section');
+  const tradeHead      = secHeads.find(h => h.textContent.trim() === 'Trade Log');
+  const tradeTableWrap = tradeHead ? tradeHead.nextElementSibling : null;
+  const noTradesMsg    = !tradeHead
+    ? Array.from(container.children).find(el => el.textContent && el.textContent.indexOf('No trades logged under this account yet.') !== -1)
+    : null;
+
+  // Build tab shell
+  const shell = document.createElement('div');
+  shell.className = 'acch-tabs-wrap';
+  shell.innerHTML = `
+    <div class="acch-tabs" role="tablist">
+      <button class="acch-tab-btn active" data-tab="overview">Overview</button>
+      <button class="acch-tab-btn" data-tab="risk">Risk &amp; Payout</button>
+      <button class="acch-tab-btn" data-tab="trades">Trades</button>
+      <button class="acch-tab-btn" data-tab="payouts">Payouts</button>
+      <button class="acch-tab-btn" data-tab="settings">Settings</button>
+    </div>
+    <div class="acch-tab-panel active" data-panel="overview"></div>
+    <div class="acch-tab-panel" data-panel="risk">${_accRiskPanelHtml(name)}</div>
+    <div class="acch-tab-panel" data-panel="trades"></div>
+    <div class="acch-tab-panel" data-panel="payouts">${_accPayoutsTabHtml(name)}</div>
+    <div class="acch-tab-panel" data-panel="settings">${_accSettingsTabHtml(name)}</div>
+  `;
+
+  const overviewPanel = shell.querySelector('[data-panel="overview"]');
+  if (perfHead) overviewPanel.appendChild(perfHead);
+  if (kpiScorecard) overviewPanel.appendChild(kpiScorecard);
+  if (eqSection) overviewPanel.appendChild(eqSection);
+
+  const riskPanel = shell.querySelector('[data-panel="risk"]');
+  if (chal) riskPanel.appendChild(chal);
+
+  const tradesPanel = shell.querySelector('[data-panel="trades"]');
+  if (tradeHead) tradesPanel.appendChild(tradeHead);
+  if (tradeTableWrap) tradesPanel.appendChild(tradeTableWrap);
+  if (noTradesMsg) tradesPanel.appendChild(noTradesMsg);
+
+  // Clear anything left behind after hero, then mount the tab shell
+  let node = hero.nextSibling;
+  while (node) { const next = node.nextSibling; node.remove(); node = next; }
+  hero.insertAdjacentElement('afterend', shell);
+
+  shell.querySelectorAll('.acch-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      shell.querySelectorAll('.acch-tab-btn').forEach(b => b.classList.remove('active'));
+      shell.querySelectorAll('.acch-tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      shell.querySelector(`[data-panel="${btn.dataset.tab}"]`).classList.add('active');
+      if (btn.dataset.tab === 'overview') requestAnimationFrame(() => _accDrawEquityCurve(name));
+    });
+  });
 }
 
 // ── Hook everything into buildAccounts() ────────────────────────────────
