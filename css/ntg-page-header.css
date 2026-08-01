@@ -92,6 +92,7 @@
 }
 .ntg-hd-wave{ width:88px; height:26px; flex-shrink:0; }
 .ntg-hd-wave svg{ display:block; width:100%; height:100%; }
+.ntg-hd-wave:empty{ display:none; width:0; }
 
 /* Optional action buttons (reuse existing wl-week-btn / wl-add-week-btn look) */
 .ntg-hd-actions{
