@@ -83,6 +83,7 @@
 <link rel="stylesheet" href="css/ai-coach-and-late-misc.css?v=202607271135">
 <link rel="stylesheet" href="css/ai-coach-upgrade.css?v=202607311000">
 <link rel="stylesheet" href="css/ai-chat-upgrade.css?v=202607311100">
+<link rel="stylesheet" href="css/ai-chat-history.css?v=202607311200">
 <link rel="stylesheet" href="css/profile.css?v=202607202045">
 <link rel="stylesheet" href="css/final-misc.css?v=202607291415">
 <link rel="stylesheet" href="css/signals.css?v=202607291500">
@@ -1292,6 +1293,8 @@
                 </div>
               </div>
               <div class="chat-header-actions">
+                <button class="chat-action-btn" onclick="chatHistNewChat()" title="New chat"><svg class="icn" aria-hidden="true"><use href="#ic-plus"></use></svg></button>
+                <button class="chat-action-btn" id="chat-hist-btn" onclick="chatHistToggle()" title="Conversation history"><svg class="icn" aria-hidden="true"><use href="#ic-history"></use></svg></button>
                 <button class="chat-action-btn" onclick="chatClearHistory()" title="Clear chat"><svg class="icn" aria-hidden="true"><use href="#ic-trash"></use></svg></button>
                 <button class="chat-action-btn" onclick="chatExport()" title="Export chat"><svg class="icn" aria-hidden="true"><use href="#ic-download"></use></svg></button>
               </div>
@@ -1343,6 +1346,9 @@
             </div>
 
           </div>
+
+          <!-- Conversation history panel/drawer (populated by ai-chat-history.js) -->
+          <div id="chat-history-panel" class="chat-hist-panel" aria-hidden="true"></div>
         </div><!-- /ai-chat-panel -->
 
       </div>
@@ -2377,6 +2383,7 @@
 <script src="js/dashboard-premium.js?v=202607211400"></script>
 <script src="js/ai-coach-upgrade.js?v=202607311000"></script>
 <script src="js/ai-chat-upgrade.js?v=202607311100"></script>
+<script src="js/ai-chat-history.js?v=202607311200"></script>
 <script src="js/accounts-premium.js?v=202607211500"></script>
 <script src="js/tradelog-premium.js?v=202607220200"></script>
 <script src="js/calendar-premium.js?v=202607220200"></script>
