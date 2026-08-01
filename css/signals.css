@@ -1583,3 +1583,127 @@ select.form-input option,select.form-select option{background:var(--bg2, #1a2035
   .sf-live-price{font-size:10.5px;padding:6px 8px}
   .sf-live-price-meta{display:none} /* keep the compact row from wrapping awkwardly on very narrow screens */
 }
+
+/* ══════════════════════════════════════════════════════════════
+   MONTHLY NAVIGATION & HISTORY — monthly signal performance system.
+   Reuses the same Liquid Glass tokens as the rest of the page.
+   ══════════════════════════════════════════════════════════════ */
+.sig-month-nav{
+  background:var(--glass-1);backdrop-filter:var(--blur-md);-webkit-backdrop-filter:var(--blur-md);
+  border:1px solid var(--glass-border);border-radius:var(--r-lg);
+  padding:10px 14px;margin-bottom:14px;
+  display:flex;flex-direction:column;gap:8px;
+}
+.sig-month-nav-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sig-month-nav-arrow{
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  width:30px;height:30px;border-radius:var(--r-sm);
+  background:var(--glass-1);border:1px solid var(--glass-border);color:var(--text2);
+  cursor:pointer;transition:var(--t-fast);
+}
+.sig-month-nav-arrow:hover:not(:disabled){background:var(--glass-2);color:var(--text);border-color:var(--glass-border-h)}
+.sig-month-nav-arrow:disabled{opacity:.35;cursor:not-allowed}
+.sig-month-nav-arrow .icn{width:13px;height:13px}
+
+.sig-month-picker-wrap{position:relative;flex-shrink:0}
+.sig-month-picker-btn{
+  display:flex;align-items:center;gap:8px;
+  padding:6px 14px;border-radius:var(--r-sm);
+  background:var(--glass-1);border:1px solid var(--glass-border);color:var(--text);
+  font-family:var(--font-head);font-size:13.5px;font-weight:800;letter-spacing:-.2px;
+  cursor:pointer;transition:var(--t-fast);min-width:150px;justify-content:space-between;
+}
+.sig-month-picker-btn:hover:not(:disabled){background:var(--glass-2);border-color:var(--glass-border-h)}
+.sig-month-picker-btn:disabled{opacity:.5;cursor:default}
+.sig-month-picker-chevron{transform:rotate(90deg);width:10px !important;height:10px !important;opacity:.6}
+.sig-month-dropdown{
+  position:absolute;top:calc(100% + 6px);left:0;z-index:40;
+  min-width:200px;max-height:280px;overflow-y:auto;
+  background:var(--glass-2);backdrop-filter:var(--blur-md);-webkit-backdrop-filter:var(--blur-md);
+  border:1px solid var(--glass-border-h);border-radius:var(--r-md);
+  box-shadow:var(--shadow-lg);padding:4px;
+}
+.sig-month-dd-item{
+  width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:8px 10px;border-radius:8px;border:none;background:transparent;color:var(--text2);
+  font-size:12.5px;font-weight:600;cursor:pointer;transition:var(--t-fast);text-align:left;
+}
+.sig-month-dd-item:hover{background:var(--glass-1);color:var(--text)}
+.sig-month-dd-item.active{background:color-mix(in srgb, var(--purple) 16%, var(--glass-3));color:var(--purple)}
+.sig-month-dd-tag{
+  font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--teal);background:rgba(45,212,191,0.14);border:1px solid rgba(45,212,191,0.3);
+  padding:2px 6px;border-radius:var(--r-full);flex-shrink:0;
+}
+.sig-month-today-btn,.sig-month-alltime-btn{
+  display:flex;align-items:center;gap:6px;flex-shrink:0;
+  padding:7px 12px;border-radius:var(--r-full);font-size:12px;font-weight:600;
+  background:var(--glass-1);border:1px solid var(--glass-border);color:var(--text2);
+  cursor:pointer;transition:var(--t-fast);
+}
+.sig-month-today-btn .icn,.sig-month-alltime-btn .icn{width:12px;height:12px}
+.sig-month-today-btn:hover,.sig-month-alltime-btn:hover{background:var(--glass-2);color:var(--text);border-color:var(--glass-border-h)}
+.sig-month-today-btn.active{
+  background:linear-gradient(135deg,rgba(45,212,191,0.22),rgba(45,212,191,0.10));
+  border-color:rgba(45,212,191,0.35);color:var(--teal);
+}
+.sig-month-alltime-btn{margin-left:auto}
+.sig-month-alltime-btn.active{
+  background:linear-gradient(135deg,rgba(167,139,250,0.22),rgba(167,139,250,0.10));
+  border-color:rgba(167,139,250,0.35);color:var(--purple);
+}
+
+.sig-month-period-line{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:0 2px}
+.sig-month-period-tag{
+  font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;
+  padding:3px 9px;border-radius:var(--r-full);flex-shrink:0;
+}
+.sig-month-period-tag.live{color:var(--teal);background:rgba(45,212,191,0.14);border:1px solid rgba(45,212,191,0.3)}
+.sig-month-period-tag.final{color:var(--text2);background:var(--glass-2);border:1px solid var(--glass-border-h)}
+.sig-month-period-tag.alltime{color:var(--purple);background:rgba(167,139,250,0.14);border:1px solid rgba(167,139,250,0.3)}
+.sig-month-period-text{font-size:11.5px;color:var(--text3)}
+
+/* Cards that would otherwise show a misleading 0% with no closed data */
+.sig-widget-nodata{color:var(--text3);font-family:var(--font-head);font-size:19px;font-weight:800}
+
+/* ── Empty-month state (extends .sig-empty-onboard) ─────────────── */
+.sig-empty-month .sig-empty-illustration{color:var(--gold)}
+.sig-empty-month .sig-empty-illustration .icn{color:var(--gold)}
+.sig-empty-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+
+/* ── Monthly History archive strip ──────────────────────────────── */
+.sig-month-history{margin-top:14px}
+.sig-month-history-head{
+  display:flex;align-items:center;gap:6px;margin-bottom:8px;
+  font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;
+}
+.sig-month-history-head .icn{width:12px;height:12px}
+.sig-month-history-strip{
+  display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;scrollbar-width:thin;
+}
+.sig-month-hist-card{
+  flex:0 0 auto;min-width:168px;text-align:left;cursor:pointer;
+  background:var(--glass-1);border:1px solid var(--glass-border);border-radius:var(--r-md);
+  padding:10px 12px;transition:var(--t-fast);
+}
+.sig-month-hist-card:hover{background:var(--glass-2);border-color:var(--glass-border-h);transform:translateY(-2px)}
+.sig-month-hist-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:6px}
+.sig-month-hist-title{font-family:var(--font-head);font-weight:800;font-size:12.5px;color:var(--text);white-space:nowrap}
+.sig-month-hist-live{
+  font-size:8.5px;font-weight:800;color:var(--teal);background:rgba(45,212,191,0.14);
+  border:1px solid rgba(45,212,191,0.3);padding:1px 5px;border-radius:var(--r-full);margin-left:4px;vertical-align:middle;
+}
+.sig-month-hist-count{font-size:10.5px;color:var(--text3);white-space:nowrap}
+.sig-month-hist-stats{display:flex;flex-wrap:wrap;gap:8px;font-size:11px;font-weight:700;font-variant-numeric:tabular-nums}
+.sig-month-hist-stats .green{color:var(--green)}
+.sig-month-hist-stats .red{color:var(--red)}
+.sig-month-hist-empty{font-size:11px;color:var(--text3)}
+
+@media (max-width:640px){
+  .sig-month-nav-controls{gap:6px}
+  .sig-month-picker-btn{min-width:0;flex:1;font-size:12.5px;padding:6px 10px}
+  .sig-month-today-btn span.lbl-full,.sig-month-alltime-btn span.lbl-full{display:none}
+  .sig-month-today-btn,.sig-month-alltime-btn{padding:7px 9px}
+  .sig-month-nav-arrow{width:32px;height:32px}
+  .sig-month-hist-card{min-width:148px}
+}

@@ -21,6 +21,15 @@
   let _sigBookmarks = JSON.parse(localStorage.getItem('sig_bookmarks') || '{}');
   let _sigInitDone = false;
 
+  // ── Monthly performance & history state ──────────────────────────
+  // 'month' = viewing a single calendar month (default); 'all' = the
+  // legacy cumulative/all-time view. Selected month is a 'YYYY-MM' key
+  // derived from each signal's own date, never hard-coded, so this
+  // works automatically for any month/year, past or future.
+  let _sigMonthMode = 'month';       // 'month' | 'all'
+  let _sigSelectedMonthKey = null;   // 'YYYY-MM' — set on first buildSignals()
+  let _sigMonthDropdownOpen = false;
+
   const SIG_STORE_KEY = 'nxt_signals_demo_v1';
 
   const MARKET_ICON = {
@@ -766,6 +775,7 @@
       </div>
     </div>
 
+    <div id="sig-month-nav-host"></div>
     <div id="sig-health-hero-host"></div>
     <div id="sig-insights-host"></div>
 
@@ -788,7 +798,167 @@
     </div>
 
     <div id="sig-view-root"></div>
+    <div id="sig-month-history-host"></div>
     `;
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // MONTHLY NAVIGATION — the control strip that drives which calendar
+  // month (or "All Time") every analytics card, the table/cards view
+  // and Analytics tab are scoped to. Purely a UI + state layer; all the
+  // actual isolation happens in _sigFilteredSignals()/_sigCurrentMetricsScope().
+  // ══════════════════════════════════════════════════════════════
+  function _sigMonthPeriodCounts(rows) {
+    const total = rows.length;
+    const closed = rows.filter(s => s.status === 'closed' || s.status === 'stopped_out').length;
+    const active = rows.filter(s => ONGOING_STATUSES.includes(s.status)).length;
+    return { total, closed, active };
+  }
+
+  function _sigRenderMonthNav() {
+    const host = document.getElementById('sig-month-nav-host');
+    if (!host) return;
+    _sigEnsureSelectedMonth();
+    const currentKey = _sigCurrentMonthKey();
+    const isAllTime = _sigMonthMode === 'all';
+    const rows = _sigSignalsInMonth(_sigSelectedMonthKey);
+    const counts = _sigMonthPeriodCounts(rows);
+    const isCurrent = _sigSelectedMonthKey === currentKey;
+    const availableKeys = _sigAvailableMonthKeys();
+    const idx = availableKeys.indexOf(_sigSelectedMonthKey);
+    // Keys are sorted newest → oldest, so "older" is +1 and "newer" is -1.
+    const canGoOlder = !isAllTime && (idx === -1 || idx < availableKeys.length - 1);
+    const canGoNewer = !isAllTime && idx > 0; // never allowed past the real current month
+
+    const periodLine = isAllTime
+      ? 'Showing cumulative performance across every signal ever published'
+      : `${counts.total} signal${counts.total === 1 ? '' : 's'} • ${counts.closed} closed • ${counts.active} active${isCurrent ? ' • Monthly performance updates as signals close' : ''}`;
+
+    host.innerHTML = `
+    <div class="sig-month-nav">
+      <div class="sig-month-nav-controls">
+        <button class="sig-month-nav-arrow" ${canGoOlder ? '' : 'disabled'} title="Previous month" onclick="_sigMonthStep(1)">${icn('ic-arrow-left')}</button>
+        <div class="sig-month-picker-wrap">
+          <button class="sig-month-picker-btn" onclick="_sigToggleMonthDropdown(event)" ${isAllTime ? 'disabled' : ''}>
+            <span class="sig-month-picker-label">${isAllTime ? 'All Time' : _sigMonthKeyLabel(_sigSelectedMonthKey)}</span>
+            ${icn('ic-chevron-right', 'sig-month-picker-chevron')}
+          </button>
+          <div id="sig-month-dropdown" class="sig-month-dropdown" style="display:none">
+            ${availableKeys.map(k => `
+              <button class="sig-month-dd-item ${k === _sigSelectedMonthKey && !isAllTime ? 'active' : ''}" onclick="_sigSelectMonth('${k}')">
+                <span>${_sigMonthKeyLabel(k)}</span>
+                ${k === currentKey ? '<span class="sig-month-dd-tag">Current</span>' : ''}
+              </button>`).join('')}
+          </div>
+        </div>
+        <button class="sig-month-nav-arrow" ${canGoNewer ? '' : 'disabled'} title="Next month" onclick="_sigMonthStep(-1)">${icn('ic-arrow-right')}</button>
+        <button class="sig-month-today-btn ${isCurrent && !isAllTime ? 'active' : ''}" onclick="_sigGoToCurrentMonth()">${icn('ic-calendar')} <span class="lbl-full">Current Month</span></button>
+        <button class="sig-month-alltime-btn ${isAllTime ? 'active' : ''}" onclick="_sigSetMonthMode('${isAllTime ? 'month' : 'all'}')">${icn('ic-chart-bar')} <span class="lbl-full">All Time</span></button>
+      </div>
+      <div class="sig-month-period-line">
+        <span class="sig-month-period-tag ${isAllTime ? 'alltime' : isCurrent ? 'live' : 'final'}">${isAllTime ? 'All-Time' : isCurrent ? 'Month to Date' : 'Final Monthly Performance'}</span>
+        <span class="sig-month-period-text">${periodLine}</span>
+      </div>
+    </div>`;
+  }
+
+  window._sigToggleMonthDropdown = function (ev) {
+    if (ev) ev.stopPropagation();
+    const dd = document.getElementById('sig-month-dropdown');
+    if (!dd) return;
+    _sigMonthDropdownOpen = !_sigMonthDropdownOpen;
+    dd.style.display = _sigMonthDropdownOpen ? 'block' : 'none';
+    if (_sigMonthDropdownOpen) setTimeout(() => document.addEventListener('click', _sigCloseMonthDropdownOnce), 0);
+  };
+  function _sigCloseMonthDropdownOnce(e) {
+    const dd = document.getElementById('sig-month-dropdown');
+    const wrap = dd && dd.closest('.sig-month-picker-wrap');
+    if (wrap && !wrap.contains(e.target)) {
+      dd.style.display = 'none';
+      _sigMonthDropdownOpen = false;
+      document.removeEventListener('click', _sigCloseMonthDropdownOnce);
+    }
+  }
+  window._sigSelectMonth = function (key) {
+    _sigMonthMode = 'month';
+    _sigSelectedMonthKey = key;
+    _sigMonthDropdownOpen = false;
+    _sigOnMonthChanged();
+  };
+  window._sigMonthStep = function (dir) {
+    // dir: 1 = older (back a month), -1 = newer (forward a month) —
+    // walk the actual list of months that have data (plus the current
+    // month) rather than blindly adding/subtracting a month, so
+    // stepping never lands on an empty gap between distant months.
+    const keys = _sigAvailableMonthKeys();
+    _sigEnsureSelectedMonth();
+    let idx = keys.indexOf(_sigSelectedMonthKey);
+    if (idx === -1) idx = 0;
+    const next = idx + dir;
+    if (next < 0 || next >= keys.length) return;
+    _sigMonthMode = 'month';
+    _sigSelectedMonthKey = keys[next];
+    _sigOnMonthChanged();
+  };
+  window._sigGoToCurrentMonth = function () {
+    _sigMonthMode = 'month';
+    _sigSelectedMonthKey = _sigCurrentMonthKey();
+    _sigOnMonthChanged();
+  };
+  window._sigSetMonthMode = function (mode) {
+    _sigMonthMode = mode;
+    if (mode === 'month') _sigEnsureSelectedMonth();
+    _sigOnMonthChanged();
+  };
+  function _sigOnMonthChanged() {
+    _sigTableLimit = SIG_TABLE_BATCH;
+    _sigRenderStats();
+    _sigUpdateKpiVisibility();
+    _sigRenderActiveView();
+    _sigRenderMonthHistory();
+  }
+
+  // ── Monthly History archive strip — compact, clickable summary
+  // cards for past months. Kept intentionally small: an index into the
+  // main view, not a second dashboard. ──────────────────────────────
+  function _sigRenderMonthHistory() {
+    const host = document.getElementById('sig-month-history-host');
+    if (!host) return;
+    if (_sigMonthMode === 'all') { host.innerHTML = ''; return; }
+    const currentKey = _sigCurrentMonthKey();
+    const keys = _sigAvailableMonthKeys().filter(k => k !== _sigSelectedMonthKey).slice(0, 6);
+    if (!keys.length) { host.innerHTML = ''; return; }
+
+    const cards = keys.map(k => {
+      const rows = _sigSignalsInMonth(k);
+      const closed = rows.filter(s => s.result === 'win' || s.result === 'loss');
+      const wins = closed.filter(s => s.result === 'win').length;
+      const wr = closed.length ? Math.round(wins / closed.length * 100) : null;
+      const totalR = closed.reduce((a, s) => a + _sigEffectiveMath(s).r_multiple, 0);
+      const totalPips = closed.reduce((a, s) => a + _sigEffectiveMath(s).pips, 0);
+      const profit = closed.reduce((a, s) => a + _sigEffectiveMath(s).profit_percent, 0);
+      const tone = totalR > 0 ? 'green' : totalR < 0 ? 'red' : '';
+      return `
+      <button class="sig-month-hist-card" onclick="_sigSelectMonth('${k}')">
+        <div class="sig-month-hist-top">
+          <span class="sig-month-hist-title">${_sigMonthKeyShort(k)}${k === currentKey ? ' <span class=\'sig-month-hist-live\'>MTD</span>' : ''}</span>
+          <span class="sig-month-hist-count">${rows.length} signal${rows.length === 1 ? '' : 's'}</span>
+        </div>
+        ${rows.length ? `
+        <div class="sig-month-hist-stats">
+          <span class="${wr === null ? '' : wr >= 50 ? 'green' : 'red'}">${wr === null ? '—' : wr + '% WR'}</span>
+          <span class="${tone}">${totalR > 0 ? '+' : ''}${totalR.toFixed(1)}R</span>
+          <span class="${totalPips >= 0 ? 'green' : 'red'}">${totalPips >= 0 ? '+' : ''}${totalPips.toFixed(0)} pips</span>
+          <span class="${profit >= 0 ? 'green' : 'red'}">${profit >= 0 ? '+' : ''}${profit.toFixed(1)}%</span>
+        </div>` : `<div class="sig-month-hist-empty">No signals recorded</div>`}
+      </button>`;
+    }).join('');
+
+    host.innerHTML = `
+    <div class="sig-month-history">
+      <div class="sig-month-history-head">${icn('ic-clock')} Monthly performance history</div>
+      <div class="sig-month-history-strip">${cards}</div>
+    </div>`;
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -1361,6 +1531,8 @@
     const btn = document.getElementById('sig-kpi-expand-btn');
     const heroHost = document.getElementById('sig-health-hero-host');
     const insightsHost = document.getElementById('sig-insights-host');
+    const monthNavHost = document.getElementById('sig-month-nav-host');
+    const monthHistHost = document.getElementById('sig-month-history-host');
     if (!wrap || !btn) return;
     const onDrafts = _sigView === 'drafts';
     const onAnalytics = _sigView === 'analytics';
@@ -1371,6 +1543,11 @@
     // on the raw signal list.
     if (heroHost) heroHost.style.display = onAnalytics ? '' : 'none';
     if (insightsHost) insightsHost.style.display = onAnalytics ? '' : 'none';
+    // Drafts aren't dated/published signals, so the monthly system
+    // doesn't apply to them — hide the month controls there, same as
+    // the KPI grid above.
+    if (monthNavHost) monthNavHost.style.display = onDrafts ? 'none' : '';
+    if (monthHistHost) monthHistHost.style.display = onDrafts ? 'none' : '';
     btn.style.display = onDrafts ? 'inline-flex' : 'none';
     btn.innerHTML = `${icn(_sigKpiExpandedOnDrafts ? 'ic-minus' : 'ic-chart-bar')} ${_sigKpiExpandedOnDrafts ? 'Hide' : 'Show'} performance stats`;
   }
@@ -1402,6 +1579,13 @@
       if (_sigSearch) {
         const hay = (s.pair + ' ' + s.market).toLowerCase();
         if (!hay.includes(_sigSearch)) return false;
+      }
+      // Monthly isolation — a signal only ever belongs to the calendar
+      // month its own date falls in. Never applied to drafts (undated
+      // in this sense) or to the Calendar/Drafts views, which manage
+      // their own month context already.
+      if (_sigMonthFilterAppliesToView() && !s.is_draft) {
+        if (_sigMonthKeyOf(_sigDateTaken(s)) !== _sigSelectedMonthKey) return false;
       }
       if (has('status', 'active') || has('status', 'closed')) {
         const isActive = ONGOING_STATUSES.includes(s.status);
@@ -1486,21 +1670,25 @@
     return d.trim();
   }
 
-  function _sigDaySeries(pred) {
+  function _sigDaySeries(rows, pred) {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const arr = [];
     for (let i = 6; i >= 0; i--) {
       const from = today.getTime() - i * 86400000, to = from + 86400000;
-      arr.push(_sigAll.filter(s => pred(s) && s.created_at >= from && s.created_at < to).length);
+      arr.push(rows.filter(s => pred(s) && s.created_at >= from && s.created_at < to).length);
     }
     return arr;
   }
 
-  function _sigComputeMetrics() {
+  function _sigComputeMetrics(scopeRows) {
     // Drafts are unpublished — they must never count towards any published-
     // signal stat (market breakdown, session performance, confidence,
     // RR distribution, etc.), so they're excluded right at the source.
-    const all = _sigAll.filter(s => !s.is_draft);
+    // `scopeRows`, when passed, is already non-draft (see
+    // _sigCurrentMetricsScope) and picks between the selected calendar
+    // month and all-time — callers that don't care (e.g. legacy call
+    // sites) still get the old all-time-minus-drafts behavior.
+    const all = scopeRows || _sigAll.filter(s => !s.is_draft);
     const now = Date.now();
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const weekAgo = now - 7 * 86400000;
@@ -1547,9 +1735,9 @@
     const hourly = new Array(24).fill(0);
     todays.forEach(s => { hourly[new Date(s.created_at).getHours()]++; });
 
-    const activeTrend = _sigDaySeries(s => ONGOING_STATUSES.includes(s.status));
-    const winTrend = _sigDaySeries(s => s.result === 'win');
-    const lossTrend = _sigDaySeries(s => s.result === 'loss');
+    const activeTrend = _sigDaySeries(all, s => ONGOING_STATUSES.includes(s.status));
+    const winTrend = _sigDaySeries(all, s => s.result === 'win');
+    const lossTrend = _sigDaySeries(all, s => s.result === 'loss');
 
     const pipsTrend = []; let cumP = 0;
     [...closed].sort((a, b) => a.created_at - b.created_at).slice(-20).forEach(s => { cumP += _sigEffectiveMath(s).pips; pipsTrend.push(cumP); });
@@ -1600,7 +1788,7 @@
 
     return {
       all, active, wins, losses, closed, todays, thisWeek,
-      weekAcc, winPct, lossPct, avgRR, totalPips, totalR,
+      weekAcc, weekClosedCount: weekClosed.length, winPct, lossPct, avgRR, totalPips, totalR,
       openPositions, breakevens, closedPositions, monthProfit, avgHoldHrs,
       hourly, activeTrend, winTrend, lossTrend, pipsTrend, profitTrend,
       winsDelta: winsThisWeek - winsPrevWeek, lossesDelta: lossesThisWeek - lossesPrevWeek,
@@ -1798,9 +1986,12 @@
   }
 
   function _sigRenderStats() {
+    _sigEnsureSelectedMonth();
+    _sigRenderMonthNav();
+    _sigRenderMonthHistory();
     const grid = document.getElementById('sig-stats-grid');
     if (!grid) return;
-    const m = _sigComputeMetrics();
+    const m = _sigComputeMetrics(_sigCurrentMetricsScope());
     const hasApex = typeof pf3Mount === 'function' && typeof ApexCharts !== 'undefined';
     _sigRenderHealthHero(m);
     _sigRenderInsights(m);
@@ -1814,7 +2005,9 @@
       // 2 — Winning Signals: ring + weekly delta
       _sigWidgetShell('sig-w-win', 'sig-widget-ring-card', 'Winning Signals', 'ic-trend-up', 'green',
         `<span class="sig-counting" data-target="${m.wins.length}">${m.wins.length}</span>`,
-        `<div class="sig-widget-ring-row"><div id="sig-w-win-ring" class="sig-widget-ring"></div><div class="sig-widget-ring-meta"><span class="big">${m.winPct.toFixed(0)}%</span><span class="delta ${m.winsDelta >= 0 ? 'up' : 'down'}">${m.winsDelta >= 0 ? '▲' : '▼'} ${Math.abs(m.winsDelta)} wk</span></div></div>`,
+        `<div class="sig-widget-ring-row"><div id="sig-w-win-ring" class="sig-widget-ring"></div><div class="sig-widget-ring-meta">${m.closed.length
+          ? `<span class="big">${m.winPct.toFixed(0)}%</span><span class="delta ${m.winsDelta >= 0 ? 'up' : 'down'}">${m.winsDelta >= 0 ? '▲' : '▼'} ${Math.abs(m.winsDelta)} wk</span>`
+          : `<span class="big sig-widget-nodata">—</span><span class="delta">No closed signals yet</span>`}</div></div>`,
         'wins'),
       // 3 — Losing Signals: bar + weekly comparison
       _sigWidgetShell('sig-w-loss', '', 'Losing Signals', 'ic-trend-down', 'red',
@@ -1827,9 +2020,9 @@
         `<div id="sig-w-today-spark" class="sig-widget-apex"></div><div class="sig-widget-foot">Hourly activity</div>`,
         'today'),
       // 5 — Weekly Accuracy: circular progress
-      _sigWidgetShell('sig-w-acc', 'sig-widget-ring-card', 'Weekly Accuracy', 'ic-target', m.weekAcc >= 50 ? 'green' : 'red',
-        `<span class="sig-counting" data-target="${m.weekAcc.toFixed(0)}">${m.weekAcc.toFixed(0)}</span>%`,
-        `<div id="sig-w-acc-ring" class="sig-widget-ring sig-widget-ring-solo"></div>`),
+      _sigWidgetShell('sig-w-acc', 'sig-widget-ring-card', 'Weekly Accuracy', 'ic-target', !m.weekClosedCount ? 'gold' : m.weekAcc >= 50 ? 'green' : 'red',
+        m.weekClosedCount ? `<span class="sig-counting" data-target="${m.weekAcc.toFixed(0)}">${m.weekAcc.toFixed(0)}</span>%` : `<span class="sig-widget-nodata">—</span>`,
+        `<div id="sig-w-acc-ring" class="sig-widget-ring sig-widget-ring-solo" ${m.weekClosedCount ? '' : 'style="display:none"'}></div>${m.weekClosedCount ? '' : '<div class="sig-widget-foot">No closed signals yet</div>'}`),
       // 6 — Average RR: radial gauge
       _sigWidgetShell('sig-w-rr', 'sig-widget-ring-card', 'Average RR', 'ic-ruler', 'gold',
         `1:<span class="sig-counting" data-target="${m.avgRR.toFixed(1)}">${m.avgRR.toFixed(1)}</span>`,
@@ -1844,9 +2037,9 @@
         `<div id="sig-w-pips-spark" class="sig-widget-apex"></div>`,
         'pips'),
       // 9 — Signals Win Rate: percentage ring (wins ÷ closed win+loss signals)
-      _sigWidgetShell('sig-w-totalr', 'sig-widget-ring-card', 'Signals Win Rate', 'ic-target', m.winPct >= 50 ? 'green' : 'red',
-        `<span class="sig-counting" data-target="${m.winPct.toFixed(0)}">${m.winPct.toFixed(0)}</span>%`,
-        `<div id="sig-w-totalr-ring" class="sig-widget-ring sig-widget-ring-solo"></div>`),
+      _sigWidgetShell('sig-w-totalr', 'sig-widget-ring-card', 'Signals Win Rate', 'ic-target', !m.closed.length ? 'gold' : m.winPct >= 50 ? 'green' : 'red',
+        m.closed.length ? `<span class="sig-counting" data-target="${m.winPct.toFixed(0)}">${m.winPct.toFixed(0)}</span>%` : `<span class="sig-widget-nodata">—</span>`,
+        `<div id="sig-w-totalr-ring" class="sig-widget-ring sig-widget-ring-solo" ${m.closed.length ? '' : 'style="display:none"'}></div>${m.closed.length ? '' : '<div class="sig-widget-foot">No closed signals yet</div>'}`),
       // 10 — Breakevens: signals that reached (or closed at) breakeven.
       // Replaces Open Positions, which just duplicated Active Signals.
       _sigWidgetShell('sig-w-breakeven', '', 'Breakevens', 'ic-scale', 'gold',
@@ -1922,7 +2115,7 @@
   window._sigToggleMore = function () {
     _sigMoreOpen = !_sigMoreOpen;
     _sigRenderMoreToggle();
-    if (_sigMoreOpen) _sigRenderMoreAnalytics(_sigComputeMetrics());
+    if (_sigMoreOpen) _sigRenderMoreAnalytics(_sigComputeMetrics(_sigCurrentMetricsScope()));
   };
 
   function _sigMiniBar(label, value, pct, tone) {
@@ -2275,7 +2468,7 @@
     if (!body || !_sigAnaState.type) return;
     const type = _sigAnaState.type;
     const meta = SIG_ANA_META[type];
-    const m = _sigComputeMetrics();
+    const m = _sigComputeMetrics(_sigCurrentMetricsScope());
     const full = _sigAnaApplyFilters(_sigAnaBaseList(type, m), type);
     const total = full.length;
     const shown = full.slice(0, _sigAnaState.limit);
@@ -2340,7 +2533,7 @@
   window._sigAnaExportCsv = function () {
     const type = _sigAnaState.type;
     if (!type) return;
-    const m = _sigComputeMetrics();
+    const m = _sigComputeMetrics(_sigCurrentMetricsScope());
     const list = _sigAnaApplyFilters(_sigAnaBaseList(type, m), type);
     const header = ['Pair', 'Direction', 'Market', 'Session', 'Status', 'Result', 'Entry', 'Stop Loss', 'TP1', 'TP2', 'Risk:Reward', 'Pips', 'R Multiple', 'Created', 'Closed'];
     const rows = list.map(s => {
@@ -2452,6 +2645,63 @@
   function _sigFmtDate(ts) {
     if (!ts) return '—';
     return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // MONTHLY HISTORY — key derivation & scoping helpers.
+  // A signal belongs to exactly one calendar month, determined solely
+  // by its own _sigDateTaken() timestamp read in the browser's local
+  // time zone (same convention as every other date already shown on
+  // this page, e.g. the table's "Date Taken" column and the Calendar
+  // view) — so a signal near local midnight always lands in the same
+  // month a person looking at their own calendar would expect, and
+  // never shifts month because of a UTC conversion.
+  // ══════════════════════════════════════════════════════════════
+  function _sigMonthKeyOf(ts) {
+    if (!ts) return null;
+    const d = new Date(ts);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  }
+  function _sigCurrentMonthKey() { return _sigMonthKeyOf(Date.now()); }
+  function _sigMonthKeyLabel(key) {
+    if (!key) return '';
+    const [y, m] = key.split('-').map(Number);
+    return new Date(y, m - 1, 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+  }
+  function _sigMonthKeyShort(key) {
+    if (!key) return '';
+    const [y, m] = key.split('-').map(Number);
+    return new Date(y, m - 1, 1).toLocaleString('default', { month: 'short', year: 'numeric' });
+  }
+  // Non-draft signals only — drafts are unpublished and were never
+  // "taken" on any date, so they sit outside the monthly system
+  // entirely (same exclusion _sigComputeMetrics already applies).
+  function _sigNonDraftAll() { return _sigAll.filter(s => !s.is_draft); }
+  function _sigSignalsInMonth(key) {
+    if (!key) return [];
+    return _sigNonDraftAll().filter(s => _sigMonthKeyOf(_sigDateTaken(s)) === key);
+  }
+  // Every month that actually has signals, plus the real current month
+  // even if it's still empty — sorted newest first. Never hard-coded.
+  function _sigAvailableMonthKeys() {
+    const keys = new Set([_sigCurrentMonthKey()]);
+    _sigNonDraftAll().forEach(s => { const k = _sigMonthKeyOf(_sigDateTaken(s)); if (k) keys.add(k); });
+    return [...keys].sort().reverse();
+  }
+  // The dataset every stats-grid / analytics-drawer metric should be
+  // computed from right now — respects the month vs all-time toggle
+  // without any view needing to know about it.
+  function _sigCurrentMetricsScope() {
+    return _sigMonthMode === 'all' ? _sigNonDraftAll() : _sigSignalsInMonth(_sigSelectedMonthKey);
+  }
+  // Table/Cards/Analytics respect the month selector; Calendar already
+  // has its own independent month navigator, and Drafts aren't dated
+  // signals — both are left showing everything, same as before.
+  function _sigMonthFilterAppliesToView() {
+    return _sigMonthMode !== 'all' && _sigView !== 'calendar' && _sigView !== 'drafts';
+  }
+  function _sigEnsureSelectedMonth() {
+    if (!_sigSelectedMonthKey) _sigSelectedMonthKey = _sigCurrentMonthKey();
   }
 
   function _sigConfBadge(s) {
@@ -2643,6 +2893,21 @@
         <div class="sig-empty-title">No signals yet</div>
         <div class="sig-empty-sub">Publish your first signal to start tracking win rate, RR and pips like a pro desk.</div>
         ${_sigIsAdmin() ? `<button class="btn btn-primary btn-ripple" onclick="_sigOpenModal()">${icn('ic-plus')} Create New Signal</button>` : ''}
+      </div></div>`;
+    }
+    // The month itself has zero signals (before search/filters are even
+    // considered) — distinct from "filters excluded everything", so the
+    // person isn't left thinking their filters are broken.
+    if (_sigMonthFilterAppliesToView() && !_sigSignalsInMonth(_sigSelectedMonthKey).length) {
+      const isCurrent = _sigSelectedMonthKey === _sigCurrentMonthKey();
+      return `<div class="sig-table-card"><div class="sig-empty-onboard sig-empty-month">
+        <div class="sig-empty-illustration">${icn('ic-calendar')}</div>
+        <div class="sig-empty-title">No signals recorded for this month</div>
+        <div class="sig-empty-sub">Select another month or create a new signal to begin tracking performance.</div>
+        <div class="sig-empty-actions">
+          ${!isCurrent ? `<button class="btn" onclick="_sigGoToCurrentMonth()">${icn('ic-calendar')} Go to Current Month</button>` : ''}
+          ${_sigIsAdmin() ? `<button class="btn btn-primary btn-ripple" onclick="_sigOpenModal()">${icn('ic-plus')} New Signal</button>` : ''}
+        </div>
       </div></div>`;
     }
     return `<div class="sig-table-card"><div class="sig-table-empty">${icn('ic-search')}<div style="margin-top:8px">No signals match these filters.</div><button class="btn" style="margin-top:10px" onclick="_sigResetFilters()">${icn('ic-refresh')} Reset filters</button></div></div>`;
