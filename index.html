@@ -85,6 +85,7 @@
 <link rel="stylesheet" href="css/ai-chat-upgrade.css?v=202607311100">
 <link rel="stylesheet" href="css/ai-chat-history.css?v=202607311200">
 <link rel="stylesheet" href="css/goals-upgrade.css?v=202608011300">
+<link rel="stylesheet" href="css/playbook-upgrade.css?v=202608011400">
 <link rel="stylesheet" href="css/profile.css?v=202607202045">
 <link rel="stylesheet" href="css/final-misc.css?v=202607291415">
 <link rel="stylesheet" href="css/signals.css?v=202607291500">
@@ -929,31 +930,43 @@
     ═══════════════════════════════════════════════ -->
     <div class="page" id="page-playbook">
       <div class="page-inner">
-        <div class="cover">
-          <div class="cover-label">Your Rules · Your Edge · Your System</div>
-          <div class="cover-title">Trading Playbook</div>
-          <div class="cover-sub">Read this every morning before trading</div>
+
+        <!-- Compact playbook header (replaces the oversized hero) -->
+        <div class="pb-hd">
+          <div class="pb-hd-top">
+            <div>
+              <div class="pb-hd-eyebrow">Your Rules · Your Edge · Your System</div>
+              <div class="pb-hd-title">Trading Playbook</div>
+              <div class="pb-hd-sub">Define your edge, standardize execution, and trade with consistency.</div>
+            </div>
+            <div class="pb-hd-actions">
+              <button class="wl-week-btn" onclick="_openManageStrategies()"><svg class="icn" aria-hidden="true"><use href="#ic-settings"></use></svg> Manage Playbook</button>
+              <button class="wl-week-btn" onclick="_pbOpenReview()"><svg class="icn" aria-hidden="true"><use href="#ic-eye"></use></svg> Review Before Trading</button>
+              <button class="wl-add-week-btn" onclick="pbAddModelModal()">＋ New Model</button>
+            </div>
+          </div>
+          <div class="pb-hd-summary" id="pb-hd-summary"></div>
         </div>
+
+        <!-- Overview: active models, core rules, readiness, current focus -->
+        <div id="pb-overview"></div>
+
+        <!-- Rule-based insights, computed from real playbook data only -->
+        <div id="pb-insights"></div>
+
         <div class="sec-head" style="display:flex;align-items:center;justify-content:space-between">
           <span>Trade Models</span>
-          <button onclick="_openManageStrategies()" style="font-size:11px;padding:4px 12px;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.3);color:var(--gold);border-radius:20px;cursor:pointer;font-family:inherit;font-weight:600;transition:all .15s" onmouseover="this.style.background='rgba(251,191,36,.22)'" onmouseout="this.style.background='rgba(251,191,36,.12)'"><svg class="icn" aria-hidden="true"><use href="#ic-settings"></use></svg> Manage</button>
+          <button onclick="pbAddModelModal()" class="pb-inline-add"><svg class="icn" aria-hidden="true"><use href="#ic-plus"></use></svg> Create Trading Model</button>
         </div>
-        <div id="model-cards"></div>
-        <div class="sec-head">10 Rules Never Broken</div>
+        <div id="model-cards" class="pb-model-grid"></div>
+
+        <div class="sec-head" style="display:flex;align-items:center;justify-content:space-between">
+          <span>Non-Negotiable Rules</span>
+          <button onclick="pbAddRule()" class="pb-inline-add"><svg class="icn" aria-hidden="true"><use href="#ic-plus"></use></svg> Add Rule</button>
+        </div>
+        <div class="pb-rules-sub">These rules protect your capital, discipline, and long-term edge.</div>
         <div id="rules-list"></div>
-        <div class="sec-head">Trading Schedule — WAT (Lagos)</div>
-        <div class="data-table-wrap">
-        <table class="data-table">
-          <thead><tr><th>Session</th><th>WAT Time</th><th>Priority</th><th>Notes</th></tr></thead>
-          <tbody>
-            <tr><td>Asian Open</td><td class="mono">1:00–5:00 AM</td><td><span class="pill pill-gold">Monitor</span></td><td>Range forms, 3am sweep</td></tr>
-            <tr><td class="bold">London Open</td><td class="mono">8:00–12:00 PM</td><td><span class="pill pill-red">PRIMARY</span></td><td>1am manipulation plays out</td></tr>
-            <tr><td class="bold">London/NY Overlap</td><td class="mono">1:00–5:00 PM</td><td><span class="pill pill-red">PRIMARY</span></td><td>Highest volume, best entries</td></tr>
-            <tr><td>NY Afternoon</td><td class="mono">5:00–8:00 PM</td><td><span class="pill pill-gold">Monitor</span></td><td>Continuation only</td></tr>
-            <tr><td style="color:var(--text3)">No Trade Zone</td><td class="mono">8PM–1AM</td><td><span class="pill pill-grey">AVOID</span></td><td>Low liquidity</td></tr>
-          </tbody>
-        </table>
-        </div>
+
       </div>
     </div>
 
@@ -2387,6 +2400,7 @@
 <script src="js/watchlist.js?v=202607202045"></script>
 <script src="js/accounts.js?v=202607202045"></script>
 <script src="js/playbook.js?v=202607202045"></script>
+<script src="js/playbook-upgrade.js?v=202608011400"></script>
 <script src="js/backtesting-lab.js?v=202607291415"></script>
 <script src="js/dashboard-analytics.js?v=202607202045"></script>
 <script src="js/chart-slots.js?v=202607202045"></script>
