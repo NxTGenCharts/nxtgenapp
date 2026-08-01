@@ -965,9 +965,17 @@
   // NOTIFICATION CENTER
   // ══════════════════════════════════════════════════════════════
   let _sigLastUnreadCount = -1;
+  // Client-side mirror of whatever's currently rendered in the open panel
+  // (max 30 latest, same as the original query) — lets selection state,
+  // bulk actions, and single-item actions update the UI instantly without
+  // a full re-fetch on every click.
+  let _sigNotifCache = [];
+  let _sigNotifSelectMode = false;
+  let _sigNotifSelected = new Set();
+
   async function _sigRefreshNotifBadge() {
     const badge = document.getElementById('sig-notif-badge');
-    if (!badge || !(_sigUsingSupabase && typeof sb !== 'undefined' && sb) || !_currentUser) return;
+    if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb) || !_currentUser) return;
     const { count, error } = await sb.from('journal_signal_notifications')
       .select('id', { count: 'exact', head: true }).eq('recipient_id', _currentUser.id).eq('read', false);
     if (error) { console.error('notif badge error:', error.message); return; }
@@ -977,35 +985,57 @@
     if (_sigLastUnreadCount >= 0 && count > _sigLastUnreadCount) {
       _sigPlayNotifSound();
       _sigMaybeShowLocalNotification('NxTGen Signals', 'You have a new signal notification');
+      // If the panel is open and looking at this, pull the fresh list so
+      // the new item shows up live instead of only bumping the badge.
+      if (document.getElementById('sig-notif-panel')) _sigNotifFetchAndRender();
     }
     _sigLastUnreadCount = count;
-    if (count > 0) { badge.textContent = count > 99 ? '99+' : String(count); badge.style.display = 'inline-flex'; }
-    else { badge.style.display = 'none'; }
+    if (badge) {
+      if (count > 0) { badge.textContent = count > 99 ? '99+' : String(count); badge.style.display = 'inline-flex'; }
+      else { badge.style.display = 'none'; }
+    }
+    _sigNotifRenderHead();
+  }
+
+  // ── Icon + accent color per notification type (falls back to a BUY/SELL
+  // guess from the message text for "published", then a generic bell). ──
+  function _sigNotifIconFor(n) {
+    const t = n.type || '';
+    const msg = (n.message || '').toUpperCase();
+    if (t === 'published') { if (msg.includes('SELL')) return ['ic-trend-down', 'red']; if (msg.includes('BUY')) return ['ic-trend-up', 'green']; return ['ic-zap', 'blue']; }
+    if (t === 'entry_triggered') return ['ic-zap', 'amber'];
+    if (t === 'sl_moved') return ['ic-shield', 'red'];
+    if (t === 'tp1_hit' || t === 'tp2_hit' || t === 'tp3_hit') return ['ic-target', 'green'];
+    if (t === 'breakeven') return ['ic-lock', 'blue'];
+    if (t === 'cancelled') return ['ic-close', 'red'];
+    if (t === 'closed') return ['ic-check-c', 'blue'];
+    if (t === 'edited' || t === 'update') return ['ic-edit', 'amber'];
+    return ['ic-bell', 'blue'];
+  }
+  function _sigNotifEsc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
   window._sigToggleNotifPanel = async function (ev) {
     if (ev) ev.stopPropagation();
     const existing = document.getElementById('sig-notif-panel');
-    if (existing) { existing.remove(); document.removeEventListener('click', _sigCloseNotifPanelOnce); return; }
+    if (existing) { existing.remove(); document.removeEventListener('click', _sigCloseNotifPanelOnce); document.removeEventListener('keydown', _sigNotifEscHandler); return; }
+    _sigNotifSelectMode = false;
+    _sigNotifSelected = new Set();
     const panel = document.createElement('div');
     panel.id = 'sig-notif-panel';
     panel.className = 'sig-actions-menu sig-notif-panel';
-    panel.innerHTML = `<div class="sig-notif-panel-head">Notifications <button class="sig-notif-markall" onclick="_sigMarkAllNotifsRead()">Mark all read</button></div><div id="sig-notif-list" class="sig-notif-list">Loading…</div>`;
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-label', 'Notifications');
+    panel.innerHTML = `<div id="sig-notif-head-wrap"></div><div id="sig-notif-list" class="sig-notif-list">Loading…</div>`;
     document.body.appendChild(panel);
     const bell = document.getElementById('sig-notif-bell');
     _sigPositionPopover(panel, bell.getBoundingClientRect(), { align: 'right' });
     setTimeout(() => document.addEventListener('click', _sigCloseNotifPanelOnce), 0);
-
-    const list = document.getElementById('sig-notif-list');
-    if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb) || !_currentUser) { list.innerHTML = '<div class="sig-body-text" style="padding:12px">Connect Supabase to see live notifications.</div>'; return; }
-    const { data, error } = await sb.from('journal_signal_notifications').select('*').eq('recipient_id', _currentUser.id).order('created_at', { ascending: false }).limit(30);
-    if (error) { list.innerHTML = '<div class="sig-body-text" style="padding:12px">Couldn\'t load notifications.</div>'; return; }
-    if (!data || !data.length) { list.innerHTML = '<div class="sig-body-text" style="padding:12px">No notifications yet.</div>'; return; }
-    list.innerHTML = data.map(n => `
-      <button class="sig-notif-item ${n.read ? '' : 'unread'}" onclick="_sigOpenNotification('${n.id}','${n.signal_id || ''}')">
-        <span class="sig-notif-msg">${n.message}</span>
-        <span class="sig-notif-ts">${_timeAgo(new Date(n.created_at).getTime())}</span>
-      </button>`).join('');
+    document.addEventListener('keydown', _sigNotifEscHandler);
+    _sigNotifRenderHead();
+    _sigRefreshNotifBadge();
+    await _sigNotifFetchAndRender();
   };
   function _sigCloseNotifPanelOnce(e) {
     const panel = document.getElementById('sig-notif-panel');
@@ -1013,23 +1043,272 @@
     if (panel && !panel.contains(e.target) && !(bell && bell.contains(e.target))) {
       panel.remove();
       document.removeEventListener('click', _sigCloseNotifPanelOnce);
+      document.removeEventListener('keydown', _sigNotifEscHandler);
     }
   }
+  function _sigNotifEscHandler(e) {
+    if (e.key !== 'Escape') return;
+    document.getElementById('sig-notif-panel')?.remove();
+    document.removeEventListener('click', _sigCloseNotifPanelOnce);
+    document.removeEventListener('keydown', _sigNotifEscHandler);
+  }
+
+  async function _sigNotifFetchAndRender() {
+    const list = document.getElementById('sig-notif-list');
+    if (!list) return;
+    if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb) || !_currentUser) { list.innerHTML = '<div class="sig-body-text" style="padding:12px">Connect Supabase to see live notifications.</div>'; return; }
+    const { data, error } = await sb.from('journal_signal_notifications').select('*').eq('recipient_id', _currentUser.id).order('created_at', { ascending: false }).limit(30);
+    if (error) { list.innerHTML = '<div class="sig-body-text" style="padding:12px">Couldn\'t load notifications.</div>'; return; }
+    _sigNotifCache = data || [];
+    // Drop any selected ids that fell out of the refreshed window.
+    _sigNotifSelected = new Set(Array.from(_sigNotifSelected).filter(id => _sigNotifCache.some(n => n.id === id)));
+    _sigNotifRenderList();
+    _sigNotifRenderHead();
+  }
+
+  function _sigNotifRenderHead() {
+    const wrap = document.getElementById('sig-notif-head-wrap');
+    if (!wrap) return;
+    const unread = Math.max(_sigLastUnreadCount, 0);
+    if (_sigNotifSelectMode) {
+      const total = _sigNotifCache.length;
+      const selCount = _sigNotifSelected.size;
+      const allSelected = total > 0 && selCount === total;
+      wrap.innerHTML = `
+        <div class="sig-notif-select-bar">
+          <label class="sig-notif-check">
+            <input type="checkbox" ${allSelected ? 'checked' : ''} onchange="_sigNotifToggleSelectAll(this.checked)" aria-label="Select all notifications">
+            <span class="sig-notif-checkmark"></span> Select all
+          </label>
+          <span class="sig-notif-selected-count">${selCount} selected</span>
+        </div>
+        <div class="sig-notif-bulk-actions">
+          <button ${selCount ? '' : 'disabled'} onclick="_sigNotifBulkAction('read')" title="Mark as read" aria-label="Mark selected as read">${icn('ic-check')}<span class="lbl-full">Mark read</span></button>
+          <button ${selCount ? '' : 'disabled'} onclick="_sigNotifBulkAction('unread')" title="Mark as unread" aria-label="Mark selected as unread">${icn('ic-dot')}<span class="lbl-full">Mark unread</span></button>
+          <button ${selCount ? '' : 'disabled'} class="danger" onclick="_sigNotifConfirmDeleteSelected()" title="Delete selected" aria-label="Delete selected notifications">${icn('ic-trash')}<span class="lbl-full">Delete selected</span></button>
+          <button onclick="_sigNotifExitSelectMode()">Cancel</button>
+        </div>`;
+    } else {
+      wrap.innerHTML = `
+        <div class="sig-notif-panel-head">
+          <div class="sig-notif-head-title">Notifications${unread > 0 ? `<span class="sig-notif-unread-chip">${unread} unread</span>` : ''}</div>
+          <div class="sig-notif-head-actions">
+            ${_sigNotifCache.length ? `<button class="sig-notif-textbtn" onclick="_sigNotifEnterSelectMode()">Select</button>` : ''}
+            ${unread > 0 ? `<button class="sig-notif-textbtn" onclick="_sigMarkAllNotifsRead()">Mark all read</button>` : ''}
+            ${_sigNotifCache.length ? `<button class="sig-notif-textbtn danger" onclick="_sigNotifConfirmClearAll()">Clear all</button>` : ''}
+          </div>
+        </div>`;
+    }
+  }
+
+  function _sigNotifRowHTML(n) {
+    const [icon, tone] = _sigNotifIconFor(n);
+    const selected = _sigNotifSelected.has(n.id);
+    const unread = !n.read;
+    return `
+    <div class="sig-notif-item ${unread ? 'unread' : ''} ${selected ? 'selected' : ''}" data-notif-id="${n.id}">
+      <label class="sig-notif-check" onclick="event.stopPropagation()">
+        <input type="checkbox" ${selected ? 'checked' : ''} aria-label="Select notification" onchange="_sigNotifToggleSelect('${n.id}', this.checked)">
+        <span class="sig-notif-checkmark"></span>
+      </label>
+      <div class="sig-notif-icon tone-${tone}">${icn(icon)}</div>
+      <div class="sig-notif-content" onclick="_sigNotifRowClick('${n.id}','${n.signal_id || ''}')">
+        <div class="sig-notif-msg">${_sigNotifEsc(n.message)}</div>
+        <div class="sig-notif-meta"><span class="sig-notif-ts">${_timeAgo(new Date(n.created_at).getTime())}</span>${unread ? '<span class="sig-notif-unread-dot" aria-label="Unread"></span>' : ''}</div>
+      </div>
+      <div class="sig-notif-item-actions">
+        <button class="sig-notif-menu-btn" aria-label="Notification actions" title="More" onclick="_sigNotifToggleItemMenu(event,'${n.id}')">${icn('ic-menu')}</button>
+        <div class="sig-notif-inline-menu" id="sig-notif-inline-${n.id}" hidden>
+          <button onclick="_sigNotifSingleAction(event,'${n.id}','${unread ? 'read' : 'unread'}')">${icn(unread ? 'ic-check' : 'ic-dot')} <span class="lbl-full">Mark as ${unread ? 'read' : 'unread'}</span></button>
+          <button class="danger" onclick="_sigNotifSingleAction(event,'${n.id}','delete')">${icn('ic-trash')} <span class="lbl-full">Delete</span></button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function _sigNotifRenderList() {
+    const list = document.getElementById('sig-notif-list');
+    if (!list) return;
+    list.classList.toggle('select-mode', _sigNotifSelectMode);
+    if (!_sigNotifCache.length) {
+      list.innerHTML = `<div class="sig-notif-empty">
+        <div class="sig-notif-empty-icon">${icn('ic-bell')}</div>
+        <div class="sig-notif-empty-title">You're all caught up</div>
+        <div class="sig-notif-empty-sub">No new signal activity or notifications.</div>
+      </div>`;
+      return;
+    }
+    list.innerHTML = _sigNotifCache.map(_sigNotifRowHTML).join('');
+  }
+
+  window._sigNotifRowClick = function (notifId, signalId) {
+    if (_sigNotifSelectMode) {
+      const row = document.querySelector(`#sig-notif-panel [data-notif-id="${notifId}"]`);
+      const cb = row && row.querySelector('.sig-notif-check input');
+      if (cb) { cb.checked = !cb.checked; window._sigNotifToggleSelect(notifId, cb.checked); }
+      return;
+    }
+    window._sigOpenNotification(notifId, signalId);
+  };
   window._sigOpenNotification = async function (notifId, signalId) {
     if (_sigUsingSupabase && typeof sb !== 'undefined' && sb) {
       await sb.from('journal_signal_notifications').update({ read: true }).eq('id', notifId);
       _sigRefreshNotifBadge();
     }
     document.getElementById('sig-notif-panel')?.remove();
+    document.removeEventListener('click', _sigCloseNotifPanelOnce);
+    document.removeEventListener('keydown', _sigNotifEscHandler);
     if (signalId && _sigAll.find(s => s.id === signalId)) window._sigOpenDrawer(signalId);
   };
   window._sigMarkAllNotifsRead = async function () {
     if (_sigUsingSupabase && typeof sb !== 'undefined' && sb && _currentUser) {
-      await sb.from('journal_signal_notifications').update({ read: true }).eq('recipient_id', _currentUser.id).eq('read', false);
+      const { error } = await sb.from('journal_signal_notifications').update({ read: true }).eq('recipient_id', _currentUser.id).eq('read', false);
+      if (error) { console.error('mark all read error:', error.message); showToast("Couldn't mark all as read", 'error'); return; }
     }
-    _sigRefreshNotifBadge();
-    document.getElementById('sig-notif-panel')?.remove();
+    _sigNotifCache.forEach(n => { n.read = true; });
+    await _sigRefreshNotifBadge();
+    _sigNotifRenderList();
     showToast('All notifications marked read', 'info');
+  };
+
+  // ── Selection mode ──────────────────────────────────────────────
+  window._sigNotifEnterSelectMode = function () {
+    _sigNotifSelectMode = true;
+    _sigNotifSelected = new Set();
+    _sigNotifRenderHead();
+    _sigNotifRenderList();
+  };
+  window._sigNotifExitSelectMode = function () {
+    _sigNotifSelectMode = false;
+    _sigNotifSelected = new Set();
+    _sigNotifRenderHead();
+    _sigNotifRenderList();
+  };
+  window._sigNotifToggleSelect = function (id, checked) {
+    if (checked) _sigNotifSelected.add(id); else _sigNotifSelected.delete(id);
+    const row = document.querySelector(`#sig-notif-panel [data-notif-id="${id}"]`);
+    if (row) row.classList.toggle('selected', checked);
+    _sigNotifRenderHead();
+  };
+  window._sigNotifToggleSelectAll = function (checked) {
+    _sigNotifSelected = new Set(checked ? _sigNotifCache.map(n => n.id) : []);
+    _sigNotifRenderList();
+    _sigNotifRenderHead();
+  };
+
+  // ── Bulk actions (single batched request each, never one-per-row) ──
+  window._sigNotifBulkAction = async function (action) {
+    const ids = Array.from(_sigNotifSelected);
+    if (!ids.length) return;
+    if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb && _currentUser)) { showToast('Connect Supabase to manage notifications', 'error'); return; }
+    const readVal = action === 'read';
+    const { error } = await sb.from('journal_signal_notifications').update({ read: readVal }).eq('recipient_id', _currentUser.id).in('id', ids);
+    if (error) { console.error('bulk notif update error:', error.message); showToast("Couldn't update notifications", 'error'); return; }
+    _sigNotifCache.forEach(n => { if (ids.includes(n.id)) n.read = readVal; });
+    showToast(`Marked ${ids.length} notification${ids.length > 1 ? 's' : ''} as ${readVal ? 'read' : 'unread'}`, 'success');
+    window._sigNotifExitSelectMode();
+    _sigRefreshNotifBadge();
+  };
+  async function _sigNotifBulkDelete() {
+    const ids = Array.from(_sigNotifSelected);
+    if (!ids.length) return;
+    if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb && _currentUser)) { showToast('Connect Supabase to manage notifications', 'error'); return; }
+    const { error } = await sb.from('journal_signal_notifications').delete().eq('recipient_id', _currentUser.id).in('id', ids);
+    if (error) { console.error('bulk notif delete error:', error.message); showToast("Couldn't delete notifications", 'error'); return; }
+    _sigNotifCache = _sigNotifCache.filter(n => !ids.includes(n.id));
+    showToast(`Deleted ${ids.length} notification${ids.length > 1 ? 's' : ''}`, 'success');
+    window._sigNotifExitSelectMode();
+    _sigRefreshNotifBadge();
+  }
+  async function _sigNotifClearAll() {
+    if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb && _currentUser)) { showToast('Connect Supabase to manage notifications', 'error'); return; }
+    const { error } = await sb.from('journal_signal_notifications').delete().eq('recipient_id', _currentUser.id);
+    if (error) { console.error('clear all notif error:', error.message); showToast("Couldn't clear notifications", 'error'); return; }
+    _sigNotifCache = [];
+    _sigNotifSelectMode = false;
+    _sigNotifSelected = new Set();
+    _sigNotifRenderHead();
+    _sigNotifRenderList();
+    showToast('All notifications cleared', 'success');
+    _sigRefreshNotifBadge();
+  }
+
+  // ── Single-item actions (⋯ menu) ────────────────────────────────
+  window._sigNotifToggleItemMenu = function (ev, id) {
+    ev.stopPropagation();
+    const menu = document.getElementById('sig-notif-inline-' + id);
+    if (!menu) return;
+    const wasHidden = menu.hasAttribute('hidden');
+    document.querySelectorAll('#sig-notif-panel .sig-notif-inline-menu').forEach(m => m.setAttribute('hidden', ''));
+    if (wasHidden) menu.removeAttribute('hidden');
+  };
+  window._sigNotifSingleAction = async function (ev, id, action) {
+    ev.stopPropagation();
+    document.getElementById('sig-notif-inline-' + id)?.setAttribute('hidden', '');
+    if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb && _currentUser)) { showToast('Connect Supabase to manage notifications', 'error'); return; }
+    if (action === 'delete') {
+      const { error } = await sb.from('journal_signal_notifications').delete().eq('id', id).eq('recipient_id', _currentUser.id);
+      if (error) { console.error('notif delete error:', error.message); showToast("Couldn't delete notification", 'error'); return; }
+      _sigNotifCache = _sigNotifCache.filter(n => n.id !== id);
+      _sigNotifSelected.delete(id);
+    } else {
+      const readVal = action === 'read';
+      const { error } = await sb.from('journal_signal_notifications').update({ read: readVal }).eq('id', id).eq('recipient_id', _currentUser.id);
+      if (error) { console.error('notif update error:', error.message); showToast("Couldn't update notification", 'error'); return; }
+      const n = _sigNotifCache.find(x => x.id === id);
+      if (n) n.read = readVal;
+    }
+    _sigNotifRenderList();
+    _sigNotifRenderHead();
+    _sigRefreshNotifBadge();
+  };
+
+  // ── Confirm dialogs (Clear all / Delete selected) ───────────────
+  function _sigNotifShowConfirm(opts) {
+    let overlay = document.getElementById('sig-notif-confirm-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.id = 'sig-notif-confirm-overlay';
+      overlay.onclick = (e) => { if (e.target === overlay) window._sigNotifCloseConfirm(); };
+      document.body.appendChild(overlay);
+    }
+    overlay.innerHTML = `
+      <div class="modal modal-box sig-notif-confirm-box">
+        <div class="modal-body">
+          <h3 class="modal-title">${_sigNotifEsc(opts.title)}</h3>
+          <p class="sig-body-text">${_sigNotifEsc(opts.body)}</p>
+          <div class="sig-notif-confirm-actions">
+            <button class="btn" onclick="_sigNotifCloseConfirm()">Cancel</button>
+            <button class="btn btn-danger" id="sig-notif-confirm-btn">${_sigNotifEsc(opts.confirmLabel)}</button>
+          </div>
+        </div>
+      </div>`;
+    overlay.classList.add('open');
+    const btn = document.getElementById('sig-notif-confirm-btn');
+    btn.onclick = async () => { btn.disabled = true; await opts.onConfirm(); window._sigNotifCloseConfirm(); };
+  }
+  window._sigNotifCloseConfirm = function () {
+    document.getElementById('sig-notif-confirm-overlay')?.classList.remove('open');
+  };
+  window._sigNotifConfirmDeleteSelected = function () {
+    const n = _sigNotifSelected.size;
+    if (!n) return;
+    _sigNotifShowConfirm({
+      title: 'Delete selected notifications?',
+      body: `This will permanently remove ${n} selected notification${n > 1 ? 's' : ''}.`,
+      confirmLabel: 'Delete selected',
+      onConfirm: _sigNotifBulkDelete
+    });
+  };
+  window._sigNotifConfirmClearAll = function () {
+    if (!_sigNotifCache.length) { showToast('No notifications to clear', 'info'); return; }
+    _sigNotifShowConfirm({
+      title: 'Clear all notifications?',
+      body: 'This will permanently remove all notifications from your notification history.',
+      confirmLabel: 'Clear all',
+      onConfirm: _sigNotifClearAll
+    });
   };
 
   // ══════════════════════════════════════════════════════════════
