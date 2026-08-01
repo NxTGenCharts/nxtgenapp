@@ -809,20 +809,25 @@ function _renderPayoutLog() {
   if (!tbody) return;
   const rows = _accData.payouts;
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text3);text-align:center;font-style:italic">No payouts yet</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text3);text-align:center;font-style:italic">No payouts yet</td></tr>';
     return;
   }
-  tbody.innerHTML = [...rows].sort((a,b) => b.date.localeCompare(a.date)).map((p, i) => `
-    <tr>
+  tbody.innerHTML = [...rows].sort((a,b) => b.date.localeCompare(a.date)).map((p, i) => {
+    const acc = _getCustomAccounts().find(a => a.name === p.account);
+    const firm = acc?.firm || '—';
+    return `
+    <tr title="${p.notes ? p.notes.replace(/"/g,'&quot;') : ''}${p.paymentMethod ? (p.notes ? ' — ' : '') + p.paymentMethod : ''}">
       <td class="mono">${p.date}</td>
       <td class="bold">${p.account}</td>
+      <td style="color:var(--text3)">${firm}</td>
       <td class="outcome-win mono">$${parseFloat(p.amount).toLocaleString()}</td>
       <td><span class="pill ${p.status==='Received'?'pill-green':'pill-gold'}">${p.status}</span></td>
       <td style="text-align:right">
         <button class="wl-week-btn" style="font-size:10px;padding:2px 8px" onclick="accEditPayout(${i})"><svg class="icn" aria-hidden="true"><use href="#ic-edit"></use></svg></button>
         <button class="wl-week-btn danger" style="font-size:10px;padding:2px 8px" onclick="accDeletePayout(${i})"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>
       </td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 
 function accAddPayout() { _showPayoutModal(null); }
@@ -857,9 +862,15 @@ function _showPayoutModal(editIdx) {
         </select>
       </div>
     </div>
-    <div class="wl-form-row">
-      <label class="wl-form-label">Notes (optional)</label>
-      <input type="text" class="wl-form-input" id="acc-p-notes" value="${p ? p.notes||'' : ''}" placeholder="e.g. Phase 1 completion payout">
+    <div class="wl-form-2col">
+      <div class="wl-form-row">
+        <label class="wl-form-label">Payment Method (optional)</label>
+        <input type="text" class="wl-form-input" id="acc-p-method" value="${p ? p.paymentMethod||'' : ''}" placeholder="e.g. Wise, Crypto, Bank Transfer">
+      </div>
+      <div class="wl-form-row">
+        <label class="wl-form-label">Notes (optional)</label>
+        <input type="text" class="wl-form-input" id="acc-p-notes" value="${p ? p.notes||'' : ''}" placeholder="e.g. Phase 1 completion payout">
+      </div>
     </div>
     <div class="wl-form-actions">
       ${isEdit ? `<button class="wl-btn-danger" onclick="accDeletePayout(${editIdx});accClosePayoutModal()">Delete</button>` : ''}
@@ -876,8 +887,9 @@ async function _savePayoutForm(editIdx) {
   const account = document.getElementById('acc-p-account').value;
   const status  = document.getElementById('acc-p-status').value;
   const notes   = document.getElementById('acc-p-notes').value;
+  const paymentMethod = document.getElementById('acc-p-method')?.value || '';
   if (!date || !amount) return;
-  const entry = { date, amount: parseFloat(amount), account, status, notes };
+  const entry = { date, amount: parseFloat(amount), account, status, notes, paymentMethod };
   if (editIdx !== null && editIdx !== undefined && editIdx !== 'null') {
     _accData.payouts[editIdx] = entry;
   } else {

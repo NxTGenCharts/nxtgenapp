@@ -93,6 +93,7 @@
 <link rel="stylesheet" href="css/profile-premium.css?v=202607211200">
 <link rel="stylesheet" href="css/dashboard-premium.css?v=202607211400">
 <link rel="stylesheet" href="css/accounts-premium.css?v=202607211500">
+<link rel="stylesheet" href="css/accounts-upgrade.css?v=202608011600">
 <link rel="stylesheet" href="css/tradelog-premium.css?v=202607220200">
 <link rel="stylesheet" href="css/calendar-premium.css?v=202607220200">
 <link rel="stylesheet" href="css/mobile-nav-smart-dock.css?v=202607220300">
@@ -778,15 +779,21 @@
         <div class="cover">
           <div class="cover-label">Funded &amp; Paper Accounts</div>
           <div class="cover-title">Account Tracker</div>
-          <div class="cover-sub">Track drawdown, targets, and payouts across all accounts</div>
+          <div class="cover-sub">Monitor account health, drawdown, targets, and payouts in one place.</div>
         </div>
+
+        <!-- Portfolio Overview -->
+        <div id="acc-portfolio-overview"></div>
 
         <!-- Account cards grid -->
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-          <div class="sec-head" style="margin-bottom:0">Accounts</div>
+          <div class="sec-head" style="margin-bottom:0">Active Accounts</div>
           <button class="wl-add-week-btn" onclick="_openManageAccounts()"><svg class="icn" aria-hidden="true"><use href="#ic-settings"></use></svg> Manage Accounts</button>
         </div>
-        <div class="acc-grid" id="accounts-grid"></div>
+        <div id="accounts-grid"></div>
+
+        <!-- Account Alerts & Insights -->
+        <div id="acc-insights"></div>
 
         <!-- Account detail drawer -->
         <div class="acc-detail-drawer" id="acc-detail-drawer" style="display:none">
@@ -798,9 +805,10 @@
           <div class="sec-head" style="margin-bottom:0">Payout Log</div>
           <button class="wl-add-week-btn" onclick="accAddPayout()">＋ Add Payout</button>
         </div>
+        <div id="acc-payout-summary"></div>
         <div class="data-table-wrap">
           <table class="data-table">
-            <thead><tr><th>Date</th><th>Account</th><th>Amount</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Date</th><th>Account</th><th>Firm</th><th>Amount</th><th>Status</th><th></th></tr></thead>
             <tbody id="payout-tbody"></tbody>
           </table>
         </div>
@@ -2416,6 +2424,7 @@
 <script src="js/ai-chat-upgrade.js?v=202607311100"></script>
 <script src="js/ai-chat-history.js?v=202607311200"></script>
 <script src="js/accounts-premium.js?v=202607211500"></script>
+<script src="js/accounts-upgrade.js?v=202608011600"></script>
 <script src="js/tradelog-premium.js?v=202607220200"></script>
 <script src="js/calendar-premium.js?v=202607220200"></script>
 <script src="js/signals.js?v=202607291500"></script>
