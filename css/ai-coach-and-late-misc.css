@@ -580,11 +580,8 @@ body {
   .dash-cal-panel .cal-kpi-val { font-size: 10px; }
 }
 
-/* ── Watchlist: compact hero header ── */
-#page-watchlist .cover { padding: 14px 18px; margin-bottom: 14px; }
-#page-watchlist .cover-label { font-size: 9px; margin-bottom: 3px; }
-#page-watchlist .cover-title { font-size: 18px; }
-#page-watchlist .cover-sub { font-size: 11px; margin-top: 3px; }
+/* Watchlist header sizing is now handled by the unified .ntg-hd
+   system (css/ntg-page-header.css), which is compact by default. */
 
 /* ── Watchlist: quarter + week pill bar — compact, responsive, properly organized ── */
 .wl-quarter-nav { gap: 6px; margin-bottom: 10px; }
@@ -611,8 +608,6 @@ body {
 }
 
 @media (max-width: 640px){
-  #page-watchlist .cover { padding: 12px 14px; }
-  #page-watchlist .cover-title { font-size: 16px; }
   .wl-quarter-nav { gap: 5px; margin-bottom: 8px; }
   .wl-q-tab { padding: 4px 10px; font-size: 10px; }
   .wl-week-bar {

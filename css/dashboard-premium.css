@@ -6,41 +6,15 @@
 
 :root{ --pf3-ease: cubic-bezier(0.16, 1, 0.3, 1); }
 
-/* ══ Hero cover ══════════════════════════════════════════════════ */
-.cover-top-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
-.cover-intel{ display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0; }
-.cover-clock{
-  font-family: var(--font-mono); font-size:15px; font-weight:700; letter-spacing:.5px;
-  color: var(--text); font-variant-numeric: tabular-nums;
-  padding:5px 12px; border-radius:var(--r-full);
-  background: var(--glass-2); border:1px solid var(--glass-border);
-}
-.cover-wave{ width:120px; height:32px; }
-.cover-wave svg{ display:block; width:100%; height:100%; }
-.cover-progress-row{ margin-top:16px; }
-.cover-progress-label{
-  display:flex; justify-content:space-between; font-size:10.5px; color:var(--text3);
-  margin-bottom:6px; font-weight:600; letter-spacing:.2px;
-}
-/* Light Mode: --text3 is a dark slate tuned for the light page
-   background, not the purple hero card — on the card it was nearly
-   invisible. Use the card's own on-purple token instead. */
-[data-theme="light"] .cover .cover-progress-label{ color: var(--cover-on-2, rgba(255,255,255,0.92)); }
-.cover-progress-track{ height:6px; border-radius:var(--r-full); background:var(--glass-2); overflow:hidden; }
-.cover-progress-fill{
-  height:100%; width:0%; border-radius:var(--r-full);
-  background: linear-gradient(90deg, var(--blue), var(--purple));
-  transition: width 1s var(--pf3-ease);
-  position:relative;
-}
-.cover-progress-fill::after{
-  content:''; position:absolute; right:0; top:50%; width:10px; height:10px; border-radius:50%;
+/* ══ Hero cover ══════════════════════════════════════════════════
+   Superseded by the unified .ntg-hd page header system
+   (css/ntg-page-header.css). Dashboard-specific progress fill glow
+   dot is preserved here since it's a dashboard-only embellishment. */
+.ntg-hd-progress-fill::after{
+  content:''; position:absolute; right:0; top:50%; width:8px; height:8px; border-radius:50%;
   background:#fff; transform:translate(50%,-50%); box-shadow:0 0 8px rgba(96,165,250,0.8);
 }
-@media (max-width:640px){
-  .cover-top-row{ flex-direction:column; }
-  .cover-intel{ flex-direction:row; align-items:center; width:100%; justify-content:space-between; }
-}
+.ntg-hd-progress-fill{ position:relative; }
 
 /* ══ KPI value row (Net P&L comparison arrow) ═══════════════════ */
 .cal-an-value-row{ display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
@@ -216,10 +190,8 @@ html.nx-reduce-motion .pf3-insight-chip{ animation:none !important; }
   .pf3-popover{ max-width:none; border-radius: var(--r-xl) var(--r-xl) 0 0; align-self:flex-end; max-height:80vh; }
   .pf3-popover-backdrop{ align-items:flex-end; padding:0; }
   .pf3-insight-chip{ flex:1 1 100%; max-width:none; }
-  .cover-wave{ width:90px; }
   .pf3-popover-stat-grid{ grid-template-columns:1fr 1fr; }
 }
 @media (max-width:420px){
-  .cover-clock{ font-size:13px; padding:4px 9px; }
   .pf3-popover-stat-grid{ grid-template-columns:1fr; }
 }

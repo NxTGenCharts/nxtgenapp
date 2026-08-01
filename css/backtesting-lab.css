@@ -1038,37 +1038,13 @@ body{
   background:linear-gradient(90deg,rgba(79,70,229,0.12),rgba(79,70,229,0.04) 60%,transparent);
 }
 
-/* Cover banners per page */
-#page-dashboard .cover{
-  background:linear-gradient(135deg,
-    rgba(8,14,28,0.98) 0%,
-    rgba(14,26,54,0.94) 40%,
-    rgba(20,36,76,0.92) 70%,
-    rgba(10,18,40,0.97) 100%);
-}
-#page-tradelog .cover{
-  background:linear-gradient(135deg,
-    rgba(8,14,28,0.98) 0%,
-    rgba(12,28,24,0.94) 50%,
-    rgba(8,22,20,0.97) 100%);
-}
-#page-watchlist .cover{
-  background:linear-gradient(135deg,
-    rgba(14,8,28,0.98) 0%,
-    rgba(28,14,50,0.94) 50%,
-    rgba(18,10,36,0.97) 100%);
-}
+/* Cover banner — Trade Entry page (out of scope for the unified
+   .ntg-hd header migration; still uses the legacy .cover banner). */
 #page-entry .cover{
   background:linear-gradient(135deg,
     rgba(8,18,14,0.98) 0%,
     rgba(12,30,22,0.94) 50%,
     rgba(8,24,16,0.97) 100%);
-}
-#page-accounts .cover{
-  background:linear-gradient(135deg,
-    rgba(18,14,8,0.98) 0%,
-    rgba(36,24,8,0.94) 50%,
-    rgba(22,16,8,0.97) 100%);
 }
 [data-theme="light"] .cover{
   background:linear-gradient(135deg,rgba(79,70,229,0.88),rgba(79,70,229,0.82),rgba(79,70,229,0.88))!important;
@@ -1163,32 +1139,8 @@ body{
   background:linear-gradient(135deg,rgba(255,255,255,0.82),rgba(248,250,252,0.68));
 }
 
-/* Trash page cover gets a deep red dark gradient */
-#page-trash .cover{
-  background:linear-gradient(135deg,
-    rgba(30,8,8,0.98) 0%,
-    rgba(48,12,12,0.95) 45%,
-    rgba(34,8,8,0.98) 100%)!important;
-}
-[data-theme="light"] #page-trash .cover{
-  background:linear-gradient(135deg,rgba(185,28,28,0.88),rgba(220,38,38,0.80),rgba(185,28,28,0.88))!important;
-}
-/* Label needs strong, reliable contrast against the red cover background —
-   the background is a saturated red in BOTH themes (dark maroon in dark
-   mode, bright red in light mode), so white text works in both cases and
-   doesn't need to branch by theme. Also set inline in the HTML as a
-   belt-and-suspenders guard against any other rule overriding it. */
-#page-trash .cover-label,
-[data-theme="light"] #page-trash .cover-label{
-  color:rgba(255,255,255,.85)!important;
-  opacity:1!important;
-  text-shadow:none!important;
-}
-#page-trash .cover-sub,
-[data-theme="light"] #page-trash .cover-sub{
-  color:rgba(255,255,255,.85)!important;
-  opacity:1!important;
-}
+/* Trash page header now uses the unified .ntg-hd--red accent
+   (css/ntg-page-header.css) instead of a full red gradient banner. */
 
 /* Scrollbar — match theme */
 [data-theme="light"] ::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.15)}
@@ -3873,7 +3825,7 @@ body {
   padding:0 24px;
   box-sizing:border-box;
 }
-#page-tradelog .cover,
+#page-tradelog .ntg-hd,
 #page-tradelog .filter-bar,
 #page-tradelog #bulk-action-bar,
 #page-tradelog #trade-count{

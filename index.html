@@ -98,6 +98,7 @@
 <link rel="stylesheet" href="css/calendar-premium.css?v=202607220200">
 <link rel="stylesheet" href="css/mobile-nav-smart-dock.css?v=202607220300">
 <link rel="stylesheet" href="css/header-sidebar-premium-v2.css?v=202607270100">
+<link rel="stylesheet" href="css/ntg-page-header.css?v=202608011700">
 
 <style>
   /* ══ App Splash / Global Loading Screen ══
@@ -373,22 +374,29 @@
         <!-- ── LEFT COLUMN ── -->
         <div class="dash-left">
 
-          <!-- Cover / quarter banner -->
-          <div class="cover" id="dash-cover">
-            <div class="cover-top-row">
-              <div>
-                <div class="cover-label" id="dash-cover-period">QUARTERLY PERFORMANCE · 2026</div>
-                <div class="cover-title" id="dash-cover-title">Loading…</div>
-                <div class="cover-sub" id="dash-cover-sub"><span id="dash-cover-sub-text">Loading…</span> · <span id="dash-last-updated" class="cover-meta">Loading...</span></div>
+          <!-- Unified NxTGen page header — performance command center -->
+          <div class="ntg-hd ntg-hd--blue" id="dash-cover">
+            <div class="ntg-hd-top">
+              <div class="ntg-hd-main">
+                <div class="ntg-hd-eyebrow" id="dash-cover-period">PERFORMANCE OVERVIEW · 2026</div>
+                <div class="ntg-hd-title">Trading Dashboard</div>
+                <div class="ntg-hd-sub">Monitor performance, consistency, and progress across your trading journey.</div>
               </div>
-              <div class="cover-intel" aria-hidden="false">
-                <div class="cover-clock" id="dash-live-clock" title="Local time">--:--:--</div>
-                <div class="cover-wave" id="dash-hero-wave"></div>
+              <div class="ntg-hd-right" aria-hidden="false">
+                <div class="ntg-hd-wave" id="dash-hero-wave"></div>
+                <div class="ntg-hd-clock" id="dash-live-clock" title="Local time">--:--:--</div>
               </div>
             </div>
-            <div class="cover-progress-row" id="dash-quarter-progress-row">
-              <div class="cover-progress-label"><span id="dash-quarter-progress-label">Quarter progress</span> <span id="dash-quarter-progress-pct">—</span></div>
-              <div class="cover-progress-track"><div class="cover-progress-fill" id="dash-quarter-progress-fill"></div></div>
+            <div class="ntg-hd-meta" id="dash-cover-sub">
+              <span class="ntg-hd-meta-strong" id="dash-cover-title">Loading…</span>
+              <span class="sep">·</span>
+              <span id="dash-cover-sub-text">Loading…</span>
+              <span class="sep">·</span>
+              <span id="dash-last-updated" class="ntg-hd-meta-dim">Loading...</span>
+            </div>
+            <div class="ntg-hd-progress" id="dash-quarter-progress-row">
+              <div class="ntg-hd-progress-label"><span id="dash-quarter-progress-label">Quarter progress</span> <span id="dash-quarter-progress-pct">—</span></div>
+              <div class="ntg-hd-progress-track"><div class="ntg-hd-progress-fill" id="dash-quarter-progress-fill"></div></div>
             </div>
           </div>
 
@@ -654,10 +662,14 @@
     ═══════════════════════════════════════════════ -->
     <div class="page" id="page-tradelog">
       <div class="page-inner">
-        <div class="cover">
-          <div class="cover-label">Trade Database · All accounts</div>
-          <div class="cover-title">Trade Log</div>
-          <div class="cover-sub">Click any row to view details, upload charts and add notes</div>
+        <div class="ntg-hd ntg-hd--cyan">
+          <div class="ntg-hd-top">
+            <div class="ntg-hd-main">
+              <div class="ntg-hd-eyebrow">Trade Database · All Accounts</div>
+              <div class="ntg-hd-title">Trade Log</div>
+              <div class="ntg-hd-sub">Review every trade, analyze execution, and turn experience into measurable improvement.</div>
+            </div>
+          </div>
         </div>
         <div class="filter-bar" style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
           <input type="text" class="form-input" id="search-input" placeholder="Search pair, date, killzone…" oninput="filterTable()" style="flex:1;min-width:140px">
@@ -702,10 +714,19 @@
     ═══════════════════════════════════════════════ -->
     <div class="page" id="page-watchlist">
       <div class="page-inner">
-        <div class="cover">
-          <div class="cover-label" id="wl-cover-label">Analysis Journal · Weekly Prep</div>
-          <div class="cover-title">Market Watchlist</div>
-          <div class="cover-sub">HTF <svg class="icn icn-sm" aria-hidden="true"><use href="#ic-arrow-right"></use></svg> Daily <svg class="icn icn-sm" aria-hidden="true"><use href="#ic-arrow-right"></use></svg> 4h <svg class="icn icn-sm" aria-hidden="true"><use href="#ic-arrow-right"></use></svg> 1h <svg class="icn icn-sm" aria-hidden="true"><use href="#ic-arrow-right"></use></svg> 30m <svg class="icn icn-sm" aria-hidden="true"><use href="#ic-arrow-right"></use></svg> LTF Entry · Complete every Sunday</div>
+        <div class="ntg-hd ntg-hd--indigo">
+          <div class="ntg-hd-top">
+            <div class="ntg-hd-main">
+              <div class="ntg-hd-eyebrow" id="wl-cover-label">Market Analysis · Weekly Prep</div>
+              <div class="ntg-hd-title">Market Watchlist</div>
+              <div class="ntg-hd-sub">Map higher-timeframe bias, key levels, and execution plans before the trading week.</div>
+            </div>
+          </div>
+          <div class="ntg-hd-meta">
+            <span class="ntg-hd-flow">HTF <svg class="icn" aria-hidden="true"><use href="#ic-arrow-right"></use></svg> Daily <svg class="icn" aria-hidden="true"><use href="#ic-arrow-right"></use></svg> 4H <svg class="icn" aria-hidden="true"><use href="#ic-arrow-right"></use></svg> 1H <svg class="icn" aria-hidden="true"><use href="#ic-arrow-right"></use></svg> 30M <svg class="icn" aria-hidden="true"><use href="#ic-arrow-right"></use></svg> LTF Entry</span>
+            <span class="sep">·</span>
+            <span class="ntg-hd-status">Complete every Sunday</span>
+          </div>
         </div>
 
         <!-- Quarter Navigator -->
@@ -776,10 +797,14 @@
     ═══════════════════════════════════════════════ -->
     <div class="page" id="page-accounts">
       <div class="page-inner">
-        <div class="cover">
-          <div class="cover-label">Funded &amp; Paper Accounts</div>
-          <div class="cover-title">Account Tracker</div>
-          <div class="cover-sub">Monitor account health, drawdown, targets, and payouts in one place.</div>
+        <div class="ntg-hd ntg-hd--teal">
+          <div class="ntg-hd-top">
+            <div class="ntg-hd-main">
+              <div class="ntg-hd-eyebrow">Trading Portfolio · All Accounts</div>
+              <div class="ntg-hd-title">Account Tracker</div>
+              <div class="ntg-hd-sub">Monitor account performance, risk, drawdown, targets, and payouts in one place.</div>
+            </div>
+          </div>
         </div>
 
         <!-- Portfolio Overview -->
@@ -865,10 +890,14 @@
     ═══════════════════════════════════════════════ -->
     <div class="page" id="page-backtesting">
       <div class="page-inner">
-        <div class="cover">
-          <div class="cover-label">Research · Refine · Prove Your Edge</div>
-          <div class="cover-title">Backtesting Lab</div>
-          <div class="cover-sub">Build strategies, run sessions, log simulated trades</div>
+        <div class="ntg-hd ntg-hd--slate">
+          <div class="ntg-hd-top">
+            <div class="ntg-hd-main">
+              <div class="ntg-hd-eyebrow">Strategy Research · Performance Validation</div>
+              <div class="ntg-hd-title">Backtesting Lab</div>
+              <div class="ntg-hd-sub">Test your ideas, validate your edge, and refine your execution with data.</div>
+            </div>
+          </div>
         </div>
 
         <div class="sec-head" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
@@ -1397,10 +1426,14 @@
 
         <div class="page" id="page-trash">
       <div class="page-inner">
-        <div class="cover" style="background:linear-gradient(135deg,#1a0a0a 0%,#2a1010 100%)">
-          <div class="cover-label" style="color:rgba(255,255,255,.85)">Deleted Trades · Recycle Bin</div>
-          <div class="cover-title">Trash</div>
-          <div class="cover-sub" style="color:rgba(255,255,255,.85)">Deleted trades are kept here. Restore anytime or permanently delete.</div>
+        <div class="ntg-hd ntg-hd--red">
+          <div class="ntg-hd-top">
+            <div class="ntg-hd-main">
+              <div class="ntg-hd-eyebrow">Recycle Bin · Deleted Items</div>
+              <div class="ntg-hd-title">Trash</div>
+              <div class="ntg-hd-sub">Restore deleted records or permanently remove them from your workspace.</div>
+            </div>
+          </div>
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
           <div id="trash-count" style="font-size:13px;color:var(--text2)"></div>

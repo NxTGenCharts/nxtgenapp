@@ -419,12 +419,11 @@ select[id="filter-kz"] option[value="London"] {
 }
 
 /* ── 24. COVER per-page unique gradients override ────────────────
-   Each page has a distinct tinted cover — sharper than before
-   ─────────────────────────────────────────────────────────────── */
-#page-dashboard .cover  { border-left: 3px solid rgba(96,165,250,0.4); }
-#page-tradelog  .cover  { border-left: 3px solid rgba(52,211,153,0.4); }
-#page-watchlist .cover  { border-left: 3px solid rgba(167,139,250,0.4); }
-#page-accounts  .cover  { border-left: 3px solid rgba(251,191,36,0.4); }
+   Dashboard, Trade Log, Watchlist, and Accounts now use the unified
+   .ntg-hd header system (css/ntg-page-header.css), which expresses
+   page identity via a restrained --ntg-hd-accent instead of a
+   colored border. Remaining .cover users below are out of scope
+   for that migration (AI Coach, Monthly Review). ─────────────── */
 #page-ai        .cover  { border-left: 3px solid rgba(167,139,250,0.6); }
 #page-monthly   .cover  { border-left: 3px solid rgba(96,165,250,0.4); }
 

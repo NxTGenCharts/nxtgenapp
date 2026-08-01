@@ -319,7 +319,7 @@ function updateKPIs() {
     const qStart = [null, '01', '04', '07', '10'][_cqQ];
     _cvFrom  = _cqYear + '-' + qStart + '-01';
     _cvTo    = _todayStr;
-    _cvLabel = 'QUARTERLY PERFORMANCE · ' + _cqYear;
+    _cvLabel = 'PERFORMANCE OVERVIEW · ' + _cqYear;
     _cvTitle = 'Q' + _cqQ + ' ' + _cqYear + ' — ' + (Q_MONTHS[_cqQ] || '');
   }
   const _cqT   = trades.filter(t => t.date >= _cvFrom && t.date <= _cvTo);
