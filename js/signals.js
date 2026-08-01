@@ -43,9 +43,10 @@
     <p style="margin:0">Trade management remains the responsibility of each user. Always manage risk according to your personal trading plan, account size and risk tolerance.</p>`;
   const STATUS_LABEL = {
     draft: 'Draft', scheduled: 'Scheduled',
-    // Only Cancelled and Closed are terminal — every other stage is still
-    // "Ongoing" (the timeline / stage badge shows exactly how far it's got).
-    waiting: 'Ongoing', active: 'Ongoing', partial: 'Ongoing', breakeven: 'Ongoing',
+    // "Ongoing" only applies once a signal has actually entered — a
+    // pending order that hasn't triggered yet is "Pending", not "Ongoing".
+    // Cancelled and Closed remain the only terminal stages.
+    waiting: 'Pending', active: 'Ongoing', partial: 'Ongoing', breakeven: 'Ongoing',
     tp1_hit: 'Ongoing', tp2_hit: 'Ongoing',
     stopped_out: 'Closed', cancelled: 'Cancelled', expired: 'Expired', closed: 'Closed'
   };
