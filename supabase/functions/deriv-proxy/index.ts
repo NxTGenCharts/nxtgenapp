@@ -120,7 +120,53 @@ serve(async (req) => {
   }
 
   try {
-    const { symbol, interval, outputsize } = await req.json();
+    const body = await req.json();
+
+    // ── Diagnostic mode ──────────────────────────────────────
+    // POST { "diagnose": "echo" } to test whether outbound WebSocket
+    // connections work AT ALL from this Supabase project, independent
+    // of Deriv. Connects to Postman's public echo WS server instead.
+    // If THIS also fails, the problem is Supabase's Edge Runtime /
+    // egress network in general. If THIS succeeds but Deriv still
+    // fails, Deriv is specifically rejecting Supabase's IP range.
+    if (body.diagnose === "echo") {
+      try {
+        const echoResult = await new Promise((resolve, reject) => {
+          let settled = false;
+          const ws = new WebSocket("wss://ws.postman-echo.com/raw");
+          const timer = setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            try { ws.close(); } catch { /* ignore */ }
+            reject(new Error("Echo test timed out after 8s"));
+          }, 8000);
+          ws.onopen = () => ws.send("ping-from-deriv-proxy");
+          ws.onmessage = (ev) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            try { ws.close(); } catch { /* ignore */ }
+            resolve(ev.data);
+          };
+          ws.onerror = () => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            reject(new Error("Echo WebSocket connection error"));
+          };
+        });
+        return new Response(JSON.stringify({ diagnose: "echo", ok: true, echoed: echoResult }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (echoErr) {
+        return new Response(JSON.stringify({ diagnose: "echo", ok: false, error: echoErr.message || String(echoErr) }), {
+          status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+    // ── End diagnostic mode ──────────────────────────────────
+
+    const { symbol, interval, outputsize } = body;
     if (!symbol || !interval) {
       return new Response(JSON.stringify({ error: "symbol and interval are required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
