@@ -3464,7 +3464,7 @@ function _goalsFlatGroupHtml(gi, g) {
     </div>
     <div class="acc-progress-wrap" style="margin-top:0;margin-bottom:10px">
       <div class="acc-progress-label"><span>${gDone} of ${gTotal} complete</span><span>${gPct}%</span></div>
-      <div class="acc-progress-bg"><div class="acc-progress-fill" style="width:${gPct}%"></div></div>
+      <div class="acc-progress-bg"><div class="acc-progress-fill goals-tree-fill" style="width:${gPct}%;--target-width:${gPct}%"></div></div>
     </div>
     <div class="checklist-grid">${g.items.map((item, ii) => _goalItemHtml(gi, ii, item)).join('')}</div>
   </div>`;
@@ -3561,7 +3561,7 @@ function _goalsBuildTreeHtml() {
           </div>
         </div>
         ${qExpanded ? `
-        <div class="acc-progress-bg" style="margin:8px 0 10px 18px"><div class="acc-progress-fill" style="width:${qPct}%"></div></div>
+        <div class="acc-progress-bg" style="margin:8px 0 10px 18px"><div class="acc-progress-fill goals-tree-fill" style="width:${qPct}%;--target-width:${qPct}%"></div></div>
         <div style="margin-left:18px">${_goalMonthBucketsHtml(gi, g, _goalQuarterMonths(parsed.q), year, parsed.q)}</div>` : ''}
       </div>`;
     }).join('');
@@ -3574,7 +3574,7 @@ function _goalsBuildTreeHtml() {
         <span class="goals-tree-meta">${yDone}/${yTotal} · ${yPct}%</span>
       </div>
       ${yExpanded ? `
-      <div class="acc-progress-bg" style="margin:8px 0 10px 10px"><div class="acc-progress-fill" style="width:${yPct}%"></div></div>
+      <div class="acc-progress-bg" style="margin:8px 0 10px 10px"><div class="acc-progress-fill goals-tree-fill" style="width:${yPct}%;--target-width:${yPct}%"></div></div>
       <div style="margin-left:10px">${quartersHtml}</div>` : ''}
     </div>`;
   }).join('');

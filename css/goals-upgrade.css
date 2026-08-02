@@ -63,6 +63,10 @@
 }
 .goal-select-box:hover{border-color:var(--blue)}
 .goal-select-box.checked{background:var(--blue);border-color:var(--blue);box-shadow:0 0 6px var(--blue-glow,rgba(96,165,250,.4))}
+/* Year/quarter/group rollup bars — softer than the bright-green default
+   used elsewhere, since these summarize multiple goals rather than one. */
+.acc-progress-fill.goals-tree-fill{background:linear-gradient(90deg,var(--blue),var(--purple))}
+
 .goals-bulk-bar{
   display:flex;align-items:center;justify-content:space-between;gap:10px;
   background:var(--blue-dim,rgba(96,165,250,.1));border:1px solid var(--blue);
