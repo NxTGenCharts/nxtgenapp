@@ -389,7 +389,12 @@ function _repMapIntervalForSource(tf, sourceId) {
 // back to keep the UI in sync with what actually loaded.
 async function _repFetchCandles(symbol, interval, outputsize = 500, source = 'twelvedata') {
   const { data: { session } } = await sb.auth.getSession();
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/market-data-proxy`, {
+  // Dukascopy now lives in its own Edge Function — split out so its
+  // memory footprint can never take down Twelve Data / OANDA requests
+  // (see the notes at the top of supabase/functions/market-data-proxy/
+  // index.ts and dukascopy-proxy/index.ts for why).
+  const fnName = source === 'dukascopy' ? 'dukascopy-proxy' : 'market-data-proxy';
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/${fnName}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

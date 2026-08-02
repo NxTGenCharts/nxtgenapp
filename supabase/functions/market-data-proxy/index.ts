@@ -5,8 +5,6 @@
 //   TWELVE_DATA_API_KEY   supabase secrets set TWELVE_DATA_API_KEY=your_key_here
 //   OANDA_API_KEY         supabase secrets set OANDA_API_KEY=your_oanda_v20_token   (optional — only needed for source:"oanda")
 //   OANDA_ENV             "practice" | "live", defaults to "practice"                (optional)
-//   (Dukascopy needs no key/secret — it's fetched from Dukascopy's public
-//   historical-data servers via the dukascopy-node npm package.)
 //
 // Purpose: the Chart Replay feature in Backtesting Lab needs historical
 // OHLC candles. Twelve Data's free tier is CORS-friendly, but calling it
@@ -17,32 +15,38 @@
 // within a short window are served from `market_data_cache` instead of
 // re-hitting Twelve Data.
 //
-// Now also supports `source: "dukascopy"` and `source: "oanda"` (defaults
-// to "twelvedata" if omitted, so old client calls keep working unchanged).
-// Each source's response is cached separately since they carry different
-// prices for the same symbol/interval.
+// Now also supports `source: "oanda"` (defaults to "twelvedata" if
+// omitted, so old client calls keep working unchanged). Each source's
+// response is cached separately since they carry different prices for
+// the same symbol/interval.
+//
+// source:"dukascopy" moved OUT of this function entirely — see
+// supabase/functions/dukascopy-proxy/index.ts. It used to live here,
+// imported via the dukascopy-node npm package, and that package alone
+// was heavy enough to blow this function's free-tier memory limit on
+// every cold start — including for the ~100% of requests that only
+// ever needed Twelve Data (New Signal live price, signal-monitor,
+// most of Chart Replay). A dynamic import() didn't fix it either:
+// Supabase's bundler resolves the full module graph — including
+// dynamically-imported literal specifiers — into the deployed
+// artifact, so the package was still loaded at boot regardless of
+// whether any request actually used it. The only real fix was to
+// stop this function from referencing the package at all, in any
+// form, and give Dukascopy its own function so its memory footprint
+// can never affect Twelve Data / OANDA requests again.
 //
 // Auto-fallback: if the requested source's key isn't set (e.g. no
 // OANDA_API_KEY yet) or the vendor call itself fails, the function
-// automatically falls through to the next source (oanda -> dukascopy ->
-// twelvedata) instead of erroring. The response always reports which
-// source was actually used via `source` + `fallback` + `requestedSource`,
-// so the client can update its UI to reflect what really loaded.
+// automatically falls through to the next source instead of erroring.
+// The response always reports which source was actually used via
+// `source` + `fallback` + `requestedSource`, so the client can update
+// its UI to reflect what really loaded.
 //
 // DB migration needed — add a `source` column to the cache table:
 //   alter table market_data_cache add column if not exists source text not null default 'twelvedata';
 
 import { serve } from "https://deno.land/std@0.203.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-// dukascopy-node is intentionally NOT imported here at module scope.
-// It used to be, and that meant every cold start of this function —
-// including the ~vast majority of requests that only ever need Twelve
-// Data — paid the full memory cost of loading it. On the free-tier
-// function memory limit that was enough to crash the function before
-// the handler even ran (see the "Memory limit exceeded" / boot-crash-
-// reboot loop in the function logs). It's now dynamically imported
-// inside fetchDukascopy() below, so only requests that actually pick
-// source:"dukascopy" ever pay for it.
 
 const TWELVE_DATA_KEY = Deno.env.get("TWELVE_DATA_API_KEY") ?? "";
 const OANDA_API_KEY = Deno.env.get("OANDA_API_KEY") ?? "";
@@ -60,11 +64,6 @@ const corsHeaders = {
 // Dukascopy is historical/free with no rate limit, so it can cache longer;
 // OANDA's limits are generous so it refreshes a bit more eagerly.
 function cacheTtlMs(interval: string, source: string): number {
-  if (source === "dukascopy") {
-    if (interval === "d1") return 12 * 60 * 60 * 1000; // 12h
-    if (interval === "h1" || interval === "h4") return 60 * 60 * 1000; // 1h
-    return 20 * 60 * 1000; // 20min for m1/m5/m15/m30
-  }
   if (source === "oanda") {
     if (interval === "D" || interval === "W") return 6 * 60 * 60 * 1000; // 6h
     if (interval === "H1" || interval === "H4") return 30 * 60 * 1000;   // 30min
@@ -82,15 +81,13 @@ function cacheTtlMs(interval: string, source: string): number {
 // instead of erroring out. Dukascopy needs no key so it's always
 // a safe landing spot.
 const FALLBACKS: Record<string, string[]> = {
-  oanda: ["dukascopy", "twelvedata"],
-  twelvedata: ["dukascopy"],
-  dukascopy: ["twelvedata"],
+  oanda: ["twelvedata"],
+  twelvedata: [],
 };
 
 function sourceAvailable(source: string): boolean {
   if (source === "oanda") return !!OANDA_API_KEY;
-  if (source === "twelvedata") return !!TWELVE_DATA_KEY;
-  return true; // dukascopy
+  return !!TWELVE_DATA_KEY; // twelvedata
 }
 
 // Symbol/interval formats differ per vendor (EUR/USD vs EUR_USD vs
@@ -131,7 +128,12 @@ serve(async (req) => {
   try {
     const { symbol, interval, outputsize, source: rawSource } = await req.json();
     const requestedSource = rawSource || "twelvedata";
-    if (!["twelvedata", "dukascopy", "oanda"].includes(requestedSource)) {
+    if (requestedSource === "dukascopy") {
+      return new Response(JSON.stringify({ error: 'source:"dukascopy" moved to its own function — call dukascopy-proxy instead of market-data-proxy' }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!["twelvedata", "oanda"].includes(requestedSource)) {
       return new Response(JSON.stringify({ error: `Unknown source "${requestedSource}"` }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -177,8 +179,7 @@ serve(async (req) => {
       }
 
       try {
-        const candles = src === "dukascopy" ? await fetchDukascopy(srcSymbol, srcInterval, size)
-          : src === "oanda" ? await fetchOanda(srcSymbol, srcInterval, size)
+        const candles = src === "oanda" ? await fetchOanda(srcSymbol, srcInterval, size)
           : await fetchTwelveData(srcSymbol, srcInterval, size);
 
         // Best-effort cache write — don't fail the request if this errors
@@ -232,42 +233,7 @@ async function fetchTwelveData(symbol: string, interval: string, size: number) {
     .reverse();
 }
 
-// ── Dukascopy (free, no key — public historical tick data resampled to bars) ──
-// Client sends lowercase no-slash symbols (e.g. "eurusd") and dukascopy-node
-// timeframe strings (m1/m5/m15/m30/h1/h4/d1) — see REP_SOURCES in app.js.
-async function fetchDukascopy(symbol: string, interval: string, size: number) {
-  // Lazy/dynamic import — see the note at the top of this file for why
-  // this isn't a static top-level import anymore.
-  const { getHistoricalRates } = await import("npm:dukascopy-node@1.46.4");
-  const instrument = symbol.toLowerCase().replace(/[\/\s]/g, "");
-  const to = new Date();
-  const from = new Date(to.getTime() - dukascopyLookbackMs(interval, size));
-
-  const rows = await getHistoricalRates({
-    instrument,
-    dates: { from, to },
-    timeframe: interval, // m1 / m5 / m15 / m30 / h1 / h4 / d1
-    format: "json",
-  });
-
-  if (!Array.isArray(rows) || !rows.length) {
-    throw new Error(`No Dukascopy data for ${instrument}/${interval} — check the symbol is a valid Dukascopy instrument code`);
-  }
-
-  // rows: [timestamp, open, high, low, close, volume][]
-  return rows.slice(-size).map((r: any[]) => ({
-    time: r[0], open: r[1], high: r[2], low: r[3], close: r[4], volume: r[5],
-  }));
-}
-
-function dukascopyLookbackMs(interval: string, bars: number): number {
-  const unitMs: Record<string, number> = {
-    m1: 60_000, m5: 5 * 60_000, m15: 15 * 60_000, m30: 30 * 60_000,
-    h1: 3_600_000, h4: 4 * 3_600_000, d1: 86_400_000,
-  };
-  // pad 40% extra to absorb weekends/holidays where there are no candles
-  return Math.ceil((unitMs[interval] ?? 3_600_000) * bars * 1.4);
-}
+// ── Dukascopy moved out — see supabase/functions/dukascopy-proxy/index.ts ──
 
 // ── OANDA v20 REST API (needs OANDA_API_KEY — free practice account works) ──
 // Client sends symbols like "EUR_USD" and granularities like M1/M5/M15/M30/H1/H4/D/W
