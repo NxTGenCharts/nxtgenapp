@@ -34,7 +34,15 @@
 
 import { serve } from "https://deno.land/std@0.203.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getHistoricalRates } from "npm:dukascopy-node@1.46.4";
+// dukascopy-node is intentionally NOT imported here at module scope.
+// It used to be, and that meant every cold start of this function —
+// including the ~vast majority of requests that only ever need Twelve
+// Data — paid the full memory cost of loading it. On the free-tier
+// function memory limit that was enough to crash the function before
+// the handler even ran (see the "Memory limit exceeded" / boot-crash-
+// reboot loop in the function logs). It's now dynamically imported
+// inside fetchDukascopy() below, so only requests that actually pick
+// source:"dukascopy" ever pay for it.
 
 const TWELVE_DATA_KEY = Deno.env.get("TWELVE_DATA_API_KEY") ?? "";
 const OANDA_API_KEY = Deno.env.get("OANDA_API_KEY") ?? "";
@@ -228,6 +236,9 @@ async function fetchTwelveData(symbol: string, interval: string, size: number) {
 // Client sends lowercase no-slash symbols (e.g. "eurusd") and dukascopy-node
 // timeframe strings (m1/m5/m15/m30/h1/h4/d1) — see REP_SOURCES in app.js.
 async function fetchDukascopy(symbol: string, interval: string, size: number) {
+  // Lazy/dynamic import — see the note at the top of this file for why
+  // this isn't a static top-level import anymore.
+  const { getHistoricalRates } = await import("npm:dukascopy-node@1.46.4");
   const instrument = symbol.toLowerCase().replace(/[\/\s]/g, "");
   const to = new Date();
   const from = new Date(to.getTime() - dukascopyLookbackMs(interval, size));
