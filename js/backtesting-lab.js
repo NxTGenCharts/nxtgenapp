@@ -3046,67 +3046,7 @@ function buildGoals() {
     if (_goalsData.groups.length === 0) {
       goalsEl.innerHTML = '<div class="wl-empty-state" style="padding:30px 0"><div class="wl-empty-icon">' + icon('target') + '</div><div class="wl-empty-title">No goals yet</div><div class="wl-empty-sub">Click + Add Group to create your first goal group.</div></div>';
     } else {
-      goalsEl.innerHTML = _goalsData.groups.map((g, gi) => {
-        const gTotal = g.items.length;
-        const gDone  = g.items.filter(item => item.done).length;
-        const gPct   = gTotal ? Math.round((gDone / gTotal) * 100) : 0;
-        return `
-        <div class="goals-group" style="margin-bottom:18px">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-            <div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.3px">${g.q}</div>
-            <div style="display:flex;gap:6px">
-              <button class="wl-week-btn" style="font-size:10px;padding:3px 9px" onclick="goalsAddItem(${gi})">＋ Goal</button>
-              <button class="wl-week-btn danger" style="font-size:10px;padding:3px 9px" onclick="goalsDeleteGroup(${gi})"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>
-            </div>
-          </div>
-          <div class="acc-progress-wrap" style="margin-top:0;margin-bottom:10px">
-            <div class="acc-progress-label">
-              <span>${gDone} of ${gTotal} complete</span>
-              <span>${gPct}%</span>
-            </div>
-            <div class="acc-progress-bg">
-              <div class="acc-progress-fill" style="width:${gPct}%"></div>
-            </div>
-          </div>
-          <div class="checklist-grid">${g.items.map((item, ii) => {
-            if (_goalEditIdx && _goalEditIdx.gi === gi && _goalEditIdx.ii === ii) {
-              return `
-            <div class="cl-item editing" draggable="false">
-              <span class="cl-drag-handle" style="opacity:.25;cursor:default">⠿</span>
-              <div class="cl-box">${item.done ? '✓' : ''}</div>
-              <input type="text" class="cl-edit-input" id="goal-edit-input-${gi}-${ii}" value="${item.t.replace(/"/g,'&quot;')}"
-                     onkeydown="if(event.key==='Enter'){goalSaveEdit(${gi},${ii})} else if(event.key==='Escape'){goalCancelEdit()}">
-              <div class="acc-ms-actions" style="opacity:1">
-                <button class="wl-week-btn primary" style="font-size:10px;padding:2px 7px" onclick="goalSaveEdit(${gi},${ii})">✓ Done</button>
-                <button class="wl-week-btn" style="font-size:10px;padding:2px 7px" onclick="goalCancelEdit()"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>
-              </div>
-            </div>`;
-            }
-            if (item.type && item.type !== 'binary') return _goalTypedCardHtml(gi, ii, item);
-            return `
-            <div class="cl-item${item.done?' checked':''}"
-                 draggable="true"
-                 ondragstart="goalDragStart(event,${gi},${ii})"
-                 ondragover="goalDragOver(event)"
-                 ondragenter="goalDragEnter(event,${gi},${ii})"
-                 ondragleave="goalDragLeave(event)"
-                 ondrop="goalDrop(event,${gi},${ii})"
-                 ondragend="goalDragEnd(event)"
-                 onclick="goalsToggle(${gi},${ii})">
-              <span class="cl-drag-handle${_goalClickSrc && _goalClickSrc.gi===gi && _goalClickSrc.ii===ii ? ' selected' : ''}" onclick="goalHandleClick(event,${gi},${ii})" title="Drag, or click and click another to swap">⠿</span>
-              <div class="cl-box">${item.done?'✓':''}</div>
-              <span class="cl-text">${item.t}</span>
-              ${item.priority ? `<span class="goal-badge priority-${item.priority}" style="margin-right:6px">${item.priority}</span>` : ''}
-              ${item.deadline ? `<span class="goal-badge deadline" style="margin-right:6px">${item.deadline}</span>` : ''}
-              <div class="acc-ms-actions">
-                <button class="wl-week-btn" style="font-size:10px;padding:2px 7px" onclick="goalStartEdit(${gi},${ii});event.stopPropagation()"><svg class="icn" aria-hidden="true"><use href="#ic-edit"></use></svg></button>
-                <button class="wl-week-btn danger" style="font-size:10px;padding:2px 7px" onclick="goalDeleteItem(${gi},${ii});event.stopPropagation()"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>
-              </div>
-            </div>`;
-          }).join('')}
-          </div>
-        </div>`;
-      }).join('');
+      goalsEl.innerHTML = _goalsBuildTreeHtml();
     }
     _renderGoalsProgress();
     if (_goalEditIdx) {
@@ -3374,6 +3314,187 @@ function _renderGoalsProgress() {
   fill.style.width = percent + '%';
 }
 
+/* ── Goals tree — Year › Quarter › Month ──────────────────────────────
+   Goal groups are always "Q# YYYY" (see _goalParseGroupLabel). Items
+   within a group carry an optional `month` (1-12) set at creation time.
+   Rendering buckets a quarter's items by month purely for display —
+   the underlying storage (_goalsData.groups[gi].items[ii]) is untouched,
+   so editing/dragging/deleting still address items the same way they
+   always have. Groups that don't match the quarter naming convention
+   (older manually-typed names) render the old flat way beneath the tree. */
+
+function _goalItemHtml(gi, ii, item) {
+  if (_goalEditIdx && _goalEditIdx.gi === gi && _goalEditIdx.ii === ii) {
+    return `
+    <div class="cl-item editing" draggable="false">
+      <span class="cl-drag-handle" style="opacity:.25;cursor:default">⠿</span>
+      <div class="cl-box">${item.done ? '✓' : ''}</div>
+      <input type="text" class="cl-edit-input" id="goal-edit-input-${gi}-${ii}" value="${item.t.replace(/"/g,'&quot;')}"
+             onkeydown="if(event.key==='Enter'){goalSaveEdit(${gi},${ii})} else if(event.key==='Escape'){goalCancelEdit()}">
+      <div class="acc-ms-actions" style="opacity:1">
+        <button class="wl-week-btn primary" style="font-size:10px;padding:2px 7px" onclick="goalSaveEdit(${gi},${ii})">✓ Done</button>
+        <button class="wl-week-btn" style="font-size:10px;padding:2px 7px" onclick="goalCancelEdit()"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>
+      </div>
+    </div>`;
+  }
+  if (item.type && item.type !== 'binary') return _goalTypedCardHtml(gi, ii, item);
+  return `
+    <div class="cl-item${item.done?' checked':''}"
+         draggable="true"
+         ondragstart="goalDragStart(event,${gi},${ii})"
+         ondragover="goalDragOver(event)"
+         ondragenter="goalDragEnter(event,${gi},${ii})"
+         ondragleave="goalDragLeave(event)"
+         ondrop="goalDrop(event,${gi},${ii})"
+         ondragend="goalDragEnd(event)"
+         onclick="goalsToggle(${gi},${ii})">
+      <span class="cl-drag-handle${_goalClickSrc && _goalClickSrc.gi===gi && _goalClickSrc.ii===ii ? ' selected' : ''}" onclick="goalHandleClick(event,${gi},${ii})" title="Drag, or click and click another to swap">⠿</span>
+      <div class="cl-box">${item.done?'✓':''}</div>
+      <span class="cl-text">${item.t}</span>
+      ${item.priority ? `<span class="goal-badge priority-${item.priority}" style="margin-right:6px">${item.priority}</span>` : ''}
+      ${item.deadline ? `<span class="goal-badge deadline" style="margin-right:6px">${item.deadline}</span>` : ''}
+      <div class="acc-ms-actions">
+        <button class="wl-week-btn" style="font-size:10px;padding:2px 7px" onclick="goalStartEdit(${gi},${ii});event.stopPropagation()"><svg class="icn" aria-hidden="true"><use href="#ic-edit"></use></svg></button>
+        <button class="wl-week-btn danger" style="font-size:10px;padding:2px 7px" onclick="goalDeleteItem(${gi},${ii});event.stopPropagation()"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>
+      </div>
+    </div>`;
+}
+
+function _goalsFlatGroupHtml(gi, g) {
+  const gTotal = g.items.length;
+  const gDone  = g.items.filter(item => item.done).length;
+  const gPct   = gTotal ? Math.round((gDone / gTotal) * 100) : 0;
+  return `
+  <div class="goals-group" style="margin-bottom:18px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.3px">${g.q}</div>
+      <div style="display:flex;gap:6px">
+        <button class="wl-week-btn" style="font-size:10px;padding:3px 9px" onclick="goalsAddItem(${gi})">＋ Goal</button>
+        <button class="wl-week-btn danger" style="font-size:10px;padding:3px 9px" onclick="goalsDeleteGroup(${gi})"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>
+      </div>
+    </div>
+    <div class="acc-progress-wrap" style="margin-top:0;margin-bottom:10px">
+      <div class="acc-progress-label"><span>${gDone} of ${gTotal} complete</span><span>${gPct}%</span></div>
+      <div class="acc-progress-bg"><div class="acc-progress-fill" style="width:${gPct}%"></div></div>
+    </div>
+    <div class="checklist-grid">${g.items.map((item, ii) => _goalItemHtml(gi, ii, item)).join('')}</div>
+  </div>`;
+}
+
+// One-shot-initialized set of expanded tree nodes ("kind:key"), defaulting
+// to the current year/quarter/month open and everything else collapsed.
+let _goalTreeExpandedSet = null;
+function _goalTreeDefaultExpanded() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const q = Math.floor(now.getMonth() / 3) + 1;
+  const m = now.getMonth() + 1;
+  return new Set([`year:${y}`, `quarter:${y}-${q}`, `month:${y}-${q}-${m}`]);
+}
+function _goalTreeExpanded(kind, key) {
+  if (!_goalTreeExpandedSet) _goalTreeExpandedSet = _goalTreeDefaultExpanded();
+  return _goalTreeExpandedSet.has(`${kind}:${key}`);
+}
+function _goalToggleTree(kind, key) {
+  if (!_goalTreeExpandedSet) _goalTreeExpandedSet = _goalTreeDefaultExpanded();
+  const k = `${kind}:${key}`;
+  if (_goalTreeExpandedSet.has(k)) _goalTreeExpandedSet.delete(k); else _goalTreeExpandedSet.add(k);
+  buildGoals();
+}
+
+function _goalMonthBucketsHtml(gi, g, quarterMonths, year, q) {
+  const buckets = {};
+  quarterMonths.forEach(m => buckets[m] = []);
+  const unscheduled = [];
+  g.items.forEach((item, ii) => {
+    if (item.month && buckets[item.month]) buckets[item.month].push({ item, ii });
+    else unscheduled.push({ item, ii });
+  });
+
+  const monthBlock = (label, key, list) => {
+    const mDone = list.filter(x => x.item.done).length;
+    const mTotal = list.length;
+    const mPct = mTotal ? Math.round((mDone / mTotal) * 100) : 0;
+    const expanded = _goalTreeExpanded('month', key);
+    return `
+    <div class="goals-month-block">
+      <div class="goals-tree-head goals-month-head" onclick="_goalToggleTree('month','${key}')">
+        <span class="goals-tree-chevron${expanded ? ' open' : ''}">›</span>
+        <span class="goals-tree-label">${label}</span>
+        <span class="goals-tree-meta">${mTotal ? `${mDone}/${mTotal} · ${mPct}%` : 'No goals'}</span>
+      </div>
+      ${expanded ? `<div class="checklist-grid" style="margin:6px 0 4px 18px">${
+        mTotal ? list.map(({ item, ii }) => _goalItemHtml(gi, ii, item)).join('') : '<div class="goals-month-empty">No goals for this month yet.</div>'
+      }</div>` : ''}
+    </div>`;
+  };
+
+  let html = quarterMonths.map(m => monthBlock(_MR_MONTHS[m - 1], `${year}-${q}-${m}`, buckets[m])).join('');
+  if (unscheduled.length) html += monthBlock('Unscheduled', `${year}-${q}-unset`, unscheduled);
+  return html;
+}
+
+function _goalsBuildTreeHtml() {
+  const groups = _goalsData.groups.map((g, gi) => ({ gi, g, parsed: _goalParseGroupLabel(g.q) }));
+  const quarterGroups = groups.filter(x => x.parsed);
+  const otherGroups   = groups.filter(x => !x.parsed);
+
+  const byYear = {};
+  quarterGroups.forEach(x => {
+    const y = x.parsed.year;
+    (byYear[y] || (byYear[y] = [])).push(x);
+  });
+  const years = Object.keys(byYear).map(Number).sort((a, b) => b - a);
+
+  let html = years.map(year => {
+    const entries = byYear[year].sort((a, b) => a.parsed.q - b.parsed.q);
+    const allItems = entries.flatMap(x => x.g.items);
+    const yTotal = allItems.length;
+    const yDone  = allItems.filter(i => i.done).length;
+    const yPct   = yTotal ? Math.round((yDone / yTotal) * 100) : 0;
+    const yExpanded = _goalTreeExpanded('year', String(year));
+
+    const quartersHtml = entries.map(({ gi, g, parsed }) => {
+      const qTotal = g.items.length;
+      const qDone  = g.items.filter(i => i.done).length;
+      const qPct   = qTotal ? Math.round((qDone / qTotal) * 100) : 0;
+      const qKey = `${year}-${parsed.q}`;
+      const qExpanded = _goalTreeExpanded('quarter', qKey);
+      return `
+      <div class="goals-group goals-quarter-block">
+        <div class="goals-tree-head goals-quarter-head" onclick="_goalToggleTree('quarter','${qKey}')">
+          <span class="goals-tree-chevron${qExpanded ? ' open' : ''}">›</span>
+          <span class="goals-tree-label">Q${parsed.q} ${year}</span>
+          <span class="goals-tree-meta">${qDone}/${qTotal} · ${qPct}%</span>
+          <div class="goals-tree-actions" onclick="event.stopPropagation()">
+            <button class="wl-week-btn" style="font-size:10px;padding:3px 9px" onclick="goalsAddItem(${gi})">＋ Goal</button>
+            <button class="wl-week-btn danger" style="font-size:10px;padding:3px 9px" onclick="goalsDeleteGroup(${gi})"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>
+          </div>
+        </div>
+        ${qExpanded ? `
+        <div class="acc-progress-bg" style="margin:8px 0 10px 18px"><div class="acc-progress-fill" style="width:${qPct}%"></div></div>
+        <div style="margin-left:18px">${_goalMonthBucketsHtml(gi, g, _goalQuarterMonths(parsed.q), year, parsed.q)}</div>` : ''}
+      </div>`;
+    }).join('');
+
+    return `
+    <div class="goals-year-block" style="margin-bottom:18px">
+      <div class="goals-tree-head goals-year-head" onclick="_goalToggleTree('year','${year}')">
+        <span class="goals-tree-chevron${yExpanded ? ' open' : ''}">›</span>
+        <span class="goals-tree-label">${year}</span>
+        <span class="goals-tree-meta">${yDone}/${yTotal} · ${yPct}%</span>
+      </div>
+      ${yExpanded ? `
+      <div class="acc-progress-bg" style="margin:8px 0 10px 10px"><div class="acc-progress-fill" style="width:${yPct}%"></div></div>
+      <div style="margin-left:10px">${quartersHtml}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  if (otherGroups.length) html += otherGroups.map(({ gi, g }) => _goalsFlatGroupHtml(gi, g)).join('');
+
+  return html;
+}
+
 /* ═══════════════════════════════════════════════════
    GOALS UPGRADE — typed goals, auto-tracking, overview,
    insights, upcoming milestones, new-goal modal.
@@ -3637,8 +3758,14 @@ function goalOpenNewGoalModal(gi) {
     body: `
       <div class="gform-row full"><div class="gform-field"><label>Goal Title</label><input type="text" id="ng-title" placeholder="e.g. Reach $1,000 in payouts" autofocus></div></div>
       <div class="gform-row">
-        <div class="gform-field"><label>Group</label><select id="ng-group">${groupOptions}</select></div>
+        <div class="gform-field"><label>Group</label><select id="ng-group" onchange="_ngGroupChange()">${groupOptions}</select></div>
+        <div class="gform-field"><label>Month</label><select id="ng-month"></select></div>
+      </div>
+      <div class="gform-row">
         <div class="gform-field"><label>Category</label><input type="text" id="ng-cat" placeholder="e.g. Funding"></div>
+        <div class="gform-field"><label>Priority</label>
+          <select id="ng-priority"><option value="medium" selected>Medium</option><option value="high">High</option><option value="low">Low</option></select>
+        </div>
       </div>
       <div class="gform-row">
         <div class="gform-field"><label>Goal Type</label>
@@ -3650,9 +3777,6 @@ function goalOpenNewGoalModal(gi) {
             <option value="streak">Streak (days)</option>
             <option value="custom">Custom</option>
           </select>
-        </div>
-        <div class="gform-field"><label>Priority</label>
-          <select id="ng-priority"><option value="medium" selected>Medium</option><option value="high">High</option><option value="low">Low</option></select>
         </div>
       </div>
       <div id="ng-numeric-wrap" style="display:none">
@@ -3689,6 +3813,8 @@ function goalOpenNewGoalModal(gi) {
       if (priority) item.priority = priority;
       if (deadline) item.deadline = deadline;
       if (notes) item.notes = notes;
+      const month = parseInt(document.getElementById('ng-month')?.value, 10);
+      if (!isNaN(month)) item.month = month;
       if (type !== 'binary') {
         item.type = type;
         const target = parseFloat(document.getElementById('ng-target')?.value);
@@ -3708,7 +3834,23 @@ function goalOpenNewGoalModal(gi) {
       await _goalsSave();
     },
   });
-  setTimeout(_ngTypeChange, 0);
+  setTimeout(() => { _ngTypeChange(); _ngGroupChange(); }, 0);
+}
+
+// Populates the Month select with the 3 months belonging to the currently
+// selected group's quarter (e.g. Q3 → Jul/Aug/Sep), defaulting to the
+// current month when it falls inside that quarter, else the first month.
+function _ngGroupChange() {
+  const groupIdx = parseInt(document.getElementById('ng-group')?.value, 10);
+  const sel = document.getElementById('ng-month');
+  if (!sel) return;
+  const g = _goalsData.groups[groupIdx];
+  const parsed = g ? _goalParseGroupLabel(g.q) : null;
+  const now = new Date();
+  const curMonth = now.getMonth() + 1;
+  const months = parsed ? _goalQuarterMonths(parsed.q) : Array.from({ length: 12 }, (_, i) => i + 1);
+  const defaultMonth = months.includes(curMonth) ? curMonth : months[0];
+  sel.innerHTML = months.map(m => `<option value="${m}" ${m === defaultMonth ? 'selected' : ''}>${_MR_MONTHS[m - 1]}</option>`).join('');
 }
 
 /* ── Featured affirmation ── */
@@ -3748,6 +3890,17 @@ function _goalCurrentQuarter() {
   return { q: Math.floor(d.getMonth() / 3) + 1, year: d.getFullYear() };
 }
 function _goalQuarterLabel(q, year) { return `Q${q} ${year}`; }
+// Parses a group label like "Q3 2026" into { q: 3, year: 2026 }, or null
+// for groups that don't follow the quarter naming convention (legacy /
+// manually-typed group names from before groups were quarter-only).
+function _goalParseGroupLabel(label) {
+  const m = /^Q([1-4])\s+(\d{4})$/.exec((label || '').trim());
+  return m ? { q: parseInt(m[1], 10), year: parseInt(m[2], 10) } : null;
+}
+function _goalQuarterMonths(q) {
+  const start = (q - 1) * 3 + 1;
+  return [start, start + 1, start + 2];
+}
 function _goalFindOrCreateGroup(label) {
   let idx = _goalsData.groups.findIndex(g => g.q === label);
   if (idx === -1) { _goalsData.groups.push({ q: label, items: [] }); idx = _goalsData.groups.length - 1; }
