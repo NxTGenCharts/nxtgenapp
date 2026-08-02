@@ -267,6 +267,18 @@ const REP_SOURCES = [
       const p = pair.trim().toUpperCase().replace(/\s+/g, '');
       if (p.includes('/')) return p;
       if (/^[A-Z]{6}$/.test(p)) return p.slice(0, 3) + '/' + p.slice(3);
+      // Crypto pairs are longer than 6 chars because the quote currency
+      // itself is >3 chars (BTCUSDT, ETHUSDC, BTCUSD, ...). Without this,
+      // a bare "BTCUSDT" was sent straight to Twelve Data unmapped and
+      // never resolved — same suffix list the signal-monitor Edge
+      // Function already uses server-side (2-signal-monitor.index.ts),
+      // kept in sync on purpose so New Signal's live price and the
+      // auto-monitor agree on the same symbol.
+      for (const quote of ['USDT', 'USDC', 'USD', 'EUR', 'BTC']) {
+        if (p.endsWith(quote) && p.length > quote.length) {
+          return p.slice(0, p.length - quote.length) + '/' + quote;
+        }
+      }
       return p;
     },
   },
