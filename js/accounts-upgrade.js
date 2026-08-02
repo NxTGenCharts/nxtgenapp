@@ -10,6 +10,13 @@
 //    numbers only show once the user sets them or once real trades exist ──
 // Paper/Live accounts don't have a prop "firm" — they trade through a
 // personal broker, so the label (and placeholder) flips accordingly.
+// Funded accounts have a payout goal; Evaluation accounts have a profit
+// target instead — the "Risk & ___" / "Rules & ___" headings should say
+// whichever one actually applies instead of always saying "Payout".
+function _accRiskWord(typeInfo) {
+  return typeInfo.payout ? 'Payout' : 'Target';
+}
+
 function _accFirmLabel(typeInfo) {
   return (typeInfo.cls === 'paper' || typeInfo.cls === 'live') ? 'Broker' : 'Firm';
 }
@@ -306,7 +313,7 @@ function _openAccRiskSettings(name) {
   overlay.innerHTML = `
   <div class="acc-manager-modal" style="max-width:440px">
     <div class="acc-manager-header">
-      <span><svg class="icn" aria-hidden="true"><use href="#ic-shield"></use></svg> Risk &amp; Payout — ${name}</span>
+      <span><svg class="icn" aria-hidden="true"><use href="#ic-shield"></use></svg> Risk &amp; ${_accRiskWord(t)} — ${name}</span>
       <button onclick="document.getElementById('acc-risk-overlay').remove()" class="acc-mgr-close"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>
     </div>
     <div class="acc-manager-body" style="gap:10px">
@@ -346,6 +353,7 @@ async function _saveAccRiskSettings(name) {
   document.getElementById('acc-risk-overlay')?.remove();
   showToast('Risk & payout settings saved ✓', 'restore');
   buildAccounts();
+  if (typeof _accActiveName !== 'undefined' && _accActiveName === name) accShowDetail(name);
 }
 
 // ── Portfolio Overview ──────────────────────────────────────────────────
@@ -503,7 +511,7 @@ function _accRiskPanelHtml(name) {
   if (!leftCol && !rightCol) {
     return `
     <div class="acch-detail-risk">
-      <div class="acc-an-sec-head" style="margin-top:0">Risk &amp; Payout</div>
+      <div class="acc-an-sec-head" style="margin-top:0">Risk &amp; ${_accRiskWord(t)}</div>
       <div class="acch-risk-none">
         <svg class="icn" aria-hidden="true"><use href="#ic-shield"></use></svg>
         <span>${t.label} accounts have no drawdown limits, profit targets, or payout goals.</span>
@@ -513,7 +521,7 @@ function _accRiskPanelHtml(name) {
   }
   return `
     <div class="acch-detail-risk">
-      <div class="acc-an-sec-head" style="margin-top:0">Risk &amp; Payout</div>
+      <div class="acc-an-sec-head" style="margin-top:0">Risk &amp; ${_accRiskWord(t)}</div>
       <div class="acch-detail-risk-grid">
         ${leftCol}
         ${rightCol}
@@ -522,9 +530,9 @@ function _accRiskPanelHtml(name) {
         ${t.payout ? `<div><span class="k">Trading Days</span><span class="v">${p.r.minTradingDays > 0 ? `${p.m.tradingDays} / ${p.r.minTradingDays} required` : (p.m.tradingDays || '—')}</span></div>
         <div><span class="k">Payout Eligibility</span><span class="v" style="color:${p.payoutEligible ? 'var(--teal)' : 'var(--text2)'}">${p.payoutEligible ? 'Eligible now' : (p.payoutGoal > 0 ? 'Not yet eligible' : 'No threshold set')}</span></div>
         <div><span class="k">Next Payout Date</span><span class="v">${p.r.nextPayoutDate ? new Date(p.r.nextPayoutDate).toLocaleDateString() : '—'}</span></div>` : ''}
-        <div><span class="k">Firm</span><span class="v">${p.r.firm || '—'}</span></div>
+        <div><span class="k">${_accFirmLabel(t)}</span><span class="v">${p.r.firm || '—'}</span></div>
       </div>
-      <button class="acch-act-btn" style="margin-top:10px" onclick="_openAccRiskSettings('${name.replace(/'/g, "\\'")}')"><svg class="icn" aria-hidden="true"><use href="#ic-settings"></use></svg> Edit Risk &amp; Payout Settings</button>
+      <button class="acch-act-btn" style="margin-top:10px" onclick="_openAccRiskSettings('${name.replace(/'/g, "\\'")}')"><svg class="icn" aria-hidden="true"><use href="#ic-settings"></use></svg> Edit Risk &amp; ${_accRiskWord(t)} Settings</button>
     </div>`;
 }
 
@@ -592,9 +600,9 @@ function _accSettingsTabHtml(name) {
     </div>
     ${isPaperOrLive ? '' : `
     <div class="acch-settings-block">
-      <div class="acch-settings-title">Rules &amp; Payout</div>
+      <div class="acch-settings-title">Rules &amp; ${_accRiskWord(t)}</div>
       ${rulesRows || `<div class="acch-ov-health-sub" style="padding:2px 0 4px">${t.label} accounts have no rules or payout goal to configure.</div>`}
-      <button class="acch-act-btn" style="margin-top:8px" onclick="_openAccRiskSettings('${name.replace(/'/g, "\\'")}')"><svg class="icn" aria-hidden="true"><use href="#ic-settings"></use></svg> Edit Rules &amp; Payout</button>
+      <button class="acch-act-btn" style="margin-top:8px" onclick="_openAccRiskSettings('${name.replace(/'/g, "\\'")}')"><svg class="icn" aria-hidden="true"><use href="#ic-settings"></use></svg> Edit Rules &amp; ${_accRiskWord(t)}</button>
     </div>`}
     <div class="acch-settings-block">
       <div class="acch-settings-title">MT5 Connection</div>
@@ -633,21 +641,22 @@ function _accEnhanceDetailView(name) {
   const acc = _getCustomAccounts().find(a => a.name === name) || {};
   const typeInfo = _accTypeInfo(acc.type);
   const showRiskTab = typeInfo.cls !== 'paper' && typeInfo.cls !== 'live';
+  const showPayoutsTab = !!typeInfo.payout;
 
   const shell = document.createElement('div');
   shell.className = 'acch-tabs-wrap';
   shell.innerHTML = `
     <div class="acch-tabs" role="tablist">
       <button class="acch-tab-btn active" data-tab="overview">Overview</button>
-      ${showRiskTab ? `<button class="acch-tab-btn" data-tab="risk">Risk &amp; Payout</button>` : ''}
+      ${showRiskTab ? `<button class="acch-tab-btn" data-tab="risk">Risk &amp; ${_accRiskWord(typeInfo)}</button>` : ''}
       <button class="acch-tab-btn" data-tab="trades">Trades</button>
-      <button class="acch-tab-btn" data-tab="payouts">Payouts</button>
+      ${showPayoutsTab ? `<button class="acch-tab-btn" data-tab="payouts">Payouts</button>` : ''}
       <button class="acch-tab-btn" data-tab="settings">Settings</button>
     </div>
     <div class="acch-tab-panel active" data-panel="overview"></div>
     ${showRiskTab ? `<div class="acch-tab-panel" data-panel="risk">${_accRiskPanelHtml(name)}</div>` : ''}
     <div class="acch-tab-panel" data-panel="trades"></div>
-    <div class="acch-tab-panel" data-panel="payouts">${_accPayoutsTabHtml(name)}</div>
+    ${showPayoutsTab ? `<div class="acch-tab-panel" data-panel="payouts">${_accPayoutsTabHtml(name)}</div>` : ''}
     <div class="acch-tab-panel" data-panel="settings">${_accSettingsTabHtml(name)}</div>
   `;
 
