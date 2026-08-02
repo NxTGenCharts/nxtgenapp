@@ -129,6 +129,25 @@ serve(async (req) => {
     // If THIS also fails, the problem is Supabase's Edge Runtime /
     // egress network in general. If THIS succeeds but Deriv still
     // fails, Deriv is specifically rejecting Supabase's IP range.
+    if (body.diagnose === "fetch-deriv") {
+      try {
+        const url = `https://ws.derivws.com/websockets/v3?app_id=${DERIV_APP_ID}`;
+        const resp = await fetch(url, {
+          headers: { "Upgrade": "websocket", "Connection": "Upgrade" },
+        });
+        const text = await resp.text().catch(() => "");
+        return new Response(JSON.stringify({
+          diagnose: "fetch-deriv", status: resp.status, statusText: resp.statusText,
+          headers: Object.fromEntries(resp.headers.entries()),
+          bodySnippet: text.slice(0, 500),
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      } catch (fetchErr) {
+        return new Response(JSON.stringify({
+          diagnose: "fetch-deriv", ok: false, error: fetchErr.message || String(fetchErr),
+        }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
     if (body.diagnose === "echo") {
       try {
         const echoResult = await new Promise((resolve, reject) => {
