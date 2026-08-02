@@ -99,6 +99,7 @@
 <link rel="stylesheet" href="css/mobile-nav-smart-dock.css?v=202607220300">
 <link rel="stylesheet" href="css/header-sidebar-premium-v2.css?v=202607270100">
 <link rel="stylesheet" href="css/ntg-page-header.css?v=202608011700">
+<link rel="stylesheet" href="css/zen-upgrade.css?v=202608021000">
 
 <style>
   /* ══ App Splash / Global Loading Screen ══
@@ -348,6 +349,7 @@
       <div class="sb-section-label">Planning</div>
       <div class="sb-item" id="sb-playbook" onclick="nav('playbook',this,'Trading Playbook')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-book-open"></use></svg></span><span class="lbl">Playbook</span></div>
       <div class="sb-item" id="sb-goals" onclick="nav('goals',this,'Goals &amp; Milestones')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-target"></use></svg></span><span class="lbl">Goals</span></div>
+      <div class="sb-item" id="sb-zen" onclick="nav('zen',this,'Zen')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-meditate"></use></svg></span><span class="lbl">Zen</span></div>
       <div class="sb-item ai-glow" id="sb-ai" onclick="nav('ai',this,'AI Coach')"><span class="ico"><svg class="icn" aria-hidden="true"><use href="#ic-ai-coach-robot"></use></svg></span><span class="lbl">AI Coach</span></div>
     </div>
     <div class="sb-sep"></div>
@@ -1033,6 +1035,101 @@
         </div>
         <div id="aff-featured"></div>
         <div id="affirmations"></div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+         ZEN PAGE — Trader Mental Performance Center
+    ═══════════════════════════════════════════════ -->
+    <div class="page" id="page-zen">
+      <div class="page-inner">
+
+        <!-- Compact zen header (same premium header system as Goals/Playbook) -->
+        <div class="zen-hd">
+          <div class="zen-hd-top">
+            <div>
+              <div class="zen-hd-eyebrow">MENTAL EDGE · DISCIPLINE · CLARITY</div>
+              <div class="zen-hd-title">Zen</div>
+              <div class="zen-hd-sub">Prepare your mindset, protect your discipline, and trade with intention.</div>
+            </div>
+          </div>
+          <div class="zen-hd-status"><svg class="icn" aria-hidden="true"><use href="#ic-meditate"></use></svg> Your mental edge is part of your trading edge.</div>
+        </div>
+
+        <div class="zen-grid">
+          <!-- LEFT COLUMN -->
+          <div class="zen-col">
+
+            <!-- Daily Trader Check-In -->
+            <div class="zen-card">
+              <div class="zen-card-title"><svg class="icn" aria-hidden="true"><use href="#ic-meditate"></use></svg> How are you showing up today?</div>
+              <div class="zen-card-sub">A quick check-in can help you recognize emotional risk before it affects your execution.</div>
+              <div id="zen-checkin-body"><div class="zen-loading">Loading check-in…</div></div>
+            </div>
+
+            <!-- Pre-Trade Reset -->
+            <div class="zen-card">
+              <div class="zen-card-title"><svg class="icn" aria-hidden="true"><use href="#ic-check-c"></use></svg> Pre-Trade Reset</div>
+              <div class="zen-card-sub">Use this before entering a position.</div>
+              <div id="zen-checklist-body"></div>
+            </div>
+
+            <!-- Pause Before You Trade -->
+            <div class="zen-card">
+              <div class="zen-card-title"><svg class="icn" aria-hidden="true"><use href="#ic-clock"></use></svg> Pause Before You Trade</div>
+              <div id="zen-pause-body"></div>
+            </div>
+
+            <!-- Mindset Journal -->
+            <div class="zen-card">
+              <div class="zen-card-title"><svg class="icn" aria-hidden="true"><use href="#ic-book-open"></use></svg> Mindset Journal</div>
+              <div id="zen-journal-body"><div class="zen-loading">Loading journal…</div></div>
+            </div>
+
+          </div>
+
+          <!-- RIGHT COLUMN -->
+          <div class="zen-col">
+
+            <!-- Zen Readiness Score -->
+            <div class="zen-card">
+              <div class="zen-card-title"><svg class="icn" aria-hidden="true"><use href="#ic-activity"></use></svg> Zen Readiness Score</div>
+              <div id="zen-readiness-body"></div>
+            </div>
+
+            <!-- Today's Guardrails -->
+            <div class="zen-card">
+              <div class="zen-card-title"><svg class="icn" aria-hidden="true"><use href="#ic-shield"></use></svg> Today's Guardrails</div>
+              <div id="zen-guardrails-body"><div class="zen-loading">Loading guardrails…</div></div>
+            </div>
+
+            <!-- Mindset Insights -->
+            <div class="zen-card">
+              <div class="zen-card-title"><svg class="icn" aria-hidden="true"><use href="#ic-target"></use></svg> Mindset Insights</div>
+              <div id="zen-insights-body"><div class="zen-loading">Loading insights…</div></div>
+            </div>
+
+            <!-- Zen History -->
+            <div class="zen-card">
+              <div class="zen-card-title"><svg class="icn" aria-hidden="true"><use href="#ic-calendar"></use></svg> Zen History</div>
+              <div id="zen-history-body"><div class="zen-loading">Loading history…</div></div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 60-Second Reset overlay (Zen — "Pause Before You Trade") -->
+    <div class="zen-reset-overlay" id="zen-reset-overlay">
+      <div class="zen-reset-box">
+        <div id="zen-reset-content">
+          <div class="zen-reset-count">60</div>
+          <div class="zen-reset-prompt">Step away from the chart for a moment.</div>
+          <div class="zen-reset-track"><div class="zen-reset-fill" style="width:0%"></div></div>
+        </div>
+        <button class="wl-week-btn" style="margin-top:16px;width:100%;justify-content:center" onclick="zenCloseReset()">Close</button>
       </div>
     </div>
 
@@ -2435,6 +2532,7 @@
 <script src="js/tradelog-premium.js?v=202607220200"></script>
 <script src="js/calendar-premium.js?v=202607220200"></script>
 <script src="js/signals.js?v=202608011200"></script>
+<script src="js/zen-upgrade.js?v=202608021000"></script>
 
 <!-- ══ MOBILE SIDEBAR OVERLAY ══ already present above ══ -->
 

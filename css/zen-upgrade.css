@@ -1,0 +1,224 @@
+/* ══════════════════════════════════════════════════════════
+   NxTGen — Zen (Trader Mental Performance Center)
+   Follows the compact premium header pattern used by
+   .goals-hd / .pb-hd, and the existing card/token system.
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Header (compact, matches .goals-hd / .pb-hd) ── */
+.zen-hd{
+  position:relative; overflow:hidden;
+  background:linear-gradient(135deg,var(--bg3),var(--bg4));
+  border:1px solid var(--border); border-radius:var(--r-lg,16px);
+  padding:16px 18px; margin-bottom:14px;
+}
+.zen-hd::before{
+  content:''; position:absolute; top:-60px; right:-60px; width:220px; height:220px;
+  background:radial-gradient(circle, var(--purple) 0%, transparent 70%);
+  opacity:.12; pointer-events:none;
+}
+.zen-hd::after{
+  content:''; position:absolute; bottom:-70px; left:20%; width:200px; height:200px;
+  background:radial-gradient(circle, var(--blue) 0%, transparent 70%);
+  opacity:.08; pointer-events:none;
+}
+.zen-hd-top{ position:relative; z-index:1; display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.zen-hd-eyebrow{ font-size:9px; font-weight:700; color:var(--purple); text-transform:uppercase; letter-spacing:.14em; margin-bottom:4px; }
+.zen-hd-title{ font-family:var(--font-head,inherit); font-size:19px; font-weight:800; color:var(--text); letter-spacing:-0.4px; }
+.zen-hd-sub{ font-size:12px; color:var(--text2); margin-top:4px; max-width:520px; }
+.zen-hd-status{ position:relative; z-index:1; margin-top:10px; font-size:11px; color:var(--text3); display:flex; align-items:center; gap:6px; }
+.zen-hd-status .icn{ width:12px; height:12px; opacity:.7; }
+
+/* ── Layout ── */
+.zen-grid{ display:grid; grid-template-columns:1.4fr 1fr; gap:14px; align-items:start; }
+.zen-col{ display:flex; flex-direction:column; gap:14px; min-width:0; }
+.zen-card{
+  background:var(--bg3); border:1px solid var(--border); border-radius:var(--r-lg,16px);
+  padding:16px; min-width:0;
+}
+.zen-card-title{ font-size:14px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:7px; }
+.zen-card-title .icn{ width:15px; height:15px; color:var(--purple); }
+.zen-card-sub{ font-size:11.5px; color:var(--text2); margin-top:2px; margin-bottom:12px; line-height:1.5; }
+
+/* ── Check-in ── */
+.zen-checkin-block{ margin-bottom:14px; }
+.zen-checkin-block:last-child{ margin-bottom:0; }
+.zen-checkin-label{ font-size:11.5px; font-weight:700; color:var(--text2); margin-bottom:8px; text-transform:uppercase; letter-spacing:.06em; }
+.zen-scale{ display:flex; gap:6px; }
+.zen-scale-btn{
+  flex:1; padding:8px 4px; text-align:center; border-radius:var(--r-md); cursor:pointer;
+  border:1px solid var(--glass-border,var(--border)); background:var(--glass-1,transparent);
+  font-size:12px; font-weight:600; color:var(--text2); transition:.15s;
+}
+.zen-scale-btn:hover{ border-color:var(--purple); color:var(--text); }
+.zen-scale-btn.active{ background:rgba(167,139,250,0.16); border-color:var(--purple); color:var(--purple); }
+
+.zen-chip-row{ display:flex; gap:7px; flex-wrap:wrap; }
+.zen-chip{
+  padding:6px 12px; border-radius:var(--r-full,999px); cursor:pointer; user-select:none;
+  border:1px solid var(--glass-border,var(--border)); background:var(--glass-1,transparent);
+  font-size:12px; font-weight:600; color:var(--text2); transition:.15s;
+}
+.zen-chip:hover{ border-color:var(--blue); color:var(--text); }
+.zen-chip.active{ background:rgba(96,165,250,0.16); border-color:var(--blue); color:var(--blue); }
+.zen-chip.active.negative{ background:rgba(248,113,113,0.14); border-color:var(--red); color:var(--red); }
+
+.zen-seg{ display:flex; gap:6px; }
+.zen-seg-btn{
+  flex:1; padding:8px 6px; text-align:center; border-radius:var(--r-md); cursor:pointer;
+  border:1px solid var(--glass-border,var(--border)); background:var(--glass-1,transparent);
+  font-size:12px; font-weight:600; color:var(--text2); transition:.15s;
+}
+.zen-seg-btn:hover{ border-color:var(--teal); color:var(--text); }
+.zen-seg-btn.active{ background:rgba(45,212,191,0.16); border-color:var(--teal); color:var(--teal); }
+
+.zen-intent-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:7px; }
+.zen-intent-opt{
+  padding:9px 10px; border-radius:var(--r-md); cursor:pointer; text-align:left;
+  border:1px solid var(--glass-border,var(--border)); background:var(--glass-1,transparent);
+  font-size:12px; font-weight:600; color:var(--text2); transition:.15s;
+}
+.zen-intent-opt:hover{ border-color:var(--purple); color:var(--text); }
+.zen-intent-opt.active{ background:rgba(167,139,250,0.14); border-color:var(--purple); color:var(--purple); }
+
+/* ── Readiness score ── */
+.zen-readiness{ display:flex; align-items:center; gap:16px; }
+.zen-ring-wrap{ position:relative; width:88px; height:88px; flex-shrink:0; }
+.zen-ring-wrap svg{ width:100%; height:100%; transform:rotate(-90deg); }
+.zen-ring-track{ fill:none; stroke:var(--border); stroke-width:8; }
+.zen-ring-fill{ fill:none; stroke-width:8; stroke-linecap:round; transition:stroke-dashoffset .6s ease, stroke .3s ease; }
+.zen-ring-num{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; }
+.zen-ring-num .n{ font-size:22px; font-weight:800; color:var(--text); font-family:var(--font-head,inherit); line-height:1; }
+.zen-ring-num .lbl{ font-size:8.5px; color:var(--text3); text-transform:uppercase; letter-spacing:.08em; margin-top:2px; }
+.zen-readiness-copy{ min-width:0; flex:1; }
+.zen-readiness-tag{ font-size:13px; font-weight:800; margin-bottom:3px; }
+.zen-readiness-tag.ready{ color:var(--teal); }
+.zen-readiness-tag.aware{ color:var(--blue); }
+.zen-readiness-tag.caution{ color:#fbbf24; }
+.zen-readiness-tag.pause{ color:var(--red); }
+.zen-readiness-desc{ font-size:12px; color:var(--text2); line-height:1.5; }
+.zen-readiness-empty{ font-size:12px; color:var(--text3); line-height:1.5; }
+
+/* ── Pre-trade checklist ── */
+.zen-checklist{ display:flex; flex-direction:column; gap:2px; }
+.zen-check-item{
+  display:flex; align-items:flex-start; gap:10px; padding:9px 4px; cursor:pointer;
+  border-bottom:1px solid var(--border); font-size:12.5px; color:var(--text2); line-height:1.4;
+}
+.zen-check-item:last-child{ border-bottom:none; }
+.zen-check-item.done{ color:var(--text); }
+.zen-check-box{
+  width:17px; height:17px; border-radius:5px; border:1.5px solid var(--glass-border,var(--border));
+  flex-shrink:0; margin-top:1px; display:flex; align-items:center; justify-content:center; transition:.15s;
+}
+.zen-check-item.done .zen-check-box{ background:var(--teal); border-color:var(--teal); }
+.zen-check-box .icn{ width:11px; height:11px; color:#08201c; opacity:0; transition:.15s; }
+.zen-check-item.done .zen-check-box .icn{ opacity:1; }
+.zen-checklist-foot{ display:flex; align-items:center; justify-content:space-between; margin-top:12px; gap:10px; flex-wrap:wrap; }
+.zen-checklist-progress{ font-size:11.5px; color:var(--text2); font-weight:600; }
+.zen-checklist-state{ font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:var(--r-full,999px); text-transform:uppercase; letter-spacing:.05em; }
+.zen-checklist-state.incomplete{ background:rgba(148,163,184,0.14); color:var(--text3); }
+.zen-checklist-state.nearly{ background:rgba(251,191,36,0.14); color:#fbbf24; }
+.zen-checklist-state.ready{ background:rgba(45,212,191,0.16); color:var(--teal); }
+.zen-checklist-complete{ margin-top:10px; padding:10px 12px; border-radius:var(--r-md); background:rgba(45,212,191,0.1); border:1px solid rgba(45,212,191,0.28); font-size:12px; color:var(--teal); line-height:1.5; }
+
+/* ── Pause before you trade ── */
+.zen-pause-card{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; justify-content:space-between; }
+.zen-pause-copy{ min-width:0; flex:1; }
+.zen-pause-copy .t{ font-size:13px; font-weight:700; color:var(--text); margin-bottom:2px; }
+.zen-pause-copy .s{ font-size:11.5px; color:var(--text2); }
+
+.zen-reset-overlay{
+  position:fixed; inset:0; z-index:9999; display:none; align-items:center; justify-content:center;
+  background:rgba(5,7,12,0.72); backdrop-filter:blur(6px); padding:20px;
+}
+.zen-reset-overlay.open{ display:flex; }
+.zen-reset-box{
+  width:100%; max-width:380px; background:var(--bg2); border:1px solid var(--border);
+  border-radius:var(--r-lg,16px); padding:28px 24px; text-align:center;
+}
+.zen-reset-count{ font-size:52px; font-weight:800; color:var(--purple); font-family:var(--font-head,inherit); margin-bottom:14px; }
+.zen-reset-prompt{ font-size:14px; color:var(--text); line-height:1.6; min-height:50px; display:flex; align-items:center; justify-content:center; }
+.zen-reset-track{ width:100%; height:4px; border-radius:2px; background:var(--border); margin-top:18px; overflow:hidden; }
+.zen-reset-fill{ height:100%; background:linear-gradient(90deg,var(--blue),var(--purple)); width:0%; transition:width 1s linear; }
+.zen-reset-actions{ display:flex; gap:8px; margin-top:20px; }
+.zen-reset-actions button{ flex:1; }
+.zen-reset-done-badge{ font-size:12.5px; font-weight:700; color:var(--teal); margin-bottom:6px; }
+
+/* ── Guardrails ── */
+.zen-guardrail-list{ display:flex; flex-direction:column; gap:10px; }
+.zen-guardrail-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 0; border-bottom:1px solid var(--border); }
+.zen-guardrail-row:last-child{ border-bottom:none; }
+.zen-guardrail-label{ font-size:12px; color:var(--text2); }
+.zen-guardrail-usage{ font-size:12.5px; font-weight:700; color:var(--text); font-family:var(--font-mono,monospace); white-space:nowrap; }
+.zen-guardrail-usage.warn{ color:#fbbf24; }
+.zen-guardrail-usage.exceeded{ color:var(--red); }
+.zen-guardrail-alert{ margin-top:10px; padding:9px 11px; border-radius:var(--r-md); font-size:11.5px; line-height:1.5; }
+.zen-guardrail-alert.warn{ background:rgba(251,191,36,0.1); border:1px solid rgba(251,191,36,0.28); color:#fbbf24; }
+.zen-guardrail-alert.exceeded{ background:rgba(248,113,113,0.1); border:1px solid rgba(248,113,113,0.28); color:var(--red); }
+.zen-guardrail-form{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
+.zen-guardrail-form label{ font-size:10.5px; color:var(--text3); font-weight:600; text-transform:uppercase; letter-spacing:.05em; display:block; margin-bottom:4px; }
+.zen-guardrail-toggles{ display:flex; flex-direction:column; gap:8px; margin-top:12px; }
+.zen-toggle-row{ display:flex; align-items:center; gap:9px; font-size:12px; color:var(--text2); cursor:pointer; }
+.zen-toggle-row input{ accent-color:var(--purple); width:15px; height:15px; }
+
+/* ── Journal ── */
+.zen-journal-input{ width:100%; min-height:100px; resize:vertical; }
+.zen-journal-prompts{ font-size:11px; color:var(--text3); margin-top:6px; line-height:1.5; }
+.zen-journal-foot{ display:flex; align-items:center; justify-content:space-between; margin-top:10px; gap:8px; flex-wrap:wrap; }
+.zen-journal-meta{ font-size:11px; color:var(--text3); }
+.zen-journal-history{ margin-top:14px; padding-top:14px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:8px; max-height:280px; overflow-y:auto; }
+.zen-journal-entry{ padding:10px 11px; border-radius:var(--r-md); background:var(--glass-1,rgba(255,255,255,0.02)); border:1px solid var(--border); }
+.zen-journal-entry-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:5px; }
+.zen-journal-entry-date{ font-size:11px; font-weight:700; color:var(--text2); }
+.zen-journal-entry-score{ font-size:10px; color:var(--text3); font-family:var(--font-mono,monospace); }
+.zen-journal-entry-text{ font-size:12px; color:var(--text2); line-height:1.5; white-space:pre-wrap; }
+.zen-journal-entry-del{ background:none; border:none; color:var(--text3); cursor:pointer; padding:2px; }
+.zen-journal-entry-del:hover{ color:var(--red); }
+
+/* ── Insights ── */
+.zen-insight-list{ display:flex; flex-direction:column; gap:10px; }
+.zen-insight-row{ display:flex; align-items:flex-start; gap:9px; font-size:12.5px; color:var(--text2); line-height:1.5; }
+.zen-insight-row .icn{ width:14px; height:14px; color:var(--purple); flex-shrink:0; margin-top:2px; }
+.zen-insight-empty{ font-size:12px; color:var(--text3); line-height:1.6; text-align:center; padding:18px 8px; }
+
+/* ── History ── */
+.zen-hist-nav{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; }
+.zen-hist-nav-mid{ font-size:12.5px; font-weight:700; color:var(--text); }
+.zen-hist-nav-btn{ width:28px; height:28px; border-radius:var(--r-sm); border:1px solid var(--glass-border,var(--border)); background:var(--glass-1,transparent); color:var(--text2); cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.zen-hist-nav-btn:hover{ border-color:var(--purple); color:var(--purple); }
+.zen-hist-toggle{ display:flex; gap:6px; margin-bottom:12px; }
+.zen-hist-toggle button{ padding:5px 13px; border-radius:var(--r-full,999px); font-size:11.5px; font-weight:600; border:1px solid var(--glass-border,var(--border)); background:var(--glass-1,transparent); color:var(--text2); cursor:pointer; }
+.zen-hist-toggle button.active{ background:rgba(167,139,250,0.16); border-color:var(--purple); color:var(--purple); }
+.zen-hist-trend{ display:flex; align-items:flex-end; gap:4px; height:64px; margin-bottom:14px; }
+.zen-hist-bar-wrap{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; gap:4px; }
+.zen-hist-bar{ width:100%; max-width:22px; border-radius:3px 3px 0 0; background:var(--border); min-height:3px; transition:.2s; }
+.zen-hist-bar-lbl{ font-size:8.5px; color:var(--text3); }
+.zen-hist-emotion-freq{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; }
+.zen-hist-summary{ display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:8px; }
+.zen-hist-summary-card{ padding:9px 11px; border-radius:var(--r-md); background:var(--glass-1,rgba(255,255,255,0.02)); border:1px solid var(--border); }
+.zen-hist-summary-num{ font-size:16px; font-weight:800; color:var(--text); font-family:var(--font-head,inherit); }
+.zen-hist-summary-lbl{ font-size:10px; color:var(--text3); margin-top:2px; }
+
+/* ── Misc ── */
+.zen-loading{ font-size:12px; color:var(--text3); padding:20px; text-align:center; }
+.zen-disclaimer{ font-size:10.5px; color:var(--text3); line-height:1.5; margin-top:10px; }
+
+/* ── Responsive ── */
+@media (max-width: 1080px){
+  .zen-grid{ grid-template-columns:1fr; }
+}
+@media (max-width: 640px){
+  .zen-hd{ padding:14px; }
+  .zen-hd-top{ flex-direction:column; align-items:stretch; }
+  .zen-hd-title{ font-size:17px; }
+  .zen-card{ padding:13px; }
+  .zen-scale{ flex-wrap:wrap; }
+  .zen-scale-btn{ min-width:52px; }
+  .zen-readiness{ gap:12px; }
+  .zen-ring-wrap{ width:72px; height:72px; }
+  .zen-ring-num .n{ font-size:18px; }
+  .zen-guardrail-form{ grid-template-columns:1fr; }
+  .zen-reset-box{ padding:22px 18px; }
+  .zen-reset-count{ font-size:42px; }
+  .zen-pause-card{ flex-direction:column; align-items:stretch; text-align:left; }
+}

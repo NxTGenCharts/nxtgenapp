@@ -28,6 +28,7 @@ function nav(pageId, sbEl, label, extra, _skipPush) {
   if (pageId === 'trash') { setTimeout(renderTrash, 0); }
   if (pageId === 'monthly') { buildMonthlyReview(); }
   if (pageId === 'ai') { buildAI(); }
+  if (pageId === 'zen' && typeof buildZen === 'function') { buildZen(); }
   if (pageId === 'backtesting') { buildBacktestingLab(); _btRenderSessionGrid(); _blRenderGalleryControls(); _blRenderGallery(); _blRenderComparisonTable(); }
   if (pageId === 'signals' && typeof buildSignals === 'function') { buildSignals(); }
   if (pageId === 'admin' && typeof buildAdmin === 'function') { buildAdmin(); }
@@ -52,6 +53,7 @@ const _PAGE_LABELS = {
   admin:       'Admin',
   playbook:    'Trading Playbook',
   goals:       'Goals & Milestones',
+  zen:         'Zen',
   monthly:     'Monthly Review',
   trash:       'Trash',
   profile:     'My Profile'
