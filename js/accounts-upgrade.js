@@ -37,22 +37,23 @@ function _accRiskProfile(name) {
   const m = _accComputeAnalytics(name);
   const r = _accRiskDefaults(acc);
   const accSize = m.accSize;
+  const typeInfo = _accTypeInfo(acc.type);
 
   const todayNet   = _accTodayNetDollars(name, accSize);
   const dailyUsed  = Math.max(0, -todayNet);
-  const dailyLimit = accSize > 0 ? accSize * r.dailyLossLimitPct / 100 : 0;
+  const dailyLimit = (typeInfo.dailyDD && accSize > 0) ? accSize * r.dailyLossLimitPct / 100 : 0;
   const dailyPct   = dailyLimit > 0 ? Math.min(100, (dailyUsed / dailyLimit) * 100) : 0;
 
   const maxUsed  = m.maxDD;
-  const maxLimit = accSize > 0 ? accSize * r.maxLossLimitPct / 100 : 0;
+  const maxLimit = (typeInfo.maxDD && accSize > 0) ? accSize * r.maxLossLimitPct / 100 : 0;
   const maxPct   = maxLimit > 0 ? Math.min(100, (maxUsed / maxLimit) * 100) : 0;
 
   const targetCurrent = Math.max(0, m.netDollars);
-  const targetGoal    = accSize > 0 ? accSize * r.profitTargetPct / 100 : 0;
+  const targetGoal    = (typeInfo.target && accSize > 0) ? accSize * r.profitTargetPct / 100 : 0;
   const targetPct     = targetGoal > 0 ? Math.min(100, (targetCurrent / targetGoal) * 100) : 0;
 
   const payoutCurrent = Math.max(0, m.netDollars);
-  const payoutGoal    = r.payoutThreshold;
+  const payoutGoal    = typeInfo.payout ? r.payoutThreshold : 0;
   const payoutPct     = payoutGoal > 0 ? Math.min(100, (payoutCurrent / payoutGoal) * 100) : 0;
   const payoutEligible = payoutGoal > 0 && payoutCurrent >= payoutGoal &&
     (r.minTradingDays <= 0 || m.tradingDays >= r.minTradingDays);
@@ -64,7 +65,7 @@ function _accRiskProfile(name) {
   const riskLevel = breach ? 'breach' : atRisk ? 'risk' : caution ? 'caution' : 'healthy';
 
   return {
-    acc, m, r, accSize,
+    acc, m, r, accSize, typeInfo,
     todayNet, dailyUsed, dailyLimit, dailyPct,
     maxUsed, maxLimit, maxPct,
     targetCurrent, targetGoal, targetPct,
@@ -116,7 +117,7 @@ window._renderAccGrid = function (...args) {
     else if (p.riskLevel === 'breach') { primary = 'At Risk'; cls = 'risk'; }
     else if (p.riskLevel === 'risk')   { primary = 'Near Limit'; cls = 'risk'; }
     else if (isChalDone) { primary = 'Target Reached'; cls = 'healthy'; }
-    else if (p.acc.type === 'Challenge') { primary = 'Evaluation'; cls = 'active'; }
+    else if (_accTypeNorm(p.acc.type) === 'Evaluation') { primary = 'Evaluation'; cls = 'active'; }
     else if (p.acc.type === 'Funded')    { primary = p.riskLevel === 'caution' ? 'Caution' : 'Healthy'; cls = p.riskLevel === 'caution' ? 'caution' : 'healthy'; }
     else { primary = 'Active'; cls = 'active'; }
     return `<span class="acch-status acch-status-${cls}">${primary}</span>`;
@@ -137,11 +138,12 @@ window._renderAccGrid = function (...args) {
     const mt5Status = mt5cfg?.lastSyncStatus || 'never';
     const mt5LastSync = mt5cfg?.lastSync ? new Date(mt5cfg.lastSync).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
 
+    const typeInfo = p.typeInfo;
     const identity = `
       <div class="acch-id-row">
         <div class="acch-id-left">
           <div class="acch-name">${name}</div>
-          <div class="acch-sub">${acc.type || 'Account'}${acc.type === 'Challenge' && acc.challengePhase ? ' · ' + acc.challengePhase : ''}${r.firm ? ' · ' + r.firm : ''}</div>
+          <div class="acch-sub"><span class="acch-type-tag acch-type-tag-${typeInfo.cls}">${typeInfo.label}</span>${_accTypeNorm(acc.type) === 'Evaluation' && acc.challengePhase ? ' · ' + acc.challengePhase : ''}${r.firm ? ' · ' + r.firm : ''}</div>
         </div>
         ${statusPill(p)}
       </div>
@@ -159,15 +161,20 @@ window._renderAccGrid = function (...args) {
       </div>`;
 
     const riskUnset = accSize <= 0;
-    const riskSection = `
+    const anyRiskMetric = typeInfo.dailyDD || typeInfo.maxDD || typeInfo.target || typeInfo.payout;
+    const riskSection = !anyRiskMetric ? `
+      <div class="acch-risk-none">
+        <svg class="icn" aria-hidden="true"><use href="#ic-shield"></use></svg>
+        <span>${typeInfo.label} accounts have no drawdown limits, profit targets, or payout goals.</span>
+      </div>` : `
       <div class="acch-risk-head">
         <span>ACCOUNT HEALTH</span>
         <span class="acch-risk-badge acch-risk-${p.riskLevel}">${{breach:'AT RISK',risk:'NEAR LIMIT',caution:'CAUTION',healthy:'HEALTHY'}[p.riskLevel]}</span>
       </div>
-      ${_accBarHtml('Daily Drawdown', riskUnset ? 'Set size' : `$${p.dailyUsed.toFixed(0)} / $${p.dailyLimit.toFixed(0)}`, p.dailyPct, { unset: riskUnset })}
-      ${_accBarHtml('Max Drawdown', riskUnset ? 'Set size' : `$${p.maxUsed.toFixed(0)} / $${p.maxLimit.toFixed(0)}`, p.maxPct, { unset: riskUnset })}
-      ${_accBarHtml('Profit Target', riskUnset ? 'Set size' : `$${p.targetCurrent.toFixed(0)} / $${p.targetGoal.toFixed(0)}`, p.targetPct, { unset: riskUnset, color: 'var(--blue)' })}
-      ${_accBarHtml('Payout Goal', p.payoutGoal > 0 ? `$${p.payoutCurrent.toFixed(0)} / $${p.payoutGoal.toFixed(0)}` : 'Not set', p.payoutPct, { unset: p.payoutGoal <= 0, color: 'var(--gold)' })}
+      ${typeInfo.dailyDD ? _accBarHtml('Daily Drawdown', riskUnset ? 'Set size' : `$${p.dailyUsed.toFixed(0)} / $${p.dailyLimit.toFixed(0)}`, p.dailyPct, { unset: riskUnset }) : ''}
+      ${typeInfo.maxDD ? _accBarHtml('Max Drawdown', riskUnset ? 'Set size' : `$${p.maxUsed.toFixed(0)} / $${p.maxLimit.toFixed(0)}`, p.maxPct, { unset: riskUnset }) : ''}
+      ${typeInfo.target ? _accBarHtml('Profit Target', riskUnset ? 'Set size' : `$${p.targetCurrent.toFixed(0)} / $${p.targetGoal.toFixed(0)}`, p.targetPct, { unset: riskUnset, color: 'var(--blue)' }) : ''}
+      ${typeInfo.payout ? _accBarHtml('Payout Goal', p.payoutGoal > 0 ? `$${p.payoutCurrent.toFixed(0)} / $${p.payoutGoal.toFixed(0)}` : 'Not set', p.payoutPct, { unset: p.payoutGoal <= 0, color: 'var(--gold)' }) : ''}
     `;
 
     const mt5Action = mt5Enabled
@@ -188,7 +195,7 @@ window._renderAccGrid = function (...args) {
       </div>`;
 
     return `
-    <div class="acch-card${isArchived ? ' acch-card-archived' : ''}" onclick="${isArchived ? '' : `accShowDetail('${escName}')`}">
+    <div class="acch-card acch-card-t-${typeInfo.cls}${isArchived ? ' acch-card-archived' : ''}" onclick="${isArchived ? '' : `accShowDetail('${escName}')`}">
       ${identity}
       ${perf}
       <div class="acch-divider"></div>
@@ -243,12 +250,29 @@ function _openAccRiskSettings(name) {
   const idx = list.findIndex(a => a.name === name);
   if (idx < 0) return;
   const r = _accRiskDefaults(list[idx]);
+  const t = _accTypeInfo(list[idx].type);
   const existing = document.getElementById('acc-risk-overlay');
   if (existing) existing.remove();
   const overlay = document.createElement('div');
   overlay.id = 'acc-risk-overlay';
   overlay.className = 'acc-manager-overlay';
   overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+  const ddRow = (t.dailyDD || t.maxDD) ? `
+      <div class="wl-form-2col">
+        ${t.dailyDD ? `<div class="wl-form-row"><label class="wl-form-label">Daily Loss Limit (%)</label><input type="number" class="wl-form-input" id="ars-daily" value="${r.dailyLossLimitPct}" min="0" step="0.5"></div>` : ''}
+        ${t.maxDD ? `<div class="wl-form-row"><label class="wl-form-label">Max Loss Limit (%)</label><input type="number" class="wl-form-input" id="ars-max" value="${r.maxLossLimitPct}" min="0" step="0.5"></div>` : ''}
+      </div>` : '';
+  const targetPayoutRow = (t.target || t.payout) ? `
+      <div class="wl-form-2col">
+        ${t.target ? `<div class="wl-form-row"><label class="wl-form-label">Profit Target (%)</label><input type="number" class="wl-form-input" id="ars-target" value="${r.profitTargetPct}" min="0" step="0.5"></div>` : ''}
+        ${t.payout ? `<div class="wl-form-row"><label class="wl-form-label">Payout Threshold ($)</label><input type="number" class="wl-form-input" id="ars-payout" value="${r.payoutThreshold || ''}" min="0" placeholder="e.g. 500"></div>` : ''}
+      </div>` : '';
+  const payoutMetaRow = t.payout ? `
+      <div class="wl-form-2col">
+        <div class="wl-form-row"><label class="wl-form-label">Min Trading Days</label><input type="number" class="wl-form-input" id="ars-mindays" value="${r.minTradingDays || ''}" min="0" placeholder="e.g. 5"></div>
+        <div class="wl-form-row"><label class="wl-form-label">Next Payout Date</label><input type="date" class="wl-form-input" id="ars-nextdate" value="${r.nextPayoutDate}"></div>
+      </div>` : '';
+  const noRulesNote = (!ddRow && !targetPayoutRow) ? `<div class="acch-ov-health-sub" style="margin:-2px 0 2px">${t.label} accounts have no drawdown limits, profit targets, or payout goals — just Firm and Platform below.</div>` : '';
   overlay.innerHTML = `
   <div class="acc-manager-modal" style="max-width:440px">
     <div class="acc-manager-header">
@@ -256,22 +280,14 @@ function _openAccRiskSettings(name) {
       <button onclick="document.getElementById('acc-risk-overlay').remove()" class="acc-mgr-close"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>
     </div>
     <div class="acc-manager-body" style="gap:10px">
+      ${noRulesNote}
       <div class="wl-form-2col">
         <div class="wl-form-row"><label class="wl-form-label">Firm</label><input type="text" class="wl-form-input" id="ars-firm" value="${r.firm}" placeholder="e.g. GOAT Funded"></div>
         <div class="wl-form-row"><label class="wl-form-label">Platform</label><input type="text" class="wl-form-input" id="ars-platform" value="${r.platform}" placeholder="MT5"></div>
       </div>
-      <div class="wl-form-2col">
-        <div class="wl-form-row"><label class="wl-form-label">Daily Loss Limit (%)</label><input type="number" class="wl-form-input" id="ars-daily" value="${r.dailyLossLimitPct}" min="0" step="0.5"></div>
-        <div class="wl-form-row"><label class="wl-form-label">Max Loss Limit (%)</label><input type="number" class="wl-form-input" id="ars-max" value="${r.maxLossLimitPct}" min="0" step="0.5"></div>
-      </div>
-      <div class="wl-form-2col">
-        <div class="wl-form-row"><label class="wl-form-label">Profit Target (%)</label><input type="number" class="wl-form-input" id="ars-target" value="${r.profitTargetPct}" min="0" step="0.5"></div>
-        <div class="wl-form-row"><label class="wl-form-label">Payout Threshold ($)</label><input type="number" class="wl-form-input" id="ars-payout" value="${r.payoutThreshold || ''}" min="0" placeholder="e.g. 500"></div>
-      </div>
-      <div class="wl-form-2col">
-        <div class="wl-form-row"><label class="wl-form-label">Min Trading Days</label><input type="number" class="wl-form-input" id="ars-mindays" value="${r.minTradingDays || ''}" min="0" placeholder="e.g. 5"></div>
-        <div class="wl-form-row"><label class="wl-form-label">Next Payout Date</label><input type="date" class="wl-form-input" id="ars-nextdate" value="${r.nextPayoutDate}"></div>
-      </div>
+      ${ddRow}
+      ${targetPayoutRow}
+      ${payoutMetaRow}
       <div class="wl-form-actions">
         <button class="wl-btn-secondary" onclick="document.getElementById('acc-risk-overlay').remove()">Cancel</button>
         <button class="wl-btn-primary" onclick="_saveAccRiskSettings('${name.replace(/'/g, "\\'")}')">Save</button>
@@ -442,23 +458,39 @@ window.accShowDetail = function (name, ...rest) {
 function _accRiskPanelHtml(name) {
   const p = _accRiskProfile(name);
   const riskUnset = p.accSize <= 0;
+  const t = p.typeInfo;
+  const leftCol = (t.dailyDD || t.maxDD) ? `
+        <div class="acch-detail-risk-col">
+          ${t.dailyDD ? _accBarHtml('Daily Drawdown', riskUnset ? 'Set account size' : `$${p.dailyUsed.toFixed(2)} / $${p.dailyLimit.toFixed(2)} used`, p.dailyPct, { unset: riskUnset }) : ''}
+          ${t.maxDD ? _accBarHtml('Maximum Drawdown', riskUnset ? 'Set account size' : `$${p.maxUsed.toFixed(2)} / $${p.maxLimit.toFixed(2)} used`, p.maxPct, { unset: riskUnset }) : ''}
+        </div>` : '';
+  const rightCol = (t.target || t.payout) ? `
+        <div class="acch-detail-risk-col">
+          ${t.target ? _accBarHtml('Profit Target', riskUnset ? 'Set account size' : `$${p.targetCurrent.toFixed(2)} / $${p.targetGoal.toFixed(2)}`, p.targetPct, { unset: riskUnset, color: 'var(--blue)' }) : ''}
+          ${t.payout ? _accBarHtml('Payout Goal', p.payoutGoal > 0 ? `$${p.payoutCurrent.toFixed(2)} / $${p.payoutGoal.toFixed(2)}` : 'Not set', p.payoutPct, { unset: p.payoutGoal <= 0, color: 'var(--gold)' }) : ''}
+        </div>` : '';
+  if (!leftCol && !rightCol) {
+    return `
+    <div class="acch-detail-risk">
+      <div class="acc-an-sec-head" style="margin-top:0">Risk &amp; Payout</div>
+      <div class="acch-risk-none">
+        <svg class="icn" aria-hidden="true"><use href="#ic-shield"></use></svg>
+        <span>${t.label} accounts have no drawdown limits, profit targets, or payout goals.</span>
+      </div>
+      <button class="acch-act-btn" style="margin-top:10px" onclick="_openAccRiskSettings('${name.replace(/'/g, "\\'")}')"><svg class="icn" aria-hidden="true"><use href="#ic-settings"></use></svg> Edit Account Settings</button>
+    </div>`;
+  }
   return `
     <div class="acch-detail-risk">
       <div class="acc-an-sec-head" style="margin-top:0">Risk &amp; Payout</div>
       <div class="acch-detail-risk-grid">
-        <div class="acch-detail-risk-col">
-          ${_accBarHtml('Daily Drawdown', riskUnset ? 'Set account size' : `$${p.dailyUsed.toFixed(2)} / $${p.dailyLimit.toFixed(2)} used`, p.dailyPct, { unset: riskUnset })}
-          ${_accBarHtml('Maximum Drawdown', riskUnset ? 'Set account size' : `$${p.maxUsed.toFixed(2)} / $${p.maxLimit.toFixed(2)} used`, p.maxPct, { unset: riskUnset })}
-        </div>
-        <div class="acch-detail-risk-col">
-          ${_accBarHtml('Profit Target', riskUnset ? 'Set account size' : `$${p.targetCurrent.toFixed(2)} / $${p.targetGoal.toFixed(2)}`, p.targetPct, { unset: riskUnset, color: 'var(--blue)' })}
-          ${_accBarHtml('Payout Goal', p.payoutGoal > 0 ? `$${p.payoutCurrent.toFixed(2)} / $${p.payoutGoal.toFixed(2)}` : 'Not set', p.payoutPct, { unset: p.payoutGoal <= 0, color: 'var(--gold)' })}
-        </div>
+        ${leftCol}
+        ${rightCol}
       </div>
       <div class="acch-detail-risk-meta">
-        <div><span class="k">Trading Days</span><span class="v">${p.r.minTradingDays > 0 ? `${p.m.tradingDays} / ${p.r.minTradingDays} required` : (p.m.tradingDays || '—')}</span></div>
+        ${t.payout ? `<div><span class="k">Trading Days</span><span class="v">${p.r.minTradingDays > 0 ? `${p.m.tradingDays} / ${p.r.minTradingDays} required` : (p.m.tradingDays || '—')}</span></div>
         <div><span class="k">Payout Eligibility</span><span class="v" style="color:${p.payoutEligible ? 'var(--teal)' : 'var(--text2)'}">${p.payoutEligible ? 'Eligible now' : (p.payoutGoal > 0 ? 'Not yet eligible' : 'No threshold set')}</span></div>
-        <div><span class="k">Next Payout Date</span><span class="v">${p.r.nextPayoutDate ? new Date(p.r.nextPayoutDate).toLocaleDateString() : '—'}</span></div>
+        <div><span class="k">Next Payout Date</span><span class="v">${p.r.nextPayoutDate ? new Date(p.r.nextPayoutDate).toLocaleDateString() : '—'}</span></div>` : ''}
         <div><span class="k">Firm</span><span class="v">${p.r.firm || '—'}</span></div>
       </div>
       <button class="acch-act-btn" style="margin-top:10px" onclick="_openAccRiskSettings('${name.replace(/'/g, "\\'")}')"><svg class="icn" aria-hidden="true"><use href="#ic-settings"></use></svg> Edit Risk &amp; Payout Settings</button>
@@ -505,13 +537,21 @@ function _accSettingsTabHtml(name) {
   const mt5On = !!acc.mt5?.enabled;
   const mt5Status = acc.mt5?.lastSyncStatus || 'never';
   const isArchived = acc.status === 'archived';
+  const t = _accTypeInfo(acc.type);
   const row = (k, v) => `<div class="acch-settings-row"><span class="k">${k}</span><span class="v">${v}</span></div>`;
+  const rulesRows = [
+    t.dailyDD ? row('Daily Loss Limit', r.dailyLossLimitPct + '%') : '',
+    t.maxDD   ? row('Max Loss Limit', r.maxLossLimitPct + '%') : '',
+    t.target  ? row('Profit Target', r.profitTargetPct + '%') : '',
+    t.payout  ? row('Payout Threshold', r.payoutThreshold > 0 ? '$' + r.payoutThreshold.toLocaleString() : 'Not set') : '',
+    t.payout  ? row('Min Trading Days', r.minTradingDays || '—') : '',
+  ].join('');
   return `
     <div class="acch-settings-block">
       <div class="acch-settings-title">Account</div>
       ${row('Firm', r.firm || '—')}
-      ${row('Type', acc.type || '—')}
-      ${acc.type === 'Challenge' ? row('Phase', acc.challengePhase || 'Phase 1') : ''}
+      ${row('Type', acc.type ? t.label : '—')}
+      ${_accTypeNorm(acc.type) === 'Evaluation' ? row('Phase', acc.challengePhase || 'Phase 1') : ''}
       ${row('Account Size', accSize > 0 ? '$' + accSize.toLocaleString() : 'Not set')}
       ${row('Platform', r.platform || '—')}
       ${row('PnL Display', (acc.pnlMode || '$') === '$' ? '$ USD' : '% Pct')}
@@ -519,11 +559,7 @@ function _accSettingsTabHtml(name) {
     </div>
     <div class="acch-settings-block">
       <div class="acch-settings-title">Rules &amp; Payout</div>
-      ${row('Daily Loss Limit', r.dailyLossLimitPct + '%')}
-      ${row('Max Loss Limit', r.maxLossLimitPct + '%')}
-      ${row('Profit Target', r.profitTargetPct + '%')}
-      ${row('Payout Threshold', r.payoutThreshold > 0 ? '$' + r.payoutThreshold.toLocaleString() : 'Not set')}
-      ${row('Min Trading Days', r.minTradingDays || '—')}
+      ${rulesRows || `<div class="acch-ov-health-sub" style="padding:2px 0 4px">${t.label} accounts have no rules or payout goal to configure.</div>`}
       <button class="acch-act-btn" style="margin-top:8px" onclick="_openAccRiskSettings('${name.replace(/'/g, "\\'")}')"><svg class="icn" aria-hidden="true"><use href="#ic-settings"></use></svg> Edit Rules &amp; Payout</button>
     </div>
     <div class="acch-settings-block">

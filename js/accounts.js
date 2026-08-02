@@ -1,5 +1,41 @@
 // ══ NxTGen Journal — accounts.js (original app.js lines 7872-9342) ══
 
+// ── Account type metadata — single source of truth for the four account
+//    types (Funded, Evaluation, Live, Paper), which risk/target metrics
+//    apply to each, and the subtle colour used to tell them apart across
+//    cards, badges, and the Manage Accounts modal.
+//    'Evaluation' replaces the old 'Challenge' type value; accounts saved
+//    under the old name are normalized on read so nothing breaks.
+//      • Funded     — real prop-firm payout account: daily & max drawdown
+//                     limits apply, no profit target, payout goal applies.
+//      • Evaluation — prop-firm demo phase: daily & max drawdown limits
+//                     apply, profit target applies (advances the phase),
+//                     no payout goal.
+//      • Live       — personal broker account, funds withdrawable anytime:
+//                     no drawdown limits, no profit target, no payout goal.
+//      • Paper      — simulated practice account: no drawdown limits, no
+//                     profit target, no payout goal.
+const ACC_TYPES = ['Funded', 'Evaluation', 'Live', 'Paper'];
+const ACC_TYPE_META = {
+  Funded:     { label: 'Funded',     cls: 'funded',     dailyDD: true,  maxDD: true,  target: false, payout: true  },
+  Evaluation: { label: 'Evaluation', cls: 'evaluation', dailyDD: true,  maxDD: true,  target: true,  payout: false },
+  Live:       { label: 'Live',       cls: 'live',       dailyDD: false, maxDD: false, target: false, payout: false },
+  Paper:      { label: 'Paper',      cls: 'paper',      dailyDD: false, maxDD: false, target: false, payout: false },
+};
+function _accTypeNorm(type) {
+  return type === 'Challenge' ? 'Evaluation' : (type || '');
+}
+function _accTypeInfo(type) {
+  const t = _accTypeNorm(type);
+  return ACC_TYPE_META[t] || { label: t || 'Account', cls: 'default', dailyDD: true, maxDD: true, target: true, payout: true };
+}
+function _accTypeBadgeHtml(type, extraClass) {
+  const t = _accTypeNorm(type);
+  if (!t) return '';
+  const info = _accTypeInfo(t);
+  return `<span class="acc-type-badge acc-type-badge-${info.cls}${extraClass ? ' ' + extraClass : ''}">${info.label}</span>`;
+}
+
 // ── ACCOUNTS ──────────────────────────────────────────
 function buildAccounts() {
   _renderAccGrid();
@@ -99,7 +135,7 @@ function _renderAccGrid() {
     return `
     <div class="acc-card${isArchived ? ' acc-card-archived' : ''}" onclick="${isArchived ? '' : `accShowDetail('${name.replace(/'/g,"\\'")}')` }">
       <div class="acc-card-head">
-        <div class="acc-name">${name}${a.type ? `<span class="acc-type-badge">${a.type}</span>` : ''}${a.type === 'Challenge' && a.challengePhase ? `<span class="acc-type-badge${a.challengePhase === 'Phase 2' ? ' phase-2' : ''}">${a.challengePhase}</span>` : ''}${mt5HeadBadge}</div>
+        <div class="acc-name">${name}${_accTypeBadgeHtml(a.type)}${_accTypeNorm(a.type) === 'Evaluation' && a.challengePhase ? `<span class="acc-type-badge${a.challengePhase === 'Phase 2' ? ' phase-2' : ''}">${a.challengePhase}</span>` : ''}${mt5HeadBadge}</div>
         <span style="display:flex;align-items:center"><span class="acc-status ${statusClass}">${statusIcon}${statusLabel}</span>${archivedCompletedBadge}</span>
       </div>
       <div class="acc-row"><span class="k">Trades</span><span class="v">${at.length || '—'}</span></div>
@@ -444,7 +480,7 @@ function _accChallengeTargetPct(acc) {
     ? parseFloat(rawTarget) : presetTargets[0];
 }
 function _accChallengeIsComplete(acc, netDollars, accSize) {
-  if (!acc || acc.type !== 'Challenge') return false;
+  if (!acc || _accTypeNorm(acc.type) !== 'Evaluation') return false;
   const targetPct    = _accChallengeTargetPct(acc);
   const targetProfit = accSize > 0 ? (accSize * targetPct / 100) : 0;
   return targetProfit > 0 && netDollars >= targetProfit;
@@ -492,8 +528,8 @@ function _accChallengeSectionHtml(acc, m, accSize, name) {
       ${confetti}
       <div class="acc-chal-head">
         <div>
-          <div class="acc-chal-title">🏁 Challenge Progress</div>
-          <div class="acc-chal-sub">${phase} · Track your progress toward completing this Prop Firm Challenge. <a href="#" onclick="event.preventDefault();_openManageAccounts()" style="color:var(--text2);text-decoration:underline">Change phase in Manage Accounts</a></div>
+          <div class="acc-chal-title">🏁 Evaluation Progress</div>
+          <div class="acc-chal-sub">${phase} · Track your progress toward completing this Prop Firm Evaluation. <a href="#" onclick="event.preventDefault();_openManageAccounts()" style="color:var(--text2);text-decoration:underline">Change phase in Manage Accounts</a></div>
         </div>
         ${isComplete ? `<div class="acc-chal-badge">${badgeText}</div>` : ''}
       </div>
@@ -617,8 +653,8 @@ function accShowDetail(name) {
   const heroBadges = `
     <span class="acc-hero-badge status-${heroStatusClass}">${heroStatusLabel}</span>
     ${heroCompletedBadge}
-    ${acc.type ? `<span class="acc-hero-badge">${acc.type}</span>` : ''}
-    ${acc.type === 'Challenge' && acc.challengePhase ? `<span class="acc-hero-badge${acc.challengePhase === 'Phase 2' ? ' phase-2' : ''}">${acc.challengePhase}</span>` : ''}
+    ${acc.type ? `<span class="acc-hero-badge acc-hero-badge-${_accTypeInfo(acc.type).cls}">${_accTypeInfo(acc.type).label}</span>` : ''}
+    ${_accTypeNorm(acc.type) === 'Evaluation' && acc.challengePhase ? `<span class="acc-hero-badge${acc.challengePhase === 'Phase 2' ? ' phase-2' : ''}">${acc.challengePhase}</span>` : ''}
   `;
   const sizeNote = accSize > 0
     ? `$${accSize.toLocaleString()}`
@@ -707,7 +743,7 @@ function accShowDetail(name) {
   body.innerHTML = `
     <div class="acc-an">
       ${heroHtml}
-      ${acc.type === 'Challenge' ? _accChallengeSectionHtml(acc, m, accSize, name) : ''}
+      ${_accTypeNorm(acc.type) === 'Evaluation' ? _accChallengeSectionHtml(acc, m, accSize, name) : ''}
       <div class="acc-an-sec-head">Performance Scorecard</div>
       <div class="acc-kpi-scorecard">${kpiCards}</div>
       ${eqSection}

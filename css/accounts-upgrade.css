@@ -158,6 +158,54 @@
 .acch-payout-empty > div{ flex:1; font-size:12px; }
 .acch-payout-empty strong{ font-size:13px; }
 
+/* ── Account type colours — Funded / Evaluation / Live / Paper ──────────
+   Same subtle rgba-badge pattern used by the rest of the app (fixed dark-
+   theme-tuned values, matching .acc-type-badge / .acc-mgr-type-badge). ── */
+:root{
+  --acc-t-funded:     #fbbf24; --acc-t-funded-bg:     rgba(251,191,36,0.12);  --acc-t-funded-bd:     rgba(251,191,36,0.28);
+  --acc-t-evaluation: #60a5fa; --acc-t-evaluation-bg: rgba(96,165,250,0.12);  --acc-t-evaluation-bd: rgba(96,165,250,0.25);
+  --acc-t-live:       #34d399; --acc-t-live-bg:       rgba(52,211,153,0.12); --acc-t-live-bd:       rgba(52,211,153,0.28);
+  --acc-t-paper:      #a78bfa; --acc-t-paper-bg:      rgba(167,139,250,0.14); --acc-t-paper-bd:      rgba(167,139,250,0.28);
+}
+
+.acc-type-badge-funded,     .acc-mgr-type-badge-funded     { background:var(--acc-t-funded-bg);     color:var(--acc-t-funded);     border-color:var(--acc-t-funded-bd); }
+.acc-type-badge-evaluation, .acc-mgr-type-badge-evaluation { background:var(--acc-t-evaluation-bg); color:var(--acc-t-evaluation); border-color:var(--acc-t-evaluation-bd); }
+.acc-type-badge-live,       .acc-mgr-type-badge-live       { background:var(--acc-t-live-bg);       color:var(--acc-t-live);       border-color:var(--acc-t-live-bd); }
+.acc-type-badge-paper,      .acc-mgr-type-badge-paper      { background:var(--acc-t-paper-bg);      color:var(--acc-t-paper);      border-color:var(--acc-t-paper-bd); }
+
+.acc-hero-badge-funded     { background:var(--acc-t-funded-bg);     border-color:var(--acc-t-funded-bd);     color:var(--acc-t-funded); }
+.acc-hero-badge-evaluation { background:var(--acc-t-evaluation-bg); border-color:var(--acc-t-evaluation-bd); color:var(--acc-t-evaluation); }
+.acc-hero-badge-live       { background:var(--acc-t-live-bg);       border-color:var(--acc-t-live-bd);       color:var(--acc-t-live); }
+.acc-hero-badge-paper      { background:var(--acc-t-paper-bg);      border-color:var(--acc-t-paper-bd);      color:var(--acc-t-paper); }
+
+/* Small type tag inside the card's sub-header line (name · type · firm) */
+.acch-type-tag{
+  display:inline-block; padding:1px 7px; margin-right:2px; border-radius:var(--r-full);
+  font-size:9.5px; font-weight:800; letter-spacing:.03em; text-transform:uppercase;
+  border:1px solid transparent; vertical-align:1px;
+}
+.acch-type-tag-funded     { background:var(--acc-t-funded-bg);     color:var(--acc-t-funded);     border-color:var(--acc-t-funded-bd); }
+.acch-type-tag-evaluation { background:var(--acc-t-evaluation-bg); color:var(--acc-t-evaluation); border-color:var(--acc-t-evaluation-bd); }
+.acch-type-tag-live       { background:var(--acc-t-live-bg);       color:var(--acc-t-live);       border-color:var(--acc-t-live-bd); }
+.acch-type-tag-paper      { background:var(--acc-t-paper-bg);      color:var(--acc-t-paper);      border-color:var(--acc-t-paper-bd); }
+.acch-type-tag-default    { background:var(--glass-2);             color:var(--text3);            border-color:var(--glass-border); }
+
+/* Subtle left-edge accent per account type so cards are distinguishable
+   at a glance across the grid, without overpowering the glass aesthetic. */
+.acch-card-t-funded     { border-left:3px solid var(--acc-t-funded); }
+.acch-card-t-evaluation { border-left:3px solid var(--acc-t-evaluation); }
+.acch-card-t-live       { border-left:3px solid var(--acc-t-live); }
+.acch-card-t-paper      { border-left:3px solid var(--acc-t-paper); }
+
+/* Shown on cards / panels for account types with no drawdown limits,
+   profit targets, or payout goals (e.g. Live, Paper accounts). */
+.acch-risk-none{
+  display:flex; align-items:center; gap:8px; padding:10px 12px; border-radius:var(--r-md);
+  background:var(--glass-1); border:1px solid var(--glass-border); color:var(--text3);
+  font-size:11.5px; line-height:1.4;
+}
+.acch-risk-none .icn{ width:15px; height:15px; flex:none; color:var(--text3); }
+
 /* ══ Mobile ══════════════════════════════════════════════════════ */
 @media (max-width:640px){
   .acch-ov-row{ grid-template-columns:none; grid-auto-flow:column; grid-auto-columns:minmax(120px,1fr); overflow-x:auto; padding-bottom:2px; -webkit-overflow-scrolling:touch; }

@@ -514,9 +514,9 @@ function _openManageAccounts() {
       <div id="acc-mgr-list-deleted" class="acc-mgr-list" style="display:none"></div>
       <div class="acc-mgr-add-row">
         <input type="text" id="acc-mgr-input" class="acc-mgr-input" placeholder="Account name (e.g. GFT $5k – P1)…" onkeydown="if(event.key==='Enter')_addAccount()">
-        <select id="acc-mgr-type" class="acc-mgr-input" style="max-width:130px" onchange="document.getElementById('acc-mgr-phase').style.display=this.value==='Challenge'?'inline-flex':'none'">
+        <select id="acc-mgr-type" class="acc-mgr-input" style="max-width:130px" onchange="document.getElementById('acc-mgr-phase').style.display=this.value==='Evaluation'?'inline-flex':'none'">
           <option value="">Type…</option>
-          <option>Funded</option><option>Paper</option><option>Live</option><option>Challenge</option>
+          <option>Funded</option><option>Paper</option><option>Live</option><option>Evaluation</option>
         </select>
         <select id="acc-mgr-phase" class="acc-mgr-input" style="max-width:100px;display:none">
           <option value="Phase 1">Phase 1</option>
@@ -565,8 +565,8 @@ function _rebuildAccMgrList() {
     <div class="acc-mgr-item" id="acc-mgr-item-${i}">
       <div class="acc-mgr-item-left" style="flex:1;min-width:0">
         <span class="acc-mgr-name">${a.name}</span>
-        ${a.type ? `<span class="acc-mgr-type-badge">${a.type}</span>` : ''}
-        ${a.type === 'Challenge' && a.challengePhase ? `<span class="acc-mgr-type-badge">${a.challengePhase}</span>` : ''}
+        ${a.type ? `<span class="acc-mgr-type-badge acc-mgr-type-badge-${_accTypeInfo(a.type).cls}">${_accTypeInfo(a.type).label}</span>` : ''}
+        ${_accTypeNorm(a.type) === 'Evaluation' && a.challengePhase ? `<span class="acc-mgr-type-badge">${a.challengePhase}</span>` : ''}
         ${mt5Indicator}
       </div>
       <div class="acc-mgr-actions">
@@ -582,8 +582,8 @@ function _rebuildAccMgrList() {
     <div class="acc-mgr-item acc-mgr-item-archived" id="acc-mgr-item-${i}">
       <div class="acc-mgr-item-left">
         <span class="acc-mgr-name">${a.name}</span>
-        ${a.type ? `<span class="acc-mgr-type-badge">${a.type}</span>` : ''}
-        ${a.type === 'Challenge' && a.challengePhase ? `<span class="acc-mgr-type-badge">${a.challengePhase}</span>` : ''}
+        ${a.type ? `<span class="acc-mgr-type-badge acc-mgr-type-badge-${_accTypeInfo(a.type).cls}">${_accTypeInfo(a.type).label}</span>` : ''}
+        ${_accTypeNorm(a.type) === 'Evaluation' && a.challengePhase ? `<span class="acc-mgr-type-badge">${a.challengePhase}</span>` : ''}
       </div>
       <div class="acc-mgr-actions">
         <button onclick="_toggleArchiveAccount(${i})" class="acc-mgr-btn restore" title="Restore to Active">${ICONS.restore}</button>
@@ -595,8 +595,8 @@ function _rebuildAccMgrList() {
     <div class="acc-mgr-item acc-mgr-item-deleted" id="acc-mgr-item-${i}">
       <div class="acc-mgr-item-left">
         <span class="acc-mgr-name" style="text-decoration:line-through;opacity:.55">${a.name}</span>
-        ${a.type ? `<span class="acc-mgr-type-badge">${a.type}</span>` : ''}
-        ${a.type === 'Challenge' && a.challengePhase ? `<span class="acc-mgr-type-badge">${a.challengePhase}</span>` : ''}
+        ${a.type ? `<span class="acc-mgr-type-badge acc-mgr-type-badge-${_accTypeInfo(a.type).cls}">${_accTypeInfo(a.type).label}</span>` : ''}
+        ${_accTypeNorm(a.type) === 'Evaluation' && a.challengePhase ? `<span class="acc-mgr-type-badge">${a.challengePhase}</span>` : ''}
       </div>
       <div class="acc-mgr-actions">
         <button onclick="_restoreDeletedAccount(${i})" class="acc-mgr-btn restore" title="Restore account">${ICONS.restore}</button>
@@ -631,7 +631,7 @@ async function _addAccount() {
   const list = _getCustomAccounts();
   if (list.find(a => a.name === name)) { showToast('Account already exists', 'danger'); return; }
   const newAcc = { name, type, status: 'active', notes: '', size: 0, pnlMode: '$' };
-  if (type === 'Challenge') newAcc.challengePhase = phase;
+  if (type === 'Evaluation') newAcc.challengePhase = phase;
   list.push(newAcc);
   await _saveCustomAccounts(list);
   inp.value = '';
@@ -721,12 +721,12 @@ function _editAccount(i) {
       <div style="display:flex;gap:6px;align-items:center">
         <input type="text" class="acc-mgr-input" id="acc-edit-${i}" value="${a.name}" style="flex:1"
           onkeydown="if(event.key==='Enter')_saveEditAccount(${i})" placeholder="Account name">
-        <select id="acc-edit-type-${i}" class="acc-mgr-input" style="max-width:120px" onchange="document.getElementById('acc-edit-phase-row-${i}').style.display=this.value==='Challenge'?'flex':'none'">
+        <select id="acc-edit-type-${i}" class="acc-mgr-input" style="max-width:120px" onchange="document.getElementById('acc-edit-phase-row-${i}').style.display=this.value==='Evaluation'?'flex':'none'">
           <option value="">Type…</option>
-          ${['Funded','Paper','Live','Challenge'].map(t => `<option${a.type===t?' selected':''}>${t}</option>`).join('')}
+          ${['Funded','Paper','Live','Evaluation'].map(t => `<option${_accTypeNorm(a.type)===t?' selected':''}>${t}</option>`).join('')}
         </select>
       </div>
-      <div id="acc-edit-phase-row-${i}" style="display:${a.type==='Challenge'?'flex':'none'};gap:6px;align-items:center">
+      <div id="acc-edit-phase-row-${i}" style="display:${_accTypeNorm(a.type)==='Evaluation'?'flex':'none'};gap:6px;align-items:center">
         <span style="font-size:11px;color:var(--text3);white-space:nowrap">Challenge Phase:</span>
         <select id="acc-edit-phase-${i}" class="acc-mgr-input" style="width:100px;flex:none">
           <option value="Phase 1"${(a.challengePhase||'Phase 1')==='Phase 1'?' selected':''}>Phase 1</option>
@@ -762,8 +762,8 @@ async function _saveEditAccount(i) {
   const list = _getCustomAccounts();
   list[i].name = name;
   if (typE)   list[i].type    = typE.value;
-  if (typE && typE.value === 'Challenge' && phaseEl) list[i].challengePhase = phaseEl.value;
-  if (typE && typE.value !== 'Challenge') delete list[i].challengePhase;
+  if (typE && typE.value === 'Evaluation' && phaseEl) list[i].challengePhase = phaseEl.value;
+  if (typE && typE.value !== 'Evaluation') delete list[i].challengePhase;
   if (sizeEl) list[i].size    = parseFloat(sizeEl.value) || 0;
   if (modeEl) list[i].pnlMode = modeEl.value || '$';
   await _saveCustomAccounts(list);
