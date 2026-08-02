@@ -309,11 +309,13 @@ function _openAccRiskSettings(name) {
         <div class="wl-form-row"><label class="wl-form-label">Min Trading Days</label><input type="number" class="wl-form-input" id="ars-mindays" value="${r.minTradingDays || ''}" min="0" placeholder="e.g. 5"></div>
         <div class="wl-form-row"><label class="wl-form-label">Next Payout Date</label><input type="date" class="wl-form-input" id="ars-nextdate" value="${r.nextPayoutDate}"></div>
       </div>` : '';
-  const noRulesNote = (!ddRow && !targetPayoutRow) ? `<div class="acch-ov-health-sub" style="margin:-2px 0 2px">${t.label} accounts have no drawdown limits, profit targets, or payout goals — just Firm and Platform below.</div>` : '';
+  const noRulesNote = (!ddRow && !targetPayoutRow) ? `<div class="acch-ov-health-sub" style="margin:-2px 0 2px">${t.label} accounts have no drawdown limits, profit targets, or payout goals — just ${_accFirmLabel(t)} and Platform below.</div>` : '';
+  const isPaperOrLiveModal = t.cls === 'paper' || t.cls === 'live';
+  const modalTitle = isPaperOrLiveModal ? `Account Settings — ${name}` : `Risk &amp; ${_accRiskWord(t)} — ${name}`;
   overlay.innerHTML = `
   <div class="acc-manager-modal" style="max-width:440px">
     <div class="acc-manager-header">
-      <span><svg class="icn" aria-hidden="true"><use href="#ic-shield"></use></svg> Risk &amp; ${_accRiskWord(t)} — ${name}</span>
+      <span><svg class="icn" aria-hidden="true"><use href="#ic-shield"></use></svg> ${modalTitle}</span>
       <button onclick="document.getElementById('acc-risk-overlay').remove()" class="acc-mgr-close"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>
     </div>
     <div class="acc-manager-body" style="gap:10px">
@@ -587,10 +589,18 @@ function _accSettingsTabHtml(name) {
   ].join('');
   const isPaperOrLive = t.cls === 'paper' || t.cls === 'live';
   const firmLabel = _accFirmLabel(t);
+  const escName = name.replace(/'/g, "\\'");
+  const firmRow = `<div class="acch-settings-row">
+      <span class="k">${firmLabel}</span>
+      <span class="v acch-settings-editable">
+        ${r.firm || '—'}
+        <button class="acch-settings-edit-btn" title="Edit ${firmLabel}" onclick="_openAccRiskSettings('${escName}')"><svg class="icn" aria-hidden="true"><use href="#ic-edit"></use></svg></button>
+      </span>
+    </div>`;
   return `
     <div class="acch-settings-block">
       <div class="acch-settings-title">Account</div>
-      ${row(firmLabel, r.firm || '—')}
+      ${firmRow}
       ${row('Type', acc.type ? t.label : '—')}
       ${_accTypeNorm(acc.type) === 'Evaluation' ? row('Phase', acc.challengePhase || 'Phase 1') : ''}
       ${row('Account Size', accSize > 0 ? '$' + accSize.toLocaleString() : 'Not set')}
@@ -602,12 +612,12 @@ function _accSettingsTabHtml(name) {
     <div class="acch-settings-block">
       <div class="acch-settings-title">Rules &amp; ${_accRiskWord(t)}</div>
       ${rulesRows || `<div class="acch-ov-health-sub" style="padding:2px 0 4px">${t.label} accounts have no rules or payout goal to configure.</div>`}
-      <button class="acch-act-btn" style="margin-top:8px" onclick="_openAccRiskSettings('${name.replace(/'/g, "\\'")}')"><svg class="icn" aria-hidden="true"><use href="#ic-settings"></use></svg> Edit Rules &amp; ${_accRiskWord(t)}</button>
+      <button class="acch-act-btn" style="margin-top:8px" onclick="_openAccRiskSettings('${escName}')"><svg class="icn" aria-hidden="true"><use href="#ic-settings"></use></svg> Edit Rules &amp; ${_accRiskWord(t)}</button>
     </div>`}
     <div class="acch-settings-block">
       <div class="acch-settings-title">MT5 Connection</div>
       ${row('Status', mt5On ? ({ok:'Live',error:'Sync Error',syncing:'Syncing…'}[mt5Status] || 'Pending') : 'Not connected')}
-      <button class="acch-act-btn" style="margin-top:8px" onclick="mt5OpenModal('${name.replace(/'/g, "\\'")}')"><svg class="icn" aria-hidden="true"><use href="#ic-plug"></use></svg> ${mt5On ? 'Manage MT5' : 'Connect MT5'}</button>
+      <button class="acch-act-btn" style="margin-top:8px" onclick="mt5OpenModal('${escName}')"><svg class="icn" aria-hidden="true"><use href="#ic-plug"></use></svg> ${mt5On ? 'Manage MT5' : 'Connect MT5'}</button>
     </div>
     <div class="acch-settings-block">
       <div class="acch-settings-title">Danger Zone</div>

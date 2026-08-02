@@ -136,6 +136,14 @@
 .acch-settings-row:last-of-type{ border-bottom:none; }
 .acch-settings-row .k{ color:var(--text3); font-weight:500; }
 .acch-settings-row .v{ color:var(--text2); font-weight:700; font-family:var(--font-mono); }
+.acch-settings-row .v.acch-settings-editable{ display:inline-flex; align-items:center; gap:7px; }
+.acch-settings-edit-btn{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:20px; height:20px; padding:0; border-radius:5px; border:1px solid var(--glass-border);
+  background:var(--glass-1); color:var(--text3); cursor:pointer; transition:all .15s;
+}
+.acch-settings-edit-btn:hover{ color:var(--text); border-color:var(--glass-border-h); background:var(--glass-2); }
+.acch-settings-edit-btn .icn{ width:11px; height:11px; }
 
 /* ── Account detail — Risk & Payout panel ───────────────────────── */
 .acch-detail-risk{
