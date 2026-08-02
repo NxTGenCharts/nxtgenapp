@@ -10,7 +10,7 @@ function openGlassModal({ icon, title, body, confirmLabel, confirmClass, onConfi
   document.getElementById('gm-actions').innerHTML = `<button class="glass-btn glass-btn-cancel" onclick="closeGlassModal()">${onCancel || 'Cancel'}</button><button class="glass-btn ${confirmClass || 'glass-btn-danger'}" onclick="glassConfirm()">${confirmLabel || 'Confirm'}</button>`;
   document.getElementById('glass-modal-overlay').classList.add('open');
 }
-function closeGlassModal() { document.getElementById('glass-modal-overlay').classList.remove('open'); _gmCallback = null; }
+function closeGlassModal() { document.getElementById('glass-modal-overlay').classList.remove('open'); _gmCallback = null; if (typeof _ngEditingItem !== 'undefined') _ngEditingItem = null; }
 async function glassConfirm() {
   const cb = _gmCallback;
   closeGlassModal();

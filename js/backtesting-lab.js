@@ -3043,10 +3043,11 @@ function buildGoals() {
   // Goals groups
   const goalsEl = document.getElementById('goals-list');
   if (goalsEl) {
+    const bulkBar = _goalsBulkBarHtml();
     if (_goalsData.groups.length === 0) {
-      goalsEl.innerHTML = '<div class="wl-empty-state" style="padding:30px 0"><div class="wl-empty-icon">' + icon('target') + '</div><div class="wl-empty-title">No goals yet</div><div class="wl-empty-sub">Click + Add Group to create your first goal group.</div></div>';
+      goalsEl.innerHTML = bulkBar + '<div class="wl-empty-state" style="padding:30px 0"><div class="wl-empty-icon">' + icon('target') + '</div><div class="wl-empty-title">No goals yet</div><div class="wl-empty-sub">Click + Add Group to create your first goal group.</div></div>';
     } else {
-      goalsEl.innerHTML = _goalsBuildTreeHtml();
+      goalsEl.innerHTML = bulkBar + _goalsBuildTreeHtml();
     }
     _renderGoalsProgress();
     if (_goalEditIdx) {
@@ -3238,6 +3239,92 @@ async function goalDeleteItem(gi, ii) {
   await _goalsSave();
 }
 
+async function goalDuplicateItem(gi, ii) {
+  const g = _goalsData.groups[gi];
+  const orig = g && g.items[ii];
+  if (!orig) return;
+  const copy = JSON.parse(JSON.stringify(orig));
+  copy.t = orig.t + ' (Copy)';
+  copy.done = false;
+  g.items.splice(ii + 1, 0, copy);
+  buildGoals();
+  await _goalsSave();
+  showToast?.('Goal duplicated', 'success');
+}
+
+/* ── Multi-select + bulk actions ──────────────────────────────
+   Selection keys are "gi:ii" strings. Independent of the drag-handle
+   click-to-reorder mechanic (_goalClickSrc) — this is purely for
+   picking multiple goals to duplicate or delete at once. */
+let _goalSelected = new Set();
+function _goalSelKey(gi, ii) { return `${gi}:${ii}`; }
+function goalIsSelected(gi, ii) { return _goalSelected.has(_goalSelKey(gi, ii)); }
+function goalToggleSelect(gi, ii, e) {
+  if (e) e.stopPropagation();
+  const key = _goalSelKey(gi, ii);
+  if (_goalSelected.has(key)) _goalSelected.delete(key); else _goalSelected.add(key);
+  buildGoals();
+}
+function goalClearSelection() {
+  _goalSelected.clear();
+  buildGoals();
+}
+function _goalsBulkBarHtml() {
+  const n = _goalSelected.size;
+  if (!n) return '';
+  return `
+  <div class="goals-bulk-bar">
+    <span>${n} goal${n === 1 ? '' : 's'} selected</span>
+    <div style="display:flex;gap:6px">
+      <button class="wl-week-btn" onclick="goalBulkDuplicate()"><svg class="icn" aria-hidden="true"><use href="#ic-copy"></use></svg> Duplicate</button>
+      <button class="wl-week-btn danger" onclick="goalBulkDelete()"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg> Delete</button>
+      <button class="wl-week-btn" onclick="goalClearSelection()">Cancel</button>
+    </div>
+  </div>`;
+}
+// Groups selected keys by gi so each group's items can be mutated in one pass.
+function _goalSelectedByGroup() {
+  const byGroup = {};
+  _goalSelected.forEach(key => {
+    const [gi, ii] = key.split(':').map(Number);
+    (byGroup[gi] = byGroup[gi] || []).push(ii);
+  });
+  return byGroup;
+}
+async function goalBulkDuplicate() {
+  const byGroup = _goalSelectedByGroup();
+  Object.entries(byGroup).forEach(([gi, iis]) => {
+    const g = _goalsData.groups[gi];
+    if (!g) return;
+    iis.sort((a, b) => a - b).forEach(ii => {
+      const orig = g.items[ii];
+      if (!orig) return;
+      const copy = JSON.parse(JSON.stringify(orig));
+      copy.t = orig.t + ' (Copy)';
+      copy.done = false;
+      g.items.push(copy);
+    });
+  });
+  _goalSelected.clear();
+  buildGoals();
+  await _goalsSave();
+  showToast?.('Goals duplicated', 'success');
+}
+async function goalBulkDelete() {
+  const n = _goalSelected.size;
+  if (!confirm(`Delete ${n} selected goal${n === 1 ? '' : 's'}?`)) return;
+  const byGroup = _goalSelectedByGroup();
+  Object.entries(byGroup).forEach(([gi, iis]) => {
+    const g = _goalsData.groups[gi];
+    if (!g) return;
+    iis.sort((a, b) => b - a).forEach(ii => g.items.splice(ii, 1)); // highest index first
+  });
+  _goalSelected.clear();
+  buildGoals();
+  await _goalsSave();
+  showToast?.('Goals deleted', 'success');
+}
+
 function goalDragStart(e, gi, ii) {
   _goalDragSrc = { gi, ii };
   _goalClickSrc = null;
@@ -3348,14 +3435,16 @@ function _goalItemHtml(gi, ii, item) {
          ondrop="goalDrop(event,${gi},${ii})"
          ondragend="goalDragEnd(event)"
          onclick="goalsToggle(${gi},${ii})">
+      <span class="goal-select-box${goalIsSelected(gi,ii) ? ' checked' : ''}" onclick="goalToggleSelect(${gi},${ii},event)" title="Select goal">${goalIsSelected(gi,ii) ? '✓' : ''}</span>
       <span class="cl-drag-handle${_goalClickSrc && _goalClickSrc.gi===gi && _goalClickSrc.ii===ii ? ' selected' : ''}" onclick="goalHandleClick(event,${gi},${ii})" title="Drag, or click and click another to swap">⠿</span>
       <div class="cl-box">${item.done?'✓':''}</div>
       <span class="cl-text">${item.t}</span>
       ${item.priority ? `<span class="goal-badge priority-${item.priority}" style="margin-right:6px">${item.priority}</span>` : ''}
       ${item.deadline ? `<span class="goal-badge deadline" style="margin-right:6px">${item.deadline}</span>` : ''}
       <div class="acc-ms-actions">
-        <button class="wl-week-btn" style="font-size:10px;padding:2px 7px" onclick="goalStartEdit(${gi},${ii});event.stopPropagation()"><svg class="icn" aria-hidden="true"><use href="#ic-edit"></use></svg></button>
-        <button class="wl-week-btn danger" style="font-size:10px;padding:2px 7px" onclick="goalDeleteItem(${gi},${ii});event.stopPropagation()"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>
+        <button class="wl-week-btn" style="font-size:10px;padding:2px 7px" onclick="goalOpenEditGoalModal(${gi},${ii});event.stopPropagation()" title="Edit goal"><svg class="icn" aria-hidden="true"><use href="#ic-edit"></use></svg></button>
+        <button class="wl-week-btn" style="font-size:10px;padding:2px 7px" onclick="goalDuplicateItem(${gi},${ii});event.stopPropagation()" title="Duplicate goal"><svg class="icn" aria-hidden="true"><use href="#ic-copy"></use></svg></button>
+        <button class="wl-week-btn danger" style="font-size:10px;padding:2px 7px" onclick="goalDeleteItem(${gi},${ii});event.stopPropagation()" title="Delete goal"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>
       </div>
     </div>`;
 }
@@ -3563,6 +3652,7 @@ function _goalTypedCardHtml(gi, ii, item) {
   return `
   <div class="goal-card">
     <div class="goal-card-top">
+      <span class="goal-select-box${goalIsSelected(gi,ii) ? ' checked' : ''}" onclick="goalToggleSelect(${gi},${ii},event)" title="Select goal">${goalIsSelected(gi,ii) ? '✓' : ''}</span>
       <span class="cl-drag-handle" draggable="true"
             ondragstart="goalDragStart(event,${gi},${ii})" ondragover="goalDragOver(event)"
             ondragenter="goalDragEnter(event,${gi},${ii})" ondragleave="goalDragLeave(event)"
@@ -3570,8 +3660,9 @@ function _goalTypedCardHtml(gi, ii, item) {
       <span class="goal-card-title">${item.t}${item.cat ? ` <span style="color:var(--text3);font-weight:400">· ${item.cat}</span>` : ''}</span>
       <div class="goal-card-actions">
         ${(!auto) ? `<button class="wl-week-btn" style="font-size:10px;padding:2px 7px" onclick="goalUpdateProgress(${gi},${ii})">Update</button>` : ''}
-        <button class="wl-week-btn" style="font-size:10px;padding:2px 7px" onclick="goalStartEdit(${gi},${ii})"><svg class="icn" aria-hidden="true"><use href="#ic-edit"></use></svg></button>
-        <button class="wl-week-btn danger" style="font-size:10px;padding:2px 7px" onclick="goalDeleteItem(${gi},${ii})"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>
+        <button class="wl-week-btn" style="font-size:10px;padding:2px 7px" onclick="goalOpenEditGoalModal(${gi},${ii})" title="Edit goal"><svg class="icn" aria-hidden="true"><use href="#ic-edit"></use></svg></button>
+        <button class="wl-week-btn" style="font-size:10px;padding:2px 7px" onclick="goalDuplicateItem(${gi},${ii})" title="Duplicate goal"><svg class="icn" aria-hidden="true"><use href="#ic-copy"></use></svg></button>
+        <button class="wl-week-btn danger" style="font-size:10px;padding:2px 7px" onclick="goalDeleteItem(${gi},${ii})" title="Delete goal"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>
       </div>
     </div>
     <div class="goal-card-badges">
@@ -3715,7 +3806,10 @@ function _goalsRenderUpcoming() {
     </div>`;
 }
 
-/* ── New Goal modal (progressive disclosure by type) ── */
+/* ── New/Edit Goal modal (progressive disclosure by type) ──
+   _ngEditingItem holds the goal being edited (null when creating a new
+   one) so the shared form helpers below know which values to preselect. */
+let _ngEditingItem = null;
 function _ngTypeChange() {
   const type = document.getElementById('ng-type')?.value;
   const numeric = ['numeric','percentage','count','streak'].includes(type);
@@ -3733,9 +3827,107 @@ function _ngTrackingChange() {
   autoWrap.style.display = (tracking === 'auto') ? '' : 'none';
   const sel = document.getElementById('ng-autometric');
   if (sel && tracking === 'auto') {
+    const current = _ngEditingItem && _ngEditingItem.autoMetric;
     sel.innerHTML = Object.entries(GOAL_AUTO_METRICS).filter(([,m]) => m.types.includes(type))
-      .map(([k,m]) => `<option value="${k}">${m.label}</option>`).join('') || '<option value="">No auto metric available for this type</option>';
+      .map(([k,m]) => `<option value="${k}" ${k===current?'selected':''}>${m.label}</option>`).join('') || '<option value="">No auto metric available for this type</option>';
   }
+}
+
+// Shared form body for both "New Goal" and "Edit Goal" modals. Pass an
+// existing item to prefill every field (title, priority, type, target,
+// tracking method, deadline, etc.) so editing actually edits, not just
+// the title text.
+function _goalModalBodyHtml(gi, item) {
+  const groupOptions = _goalsData.groups.map((g, i) => `<option value="${i}" ${i===gi?'selected':''}>${g.q}</option>`).join('');
+  const type = (item && item.type) || 'binary';
+  const tracking = (item && item.tracking) || 'manual';
+  const esc = s => (s || '').replace(/"/g, '&quot;');
+  return `
+      <div class="gform-row full"><div class="gform-field"><label>Goal Title</label><input type="text" id="ng-title" placeholder="e.g. Reach $1,000 in payouts" value="${item ? esc(item.t) : ''}" autofocus></div></div>
+      <div class="gform-row">
+        <div class="gform-field"><label>Group</label><select id="ng-group" onchange="_ngGroupChange()">${groupOptions}</select></div>
+        <div class="gform-field"><label>Month</label><select id="ng-month"></select></div>
+      </div>
+      <div class="gform-row">
+        <div class="gform-field"><label>Category</label><input type="text" id="ng-cat" placeholder="e.g. Funding" value="${item ? esc(item.cat) : ''}"></div>
+        <div class="gform-field"><label>Priority</label>
+          <select id="ng-priority">
+            <option value="medium" ${(!item || item.priority==='medium') ? 'selected' : ''}>Medium</option>
+            <option value="high" ${item && item.priority==='high' ? 'selected' : ''}>High</option>
+            <option value="low" ${item && item.priority==='low' ? 'selected' : ''}>Low</option>
+          </select>
+        </div>
+      </div>
+      <div class="gform-row">
+        <div class="gform-field"><label>Goal Type</label>
+          <select id="ng-type" onchange="_ngTypeChange()">
+            <option value="binary" ${type==='binary'?'selected':''}>Binary (done / not done)</option>
+            <option value="numeric" ${type==='numeric'?'selected':''}>Numeric target</option>
+            <option value="percentage" ${type==='percentage'?'selected':''}>Percentage target</option>
+            <option value="count" ${type==='count'?'selected':''}>Trade-count target</option>
+            <option value="streak" ${type==='streak'?'selected':''}>Streak (days)</option>
+            <option value="custom" ${type==='custom'?'selected':''}>Custom</option>
+          </select>
+        </div>
+      </div>
+      <div id="ng-numeric-wrap" style="display:none">
+        <div class="gform-row">
+          <div class="gform-field"><label>Target</label><input type="number" id="ng-target" placeholder="e.g. 1000" value="${item && typeof item.target==='number' ? item.target : ''}"></div>
+          <div class="gform-field"><label>Current</label><input type="number" id="ng-current" placeholder="0" value="${item && typeof item.current==='number' ? item.current : 0}"></div>
+        </div>
+        <div class="gform-row"><div class="gform-field"><label>Unit</label><input type="text" id="ng-unit" placeholder="e.g. $, %, trades, days" value="${item ? esc(item.unit) : ''}"></div></div>
+      </div>
+      <div id="ng-tracking-wrap" style="display:none">
+        <div class="gform-row">
+          <div class="gform-field"><label>Tracking Method</label>
+            <select id="ng-tracking" onchange="_ngTrackingChange()">
+              <option value="manual" ${tracking==='manual'?'selected':''}>Manual</option>
+              <option value="auto" ${tracking==='auto'?'selected':''}>Automatic (from your trades)</option>
+            </select>
+          </div>
+          <div class="gform-field" id="ng-auto-wrap" style="display:none"><label>Auto Metric</label><select id="ng-autometric"></select></div>
+        </div>
+      </div>
+      <div class="gform-row">
+        <div class="gform-field"><label>Deadline</label><input type="date" id="ng-deadline" value="${item && item.deadline ? item.deadline : ''}"></div>
+      </div>
+      <div class="gform-row full"><div class="gform-field"><label>Notes</label><textarea id="ng-notes" placeholder="Optional notes…">${item && item.notes ? item.notes.replace(/</g,'&lt;') : ''}</textarea></div></div>
+      <div class="gform-hint">Automatic tracking is only available for win rate, trade count, and average R:R — everything else is tracked manually via the Update button.</div>
+  `;
+}
+
+// Reads the shared form fields back into a plain goal item object.
+// `base` carries over fields the form doesn't own (done state, etc.).
+function _goalModalReadForm(base) {
+  const title = document.getElementById('ng-title')?.value.trim() || (base && base.t) || 'Untitled Goal';
+  const type = document.getElementById('ng-type')?.value || 'binary';
+  const item = Object.assign({ done: !!(base && base.done) }, { t: title });
+  const cat = document.getElementById('ng-cat')?.value.trim();
+  const priority = document.getElementById('ng-priority')?.value;
+  const deadline = document.getElementById('ng-deadline')?.value;
+  const notes = document.getElementById('ng-notes')?.value.trim();
+  if (cat) item.cat = cat;
+  if (priority) item.priority = priority;
+  if (deadline) item.deadline = deadline;
+  if (notes) item.notes = notes;
+  const month = parseInt(document.getElementById('ng-month')?.value, 10);
+  if (!isNaN(month)) item.month = month;
+  if (type !== 'binary') {
+    item.type = type;
+    const target = parseFloat(document.getElementById('ng-target')?.value);
+    const current = parseFloat(document.getElementById('ng-current')?.value);
+    if (!isNaN(target)) item.target = target;
+    item.current = isNaN(current) ? 0 : current;
+    const unit = document.getElementById('ng-unit')?.value.trim();
+    if (unit) item.unit = unit;
+    const tracking = document.getElementById('ng-tracking')?.value;
+    if (tracking === 'auto') {
+      const metric = document.getElementById('ng-autometric')?.value;
+      if (metric) { item.tracking = 'auto'; item.autoMetric = metric; }
+    }
+    if (typeof item.target === 'number' && item.current >= item.target) item.done = true;
+  }
+  return item;
 }
 
 function goalOpenNewGoalModal(gi) {
@@ -3748,88 +3940,48 @@ function goalOpenNewGoalModal(gi) {
   } else if (gi < 0 || gi >= _goalsData.groups.length) {
     gi = 0;
   }
-  const groupOptions = _goalsData.groups.map((g, i) => `<option value="${i}" ${i===gi?'selected':''}>${g.q}</option>`).join('');
+  _ngEditingItem = null;
 
   openGlassModal({
     icon: '<svg class="icn icn-blue" aria-hidden="true"><use href="#ic-target"></use></svg>',
     title: 'New Goal',
     confirmLabel: 'Create Goal',
     confirmClass: 'glass-btn-restore',
-    body: `
-      <div class="gform-row full"><div class="gform-field"><label>Goal Title</label><input type="text" id="ng-title" placeholder="e.g. Reach $1,000 in payouts" autofocus></div></div>
-      <div class="gform-row">
-        <div class="gform-field"><label>Group</label><select id="ng-group" onchange="_ngGroupChange()">${groupOptions}</select></div>
-        <div class="gform-field"><label>Month</label><select id="ng-month"></select></div>
-      </div>
-      <div class="gform-row">
-        <div class="gform-field"><label>Category</label><input type="text" id="ng-cat" placeholder="e.g. Funding"></div>
-        <div class="gform-field"><label>Priority</label>
-          <select id="ng-priority"><option value="medium" selected>Medium</option><option value="high">High</option><option value="low">Low</option></select>
-        </div>
-      </div>
-      <div class="gform-row">
-        <div class="gform-field"><label>Goal Type</label>
-          <select id="ng-type" onchange="_ngTypeChange()">
-            <option value="binary">Binary (done / not done)</option>
-            <option value="numeric">Numeric target</option>
-            <option value="percentage">Percentage target</option>
-            <option value="count">Trade-count target</option>
-            <option value="streak">Streak (days)</option>
-            <option value="custom">Custom</option>
-          </select>
-        </div>
-      </div>
-      <div id="ng-numeric-wrap" style="display:none">
-        <div class="gform-row">
-          <div class="gform-field"><label>Target</label><input type="number" id="ng-target" placeholder="e.g. 1000"></div>
-          <div class="gform-field"><label>Current</label><input type="number" id="ng-current" placeholder="0" value="0"></div>
-        </div>
-        <div class="gform-row"><div class="gform-field"><label>Unit</label><input type="text" id="ng-unit" placeholder="e.g. $, %, trades, days"></div></div>
-      </div>
-      <div id="ng-tracking-wrap" style="display:none">
-        <div class="gform-row">
-          <div class="gform-field"><label>Tracking Method</label>
-            <select id="ng-tracking" onchange="_ngTrackingChange()"><option value="manual" selected>Manual</option><option value="auto">Automatic (from your trades)</option></select>
-          </div>
-          <div class="gform-field" id="ng-auto-wrap" style="display:none"><label>Auto Metric</label><select id="ng-autometric"></select></div>
-        </div>
-      </div>
-      <div class="gform-row">
-        <div class="gform-field"><label>Deadline</label><input type="date" id="ng-deadline"></div>
-      </div>
-      <div class="gform-row full"><div class="gform-field"><label>Notes</label><textarea id="ng-notes" placeholder="Optional notes…"></textarea></div></div>
-      <div class="gform-hint">Automatic tracking is only available for win rate, trade count, and average R:R — everything else is tracked manually via the Update button.</div>
-    `,
+    body: _goalModalBodyHtml(gi, null),
     onConfirm: async () => {
-      const title = document.getElementById('ng-title')?.value.trim() || 'Untitled Goal';
       const groupIdx = parseInt(document.getElementById('ng-group')?.value ?? gi, 10);
-      const type = document.getElementById('ng-type')?.value || 'binary';
-      const item = { t: title, done: false };
-      const cat = document.getElementById('ng-cat')?.value.trim();
-      const priority = document.getElementById('ng-priority')?.value;
-      const deadline = document.getElementById('ng-deadline')?.value;
-      const notes = document.getElementById('ng-notes')?.value.trim();
-      if (cat) item.cat = cat;
-      if (priority) item.priority = priority;
-      if (deadline) item.deadline = deadline;
-      if (notes) item.notes = notes;
-      const month = parseInt(document.getElementById('ng-month')?.value, 10);
-      if (!isNaN(month)) item.month = month;
-      if (type !== 'binary') {
-        item.type = type;
-        const target = parseFloat(document.getElementById('ng-target')?.value);
-        const current = parseFloat(document.getElementById('ng-current')?.value);
-        if (!isNaN(target)) item.target = target;
-        item.current = isNaN(current) ? 0 : current;
-        const unit = document.getElementById('ng-unit')?.value.trim();
-        if (unit) item.unit = unit;
-        const tracking = document.getElementById('ng-tracking')?.value;
-        if (tracking === 'auto') {
-          const metric = document.getElementById('ng-autometric')?.value;
-          if (metric) { item.tracking = 'auto'; item.autoMetric = metric; }
-        }
-      }
+      const item = _goalModalReadForm(null);
+      item.done = false; // new goals always start incomplete regardless of current/target
       _goalsData.groups[groupIdx].items.push(item);
+      buildGoals();
+      await _goalsSave();
+    },
+  });
+  setTimeout(() => { _ngTypeChange(); _ngGroupChange(); }, 0);
+}
+
+// Edit an existing goal — opens the same form as "New Goal", prefilled
+// with the item's current values (title, priority, type, target,
+// tracking method, deadline, notes, group/month), so every field is
+// actually editable rather than just the title text.
+function goalOpenEditGoalModal(gi, ii) {
+  const item = _goalsData.groups[gi] && _goalsData.groups[gi].items[ii];
+  if (!item) return;
+  _ngEditingItem = item;
+
+  openGlassModal({
+    icon: '<svg class="icn icn-blue" aria-hidden="true"><use href="#ic-target"></use></svg>',
+    title: 'Edit Goal',
+    confirmLabel: 'Save Changes',
+    confirmClass: 'glass-btn-restore',
+    body: _goalModalBodyHtml(gi, item),
+    onConfirm: async () => {
+      const newGroupIdx = parseInt(document.getElementById('ng-group')?.value ?? gi, 10);
+      const updated = _goalModalReadForm(item);
+      _goalsData.groups[gi].items.splice(ii, 1);
+      const targetGroup = _goalsData.groups[newGroupIdx] ? newGroupIdx : gi;
+      _goalsData.groups[targetGroup].items.push(updated);
+      _ngEditingItem = null;
       buildGoals();
       await _goalsSave();
     },
@@ -3839,7 +3991,8 @@ function goalOpenNewGoalModal(gi) {
 
 // Populates the Month select with the 3 months belonging to the currently
 // selected group's quarter (e.g. Q3 → Jul/Aug/Sep), defaulting to the
-// current month when it falls inside that quarter, else the first month.
+// item's saved month when editing, else the current month if it falls
+// inside that quarter, else the first month.
 function _ngGroupChange() {
   const groupIdx = parseInt(document.getElementById('ng-group')?.value, 10);
   const sel = document.getElementById('ng-month');
@@ -3849,7 +4002,8 @@ function _ngGroupChange() {
   const now = new Date();
   const curMonth = now.getMonth() + 1;
   const months = parsed ? _goalQuarterMonths(parsed.q) : Array.from({ length: 12 }, (_, i) => i + 1);
-  const defaultMonth = months.includes(curMonth) ? curMonth : months[0];
+  const preferred = _ngEditingItem && _ngEditingItem.month;
+  const defaultMonth = (preferred && months.includes(preferred)) ? preferred : (months.includes(curMonth) ? curMonth : months[0]);
   sel.innerHTML = months.map(m => `<option value="${m}" ${m === defaultMonth ? 'selected' : ''}>${_MR_MONTHS[m - 1]}</option>`).join('');
 }
 
