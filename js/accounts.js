@@ -248,7 +248,14 @@ function _accComputeAnalytics(name) {
   const dailyEntries = Object.entries(dailyMap).sort((a,b) => a[0].localeCompare(b[0]));
   const dailySeries   = dailyEntries.map(([date, val], idx) => ({ i: idx, date, val }));
 
-  const tradingDays     = Object.keys(dailyMap).length;
+  // A "trading day" only counts toward min-trading-days / hero stats once
+  // it clears a meaningful profit bar — 0.5% of account size for that day —
+  // rather than just having any trade logged on it. Falls back to counting
+  // every day with a trade if account size hasn't been set (no basis for %).
+  const TRADING_DAY_MIN_PCT = 0.5;
+  const tradingDays = accSize > 0
+    ? Object.values(dailyMap).filter(v => v >= accSize * (TRADING_DAY_MIN_PCT / 100)).length
+    : Object.keys(dailyMap).length;
   const avgTradesPerDay = tradingDays ? (at.length / tradingDays) : 0;
 
   // Rolling series for KPI sparklines
