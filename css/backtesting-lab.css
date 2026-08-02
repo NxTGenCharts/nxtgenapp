@@ -403,6 +403,7 @@
   .checklist-grid{ grid-template-columns:1fr }
   .model-card{ padding:16px;border-radius:var(--r-md) }
   .rule-card{ padding:12px 14px;border-radius:var(--r-md) }
+  #affirmations{ column-count:1 }
   .profile-form-grid{ grid-template-columns:1fr }
   .profile-tabs{ overflow-x:auto;scrollbar-width:none }
   .profile-tabs::-webkit-scrollbar{ display:none }

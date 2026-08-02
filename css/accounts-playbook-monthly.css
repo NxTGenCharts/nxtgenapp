@@ -640,6 +640,14 @@
 .aff-card .cl-drag-handle{margin-top:2px}
 .aff-card .acc-ms-actions{margin-top:2px}
 .aff-card .cl-edit-input{margin-top:2px;font-style:italic}
+
+/* Newspaper-style two-column flow: cards fill column 1 top-to-bottom,
+   then continue in column 2, so numbering stays in reading order
+   (01..0n) regardless of which visual column a card lands in. Drag/drop
+   is unaffected — it still reorders the underlying array by index, the
+   columns just reflow on next render. */
+#affirmations{column-count:2;column-gap:14px}
+#affirmations .rule-card{break-inside:avoid;-webkit-column-break-inside:avoid}
 .model-card{
   background:var(--glass-1);border:1px solid var(--glass-border);
   border-radius:var(--r-lg);padding:18px;margin-bottom:10px;
