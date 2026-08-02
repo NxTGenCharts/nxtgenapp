@@ -341,6 +341,8 @@ async function _saveAccRiskSettings(name) {
   const list = _getCustomAccounts();
   const idx = list.findIndex(a => a.name === name);
   if (idx < 0) return;
+  const t = _accTypeInfo(list[idx].type);
+  const isPaperOrLive = t.cls === 'paper' || t.cls === 'live';
   const val = id => document.getElementById(id)?.value ?? '';
   list[idx].firm              = val('ars-firm');
   list[idx].platform          = val('ars-platform') || 'MT5';
@@ -353,9 +355,12 @@ async function _saveAccRiskSettings(name) {
   list[idx].nextPayoutDate    = val('ars-nextdate') || '';
   await _saveCustomAccounts(list);
   document.getElementById('acc-risk-overlay')?.remove();
-  showToast('Risk & payout settings saved ✓', 'restore');
+  showToast(isPaperOrLive ? 'Account settings saved ✓' : 'Risk & payout settings saved ✓', 'restore');
   buildAccounts();
-  if (typeof _accActiveName !== 'undefined' && _accActiveName === name) accShowDetail(name);
+  if (typeof _accActiveName !== 'undefined' && _accActiveName === name) {
+    _accPendingDetailTab = 'settings';
+    accShowDetail(name);
+  }
 }
 
 // ── Portfolio Overview ──────────────────────────────────────────────────
@@ -489,6 +494,10 @@ function _renderPayoutSummary() {
 //    Payouts / Settings), reusing the nodes the original render produced
 //    so none of the existing hero/KPI/equity-curve/trade-log logic is
 //    duplicated — we just regroup it after the fact.
+// _accPendingDetailTab lets a caller (e.g. after saving Account Settings)
+// request which tab the rebuilt view should land on, instead of always
+// resetting to Overview. Consumed once, then cleared, by _accEnhanceDetailView.
+let _accPendingDetailTab = null;
 const _accUpgOrigShowDetail = window.accShowDetail;
 window.accShowDetail = function (name, ...rest) {
   const r = _accUpgOrigShowDetail.call(this, name, ...rest);
@@ -653,21 +662,28 @@ function _accEnhanceDetailView(name) {
   const showRiskTab = typeInfo.cls !== 'paper' && typeInfo.cls !== 'live';
   const showPayoutsTab = !!typeInfo.payout;
 
+  // Which tab should be active on this build: honor a one-shot request
+  // (e.g. "stay on Settings after saving"), falling back to Overview.
+  const availableTabs = ['overview', ...(showRiskTab ? ['risk'] : []), 'trades', ...(showPayoutsTab ? ['payouts'] : []), 'settings'];
+  const initialTab = (_accPendingDetailTab && availableTabs.includes(_accPendingDetailTab)) ? _accPendingDetailTab : 'overview';
+  _accPendingDetailTab = null;
+  const activeCls = tab => tab === initialTab ? ' active' : '';
+
   const shell = document.createElement('div');
   shell.className = 'acch-tabs-wrap';
   shell.innerHTML = `
     <div class="acch-tabs" role="tablist">
-      <button class="acch-tab-btn active" data-tab="overview">Overview</button>
-      ${showRiskTab ? `<button class="acch-tab-btn" data-tab="risk">Risk &amp; ${_accRiskWord(typeInfo)}</button>` : ''}
-      <button class="acch-tab-btn" data-tab="trades">Trades</button>
-      ${showPayoutsTab ? `<button class="acch-tab-btn" data-tab="payouts">Payouts</button>` : ''}
-      <button class="acch-tab-btn" data-tab="settings">Settings</button>
+      <button class="acch-tab-btn${activeCls('overview')}" data-tab="overview">Overview</button>
+      ${showRiskTab ? `<button class="acch-tab-btn${activeCls('risk')}" data-tab="risk">Risk &amp; ${_accRiskWord(typeInfo)}</button>` : ''}
+      <button class="acch-tab-btn${activeCls('trades')}" data-tab="trades">Trades</button>
+      ${showPayoutsTab ? `<button class="acch-tab-btn${activeCls('payouts')}" data-tab="payouts">Payouts</button>` : ''}
+      <button class="acch-tab-btn${activeCls('settings')}" data-tab="settings">Settings</button>
     </div>
-    <div class="acch-tab-panel active" data-panel="overview"></div>
-    ${showRiskTab ? `<div class="acch-tab-panel" data-panel="risk">${_accRiskPanelHtml(name)}</div>` : ''}
-    <div class="acch-tab-panel" data-panel="trades"></div>
-    ${showPayoutsTab ? `<div class="acch-tab-panel" data-panel="payouts">${_accPayoutsTabHtml(name)}</div>` : ''}
-    <div class="acch-tab-panel" data-panel="settings">${_accSettingsTabHtml(name)}</div>
+    <div class="acch-tab-panel${activeCls('overview')}" data-panel="overview"></div>
+    ${showRiskTab ? `<div class="acch-tab-panel${activeCls('risk')}" data-panel="risk">${_accRiskPanelHtml(name)}</div>` : ''}
+    <div class="acch-tab-panel${activeCls('trades')}" data-panel="trades"></div>
+    ${showPayoutsTab ? `<div class="acch-tab-panel${activeCls('payouts')}" data-panel="payouts">${_accPayoutsTabHtml(name)}</div>` : ''}
+    <div class="acch-tab-panel${activeCls('settings')}" data-panel="settings">${_accSettingsTabHtml(name)}</div>
   `;
 
   const overviewPanel = shell.querySelector('[data-panel="overview"]');
