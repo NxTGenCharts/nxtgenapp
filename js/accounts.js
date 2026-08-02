@@ -635,6 +635,8 @@ function accShowDetail(name) {
   const fmtPlain = (dollars) => (dollars === null || dollars === undefined) ? '—' : (dollars >= 0 ? '+$' : '-$') + Math.abs(dollars).toFixed(2);
 
   const isArchived = acc.status === 'archived';
+  const typeInfo = _accTypeInfo(acc.type);
+  const showTradingDays = typeInfo.cls !== 'paper' && typeInfo.cls !== 'live';
   const netProfitPct = accSize > 0 ? (m.netDollars / accSize) * 100 : null;
   // Challenge completion is a historical fact — keep showing it even after
   // the account has been archived, instead of it silently disappearing.
@@ -683,7 +685,7 @@ function accShowDetail(name) {
           <div class="acc-hero-stat"><div class="acc-hero-stat-label">Win Rate</div><div class="acc-hero-stat-val ${m.wr>=55?'green':'red'}">${at.length?m.wr.toFixed(1)+'%':'—'}</div></div>
           <div class="acc-hero-stat"><div class="acc-hero-stat-label">Profit Factor</div><div class="acc-hero-stat-val gold">${at.length?(isFinite(m.pf)?m.pf.toFixed(2)+'x':'∞'):'—'}</div></div>
           <div class="acc-hero-stat"><div class="acc-hero-stat-label">Trades</div><div class="acc-hero-stat-val blue">${at.length || '—'}</div></div>
-          <div class="acc-hero-stat"><div class="acc-hero-stat-label">Trading Days</div><div class="acc-hero-stat-val">${m.tradingDays || '—'}</div></div>
+          ${showTradingDays ? `<div class="acc-hero-stat"><div class="acc-hero-stat-label">Trading Days</div><div class="acc-hero-stat-val">${m.tradingDays || '—'}</div></div>` : ''}
           <div class="acc-hero-stat"><div class="acc-hero-stat-label">Max Drawdown</div><div class="acc-hero-stat-val ${m.maxDDPct<=10?'green':'red'}">${at.length?m.maxDDPct.toFixed(1)+'%':'—'}</div></div>
         </div>
       </div>
