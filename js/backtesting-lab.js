@@ -305,6 +305,18 @@ const REP_SOURCES = [
       return p;
     },
   },
+  {
+    id: 'deriv', label: 'Deriv',
+    intervals: ['m1', 'm5', 'm15', 'm30', 'h1', 'h4', 'd1'],
+    defaultInterval: 'h1',
+    symbolPlaceholder: 'frxEURUSD',
+    mapPair(pair) {
+      if (!pair) return 'frxEURUSD';
+      const p = pair.trim().toUpperCase().replace(/[\/\s_]/g, '');
+      if (p.startsWith('FRX')) return p;
+      return `frx${p}`;
+    },
+  },
 ];
 function _repGetSource(id) { return REP_SOURCES.find(s => s.id === id) || REP_SOURCES[0]; }
 
@@ -393,7 +405,7 @@ async function _repFetchCandles(symbol, interval, outputsize = 500, source = 'tw
   // memory footprint can never take down Twelve Data / OANDA requests
   // (see the notes at the top of supabase/functions/market-data-proxy/
   // index.ts and dukascopy-proxy/index.ts for why).
-  const fnName = source === 'dukascopy' ? 'dukascopy-proxy' : 'market-data-proxy';
+  const fnName = source === 'dukascopy' ? 'dukascopy-proxy' : source === 'deriv' ? 'deriv-proxy' : 'market-data-proxy';
   const response = await fetch(`${SUPABASE_URL}/functions/v1/${fnName}`, {
     method: 'POST',
     headers: {

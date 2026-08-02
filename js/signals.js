@@ -4968,15 +4968,17 @@
 
   // ══════════════════════════════════════════════════════════════
   // LIVE MARKET PRICE — New/Edit Signal modal
-  // Reuses the exact same data path as Backtesting Lab's Chart Replay
-  // (_repFetchCandles -> market-data-proxy Edge Function -> Twelve
-  // Data/Dukascopy/OANDA with server-side caching + auto-fallback —
-  // see REP_SOURCES/_repFetchCandles in backtesting-lab.js). No new
-  // service, no new key: we just ask for the most recent 1-minute
-  // candle for whatever pair is currently typed and use its close as
-  // the "live" price. The Edge Function's own cache keeps this from
-  // ever hammering the vendor even with a 20s UI poll while the modal
-  // is open.
+  // Fetches from Deriv (deriv-proxy Edge Function) via _repFetchCandles,
+  // the same helper Backtesting Lab's Chart Replay uses. Deriv needs no
+  // API key or account — it's a public WebSocket feed with no signup and
+  // no country-availability restriction, unlike Twelve Data (daily call
+  // quota) or OANDA (blocked in several countries). Twelve Data/Dukascopy
+  // are intentionally NOT used here anymore; they're still used by
+  // Backtesting Lab's Chart Replay only, which has its own source picker.
+  // We just ask Deriv for the most recent 1-minute candle for whatever
+  // pair is currently typed and use its close as the "live" price. The
+  // Edge Function's own cache keeps this from hammering Deriv even with
+  // a 20s UI poll while the modal is open.
   // ══════════════════════════════════════════════════════════════
   let _sfLiveState = null; // { pair, market, price, updatedAt, loading, error, pollTimer, uiTimer, token, entryOverridden }
 
@@ -5062,8 +5064,8 @@
     const myToken = ++st.token;
     if (st.price == null) { st.loading = true; _sfRenderLivePrice(); }
     try {
-      const symbol = _repGetSource('twelvedata').mapPair(targetPair);
-      const result = await _repFetchCandles(symbol, '1min', 10, 'twelvedata');
+      const symbol = _repGetSource('deriv').mapPair(targetPair);
+      const result = await _repFetchCandles(symbol, 'm1', 10, 'deriv');
       // Guard against a slower earlier request landing after a newer one
       // (rapid instrument switching), and against the modal/pair having
       // moved on while this was in flight.
@@ -5079,7 +5081,7 @@
       _sfSyncEntryIfMarket();
     } catch (err) {
       if (!_sfLiveState || _sfLiveState !== st || st.token !== myToken || st.pair !== targetPair) return;
-      console.error(`[Zen live price] Fetch failed for pair "${targetPair}" (mapped symbol "${_repGetSource('twelvedata').mapPair(targetPair)}"):`, err.message || err);
+      console.error(`[Zen live price] Deriv fetch failed for pair "${targetPair}" (mapped symbol "${_repGetSource('deriv').mapPair(targetPair)}"):`, err.message || err);
       st.loading = false;
       st.error = 'unavailable';
       _sfRenderLivePrice();
