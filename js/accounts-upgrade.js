@@ -8,6 +8,12 @@
 
 // ── Risk/payout field defaults — every account gets these lazily, real
 //    numbers only show once the user sets them or once real trades exist ──
+// Paper/Live accounts don't have a prop "firm" — they trade through a
+// personal broker, so the label (and placeholder) flips accordingly.
+function _accFirmLabel(typeInfo) {
+  return (typeInfo.cls === 'paper' || typeInfo.cls === 'live') ? 'Broker' : 'Firm';
+}
+
 function _accRiskDefaults(acc) {
   const accSize = parseFloat(acc.size) || 0;
   // Payout threshold is stored as a % of account size (payoutThresholdPct).
@@ -306,7 +312,7 @@ function _openAccRiskSettings(name) {
     <div class="acc-manager-body" style="gap:10px">
       ${noRulesNote}
       <div class="wl-form-2col">
-        <div class="wl-form-row"><label class="wl-form-label">Firm</label><input type="text" class="wl-form-input" id="ars-firm" value="${r.firm}" placeholder="e.g. GOAT Funded"></div>
+        <div class="wl-form-row"><label class="wl-form-label">${_accFirmLabel(t)}</label><input type="text" class="wl-form-input" id="ars-firm" value="${r.firm}" placeholder="${_accFirmLabel(t) === 'Broker' ? 'e.g. Deriv, IC Markets' : 'e.g. GOAT Funded'}"></div>
         <div class="wl-form-row"><label class="wl-form-label">Platform</label><input type="text" class="wl-form-input" id="ars-platform" value="${r.platform}" placeholder="MT5"></div>
       </div>
       ${ddRow}
@@ -571,10 +577,12 @@ function _accSettingsTabHtml(name) {
     t.payout  ? row('Payout Threshold', r.payoutThresholdPct > 0 ? r.payoutThresholdPct + '%' : 'Not set') : '',
     t.payout  ? row('Min Trading Days', r.minTradingDays || '—') : '',
   ].join('');
+  const isPaperOrLive = t.cls === 'paper' || t.cls === 'live';
+  const firmLabel = _accFirmLabel(t);
   return `
     <div class="acch-settings-block">
       <div class="acch-settings-title">Account</div>
-      ${row('Firm', r.firm || '—')}
+      ${row(firmLabel, r.firm || '—')}
       ${row('Type', acc.type ? t.label : '—')}
       ${_accTypeNorm(acc.type) === 'Evaluation' ? row('Phase', acc.challengePhase || 'Phase 1') : ''}
       ${row('Account Size', accSize > 0 ? '$' + accSize.toLocaleString() : 'Not set')}
@@ -582,11 +590,12 @@ function _accSettingsTabHtml(name) {
       ${row('PnL Display', (acc.pnlMode || '$') === '$' ? '$ USD' : '% Pct')}
       <button class="acch-act-btn" style="margin-top:8px" onclick="_openManageAccounts()"><svg class="icn" aria-hidden="true"><use href="#ic-edit"></use></svg> Edit Name / Type / Size</button>
     </div>
+    ${isPaperOrLive ? '' : `
     <div class="acch-settings-block">
       <div class="acch-settings-title">Rules &amp; Payout</div>
       ${rulesRows || `<div class="acch-ov-health-sub" style="padding:2px 0 4px">${t.label} accounts have no rules or payout goal to configure.</div>`}
       <button class="acch-act-btn" style="margin-top:8px" onclick="_openAccRiskSettings('${name.replace(/'/g, "\\'")}')"><svg class="icn" aria-hidden="true"><use href="#ic-settings"></use></svg> Edit Rules &amp; Payout</button>
-    </div>
+    </div>`}
     <div class="acch-settings-block">
       <div class="acch-settings-title">MT5 Connection</div>
       ${row('Status', mt5On ? ({ok:'Live',error:'Sync Error',syncing:'Syncing…'}[mt5Status] || 'Pending') : 'Not connected')}
@@ -621,18 +630,22 @@ function _accEnhanceDetailView(name) {
     : null;
 
   // Build tab shell
+  const acc = _getCustomAccounts().find(a => a.name === name) || {};
+  const typeInfo = _accTypeInfo(acc.type);
+  const showRiskTab = typeInfo.cls !== 'paper' && typeInfo.cls !== 'live';
+
   const shell = document.createElement('div');
   shell.className = 'acch-tabs-wrap';
   shell.innerHTML = `
     <div class="acch-tabs" role="tablist">
       <button class="acch-tab-btn active" data-tab="overview">Overview</button>
-      <button class="acch-tab-btn" data-tab="risk">Risk &amp; Payout</button>
+      ${showRiskTab ? `<button class="acch-tab-btn" data-tab="risk">Risk &amp; Payout</button>` : ''}
       <button class="acch-tab-btn" data-tab="trades">Trades</button>
       <button class="acch-tab-btn" data-tab="payouts">Payouts</button>
       <button class="acch-tab-btn" data-tab="settings">Settings</button>
     </div>
     <div class="acch-tab-panel active" data-panel="overview"></div>
-    <div class="acch-tab-panel" data-panel="risk">${_accRiskPanelHtml(name)}</div>
+    ${showRiskTab ? `<div class="acch-tab-panel" data-panel="risk">${_accRiskPanelHtml(name)}</div>` : ''}
     <div class="acch-tab-panel" data-panel="trades"></div>
     <div class="acch-tab-panel" data-panel="payouts">${_accPayoutsTabHtml(name)}</div>
     <div class="acch-tab-panel" data-panel="settings">${_accSettingsTabHtml(name)}</div>
@@ -644,7 +657,7 @@ function _accEnhanceDetailView(name) {
   if (eqSection) overviewPanel.appendChild(eqSection);
 
   const riskPanel = shell.querySelector('[data-panel="risk"]');
-  if (chal) riskPanel.appendChild(chal);
+  if (riskPanel && chal) riskPanel.appendChild(chal);
 
   const tradesPanel = shell.querySelector('[data-panel="trades"]');
   if (tradeHead) tradesPanel.appendChild(tradeHead);
