@@ -5053,6 +5053,7 @@
     if (!st || !st.pair) return;
     if (!(_sigUsingSupabase && typeof sb !== 'undefined' && sb)) {
       // Demo/local mode — no Edge Function to call. Fail gracefully.
+      console.warn('[Zen live price] Not connected to Supabase (_sigUsingSupabase is false) — skipping fetch entirely. This is the demo-mode fallback, not a vendor error.');
       st.loading = false; st.error = 'unavailable';
       _sfRenderLivePrice();
       return;
@@ -5069,7 +5070,7 @@
       if (!_sfLiveState || _sfLiveState !== st || st.token !== myToken || st.pair !== targetPair) return;
       const candles = (result && result.candles) || [];
       const last = candles[candles.length - 1];
-      if (!last || last.close == null || isNaN(+last.close)) throw new Error('no live price available');
+      if (!last || last.close == null || isNaN(+last.close)) throw new Error('no live price available — response: ' + JSON.stringify(result));
       st.price = +last.close;
       st.updatedAt = Date.now();
       st.loading = false;
@@ -5078,6 +5079,7 @@
       _sfSyncEntryIfMarket();
     } catch (err) {
       if (!_sfLiveState || _sfLiveState !== st || st.token !== myToken || st.pair !== targetPair) return;
+      console.error(`[Zen live price] Fetch failed for pair "${targetPair}" (mapped symbol "${_repGetSource('twelvedata').mapPair(targetPair)}"):`, err.message || err);
       st.loading = false;
       st.error = 'unavailable';
       _sfRenderLivePrice();
