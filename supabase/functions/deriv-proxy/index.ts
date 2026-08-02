@@ -53,9 +53,9 @@ const GRANULARITY_SEC: Record<string, number> = {
 };
 
 function toDerivSymbol(symbol: string): string {
-  const clean = symbol.trim().toUpperCase().replace(/[\/\s_]/g, "");
-  if (clean.startsWith("FRX")) return clean;
-  return `frx${clean}`;
+  let clean = symbol.trim().toUpperCase().replace(/[\/\s_]/g, "");
+  if (clean.startsWith("FRX")) clean = clean.slice(3); // strip any case-variant frx prefix so it isn't doubled
+  return `frx${clean}`; // Deriv symbol IDs are case-sensitive — lowercase "frx" + uppercase pair, e.g. "frxEURUSD"
 }
 
 function fetchDerivCandles(symbol: string, granularitySec: number, count: number): Promise<any[]> {

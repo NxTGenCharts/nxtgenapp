@@ -312,9 +312,9 @@ const REP_SOURCES = [
     symbolPlaceholder: 'frxEURUSD',
     mapPair(pair) {
       if (!pair) return 'frxEURUSD';
-      const p = pair.trim().toUpperCase().replace(/[\/\s_]/g, '');
-      if (p.startsWith('FRX')) return p;
-      return `frx${p}`;
+      let p = pair.trim().toUpperCase().replace(/[\/\s_]/g, '');
+      if (p.startsWith('FRX')) p = p.slice(3); // strip any case-variant frx prefix so it isn't doubled
+      return `frx${p}`; // Deriv symbol IDs are case-sensitive — lowercase "frx" + uppercase pair
     },
   },
 ];
