@@ -9,13 +9,25 @@
 // ── Risk/payout field defaults — every account gets these lazily, real
 //    numbers only show once the user sets them or once real trades exist ──
 function _accRiskDefaults(acc) {
+  const accSize = parseFloat(acc.size) || 0;
+  // Payout threshold is stored as a % of account size (payoutThresholdPct).
+  // Older accounts may still have a raw $ value in `payoutThreshold` — migrate
+  // that to a percentage on the fly so existing setups keep working.
+  let payoutThresholdPct;
+  if (acc.payoutThresholdPct !== undefined && acc.payoutThresholdPct !== null && acc.payoutThresholdPct !== '') {
+    payoutThresholdPct = parseFloat(acc.payoutThresholdPct);
+  } else if (acc.payoutThreshold !== undefined && acc.payoutThreshold !== null && acc.payoutThreshold !== '' && accSize > 0) {
+    payoutThresholdPct = (parseFloat(acc.payoutThreshold) / accSize) * 100;
+  } else {
+    payoutThresholdPct = 0;
+  }
   return {
     firm:              acc.firm || '',
     platform:          acc.platform || 'MT5',
     dailyLossLimitPct: (acc.dailyLossLimitPct !== undefined && acc.dailyLossLimitPct !== null && acc.dailyLossLimitPct !== '') ? parseFloat(acc.dailyLossLimitPct) : 5,
     maxLossLimitPct:   (acc.maxLossLimitPct   !== undefined && acc.maxLossLimitPct   !== null && acc.maxLossLimitPct   !== '') ? parseFloat(acc.maxLossLimitPct)   : 10,
     profitTargetPct:   (acc.profitTargetPct   !== undefined && acc.profitTargetPct   !== null && acc.profitTargetPct   !== '') ? parseFloat(acc.profitTargetPct)   : (acc.challengeTarget ? parseFloat(acc.challengeTarget) : 8),
-    payoutThreshold:   (acc.payoutThreshold   !== undefined && acc.payoutThreshold   !== null && acc.payoutThreshold   !== '') ? parseFloat(acc.payoutThreshold)   : 0,
+    payoutThresholdPct,
     minTradingDays:    (acc.minTradingDays    !== undefined && acc.minTradingDays    !== null && acc.minTradingDays    !== '') ? parseInt(acc.minTradingDays, 10)  : 0,
     nextPayoutDate:    acc.nextPayoutDate || '',
   };
@@ -53,7 +65,7 @@ function _accRiskProfile(name) {
   const targetPct     = targetGoal > 0 ? Math.min(100, (targetCurrent / targetGoal) * 100) : 0;
 
   const payoutCurrent = Math.max(0, m.netDollars);
-  const payoutGoal    = typeInfo.payout ? r.payoutThreshold : 0;
+  const payoutGoal    = (typeInfo.payout && accSize > 0) ? accSize * r.payoutThresholdPct / 100 : 0;
   const payoutPct     = payoutGoal > 0 ? Math.min(100, (payoutCurrent / payoutGoal) * 100) : 0;
   const payoutEligible = payoutGoal > 0 && payoutCurrent >= payoutGoal &&
     (r.minTradingDays <= 0 || m.tradingDays >= r.minTradingDays);
@@ -132,6 +144,9 @@ window._renderAccGrid = function (...args) {
     const balance = accSize > 0 ? accSize + m.netDollars : m.netDollars;
     const pnlColor = m.netDollars >= 0 ? 'var(--teal)' : 'var(--red)';
     const fmt = (d) => (d >= 0 ? '+$' : '-$') + Math.abs(d).toFixed(2);
+    const fmtPct = (d) => (d >= 0 ? '+' : '-') + Math.abs(accSize > 0 ? (d / accSize) * 100 : 0).toFixed(2) + '%';
+    const cardPnlMode = acc.pnlMode === '%' ? '%' : '$';
+    const pnlDisplay = (cardPnlMode === '%' && accSize > 0) ? fmtPct(m.netDollars) : fmt(m.netDollars);
 
     const mt5cfg = acc.mt5;
     const mt5Enabled = !!mt5cfg?.enabled;
@@ -156,7 +171,7 @@ window._renderAccGrid = function (...args) {
     const perf = `
       <div class="acch-perf-row">
         <div class="acch-perf"><span class="k">Balance</span><span class="v">${accSize > 0 ? '$' + balance.toFixed(2) : '—'}</span></div>
-        <div class="acch-perf"><span class="k">Net PnL</span><span class="v" style="color:${pnlColor}">${m.at.length ? fmt(m.netDollars) : '—'}</span></div>
+        <div class="acch-perf"><span class="k">Net PnL${accSize > 0 ? `<button class="acch-pnl-toggle" title="Switch between $ and %" onclick="event.stopPropagation();_accToggleCardPnlMode('${escName}')">${cardPnlMode === '%' ? '$' : '%'}</button>` : ''}</span><span class="v" style="color:${pnlColor}">${m.at.length ? pnlDisplay : '—'}</span></div>
         <div class="acch-perf"><span class="k">Win Rate</span><span class="v">${wr}</span></div>
       </div>`;
 
@@ -239,9 +254,18 @@ window._renderAccGrid = function (...args) {
   }
 };
 
+async function _accToggleCardPnlMode(name) {
+  const list = _getCustomAccounts();
+  const idx = list.findIndex(a => a.name === name);
+  if (idx < 0) return;
+  list[idx].pnlMode = (list[idx].pnlMode === '%') ? '$' : '%';
+  await _saveCustomAccounts(list);
+  if (typeof _renderAccGrid === 'function') _renderAccGrid();
+}
+
 function accAddTradeFor(name) {
   if (typeof _accActiveName !== 'undefined') _accActiveName = name;
-  if (typeof accAddTradeForThis === 'function') { accShowDetail(name); setTimeout(() => accAddTradeForThis(), 0); }
+  if (typeof openModal === 'function') openModal({ account: name });
 }
 
 // ── Risk & payout settings modal ───────────────────────────────────────
@@ -265,7 +289,7 @@ function _openAccRiskSettings(name) {
   const targetPayoutRow = (t.target || t.payout) ? `
       <div class="wl-form-2col">
         ${t.target ? `<div class="wl-form-row"><label class="wl-form-label">Profit Target (%)</label><input type="number" class="wl-form-input" id="ars-target" value="${r.profitTargetPct}" min="0" step="0.5"></div>` : ''}
-        ${t.payout ? `<div class="wl-form-row"><label class="wl-form-label">Payout Threshold ($)</label><input type="number" class="wl-form-input" id="ars-payout" value="${r.payoutThreshold || ''}" min="0" placeholder="e.g. 500"></div>` : ''}
+        ${t.payout ? `<div class="wl-form-row"><label class="wl-form-label">Payout Threshold (%)</label><input type="number" class="wl-form-input" id="ars-payout" value="${r.payoutThresholdPct || ''}" min="0" step="0.5" placeholder="e.g. 6"></div>` : ''}
       </div>` : '';
   const payoutMetaRow = t.payout ? `
       <div class="wl-form-2col">
@@ -308,7 +332,8 @@ async function _saveAccRiskSettings(name) {
   list[idx].dailyLossLimitPct = parseFloat(val('ars-daily')) || 0;
   list[idx].maxLossLimitPct   = parseFloat(val('ars-max')) || 0;
   list[idx].profitTargetPct   = parseFloat(val('ars-target')) || 0;
-  list[idx].payoutThreshold   = parseFloat(val('ars-payout')) || 0;
+  list[idx].payoutThresholdPct = parseFloat(val('ars-payout')) || 0;
+  delete list[idx].payoutThreshold; // legacy $ field, superseded by payoutThresholdPct
   list[idx].minTradingDays    = parseInt(val('ars-mindays'), 10) || 0;
   list[idx].nextPayoutDate    = val('ars-nextdate') || '';
   await _saveCustomAccounts(list);
@@ -543,7 +568,7 @@ function _accSettingsTabHtml(name) {
     t.dailyDD ? row('Daily Loss Limit', r.dailyLossLimitPct + '%') : '',
     t.maxDD   ? row('Max Loss Limit', r.maxLossLimitPct + '%') : '',
     t.target  ? row('Profit Target', r.profitTargetPct + '%') : '',
-    t.payout  ? row('Payout Threshold', r.payoutThreshold > 0 ? '$' + r.payoutThreshold.toLocaleString() : 'Not set') : '',
+    t.payout  ? row('Payout Threshold', r.payoutThresholdPct > 0 ? r.payoutThresholdPct + '%' : 'Not set') : '',
     t.payout  ? row('Min Trading Days', r.minTradingDays || '—') : '',
   ].join('');
   return `
