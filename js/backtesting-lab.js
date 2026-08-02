@@ -3501,7 +3501,7 @@ function _goalsRenderOverview() {
     el.innerHTML = `<div class="goals-panel" style="text-align:center;padding:24px 14px">
       <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">Start building your trading roadmap</div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Create measurable goals for funding, consistency, profitability, risk management, and trading discipline.</div>
-      <button class="wl-add-week-btn" onclick="goalOpenNewGoalModal(0)">Create Your First Goal</button>
+      <button class="wl-add-week-btn" onclick="goalOpenNewGoalModal()">Create Your First Goal</button>
     </div>`;
     return;
   }
@@ -3618,8 +3618,15 @@ function _ngTrackingChange() {
 }
 
 function goalOpenNewGoalModal(gi) {
-  if (!_goalsData.groups.length) { _goalsData.groups.push({ q: 'General', items: [] }); gi = 0; }
-  if (gi == null || gi < 0 || gi >= _goalsData.groups.length) gi = 0;
+  // No explicit group requested (e.g. the page-level "+ New Goal" button) —
+  // file it under the current quarter, creating that quarter's group
+  // automatically if it doesn't exist yet.
+  if (gi == null) {
+    const { q: curQ, year: curYear } = _goalCurrentQuarter();
+    gi = _goalFindOrCreateGroup(_goalQuarterLabel(curQ, curYear));
+  } else if (gi < 0 || gi >= _goalsData.groups.length) {
+    gi = 0;
+  }
   const groupOptions = _goalsData.groups.map((g, i) => `<option value="${i}" ${i===gi?'selected':''}>${g.q}</option>`).join('');
 
   openGlassModal({
@@ -3735,14 +3742,47 @@ function affFeaturedShuffle() {
   _affFeaturedRender();
 }
 
+// ── Quarter helpers — goal groups are organized strictly as "Q# YYYY" ──
+function _goalCurrentQuarter() {
+  const d = new Date();
+  return { q: Math.floor(d.getMonth() / 3) + 1, year: d.getFullYear() };
+}
+function _goalQuarterLabel(q, year) { return `Q${q} ${year}`; }
+function _goalFindOrCreateGroup(label) {
+  let idx = _goalsData.groups.findIndex(g => g.q === label);
+  if (idx === -1) { _goalsData.groups.push({ q: label, items: [] }); idx = _goalsData.groups.length - 1; }
+  return idx;
+}
+
 function goalsAddGroup() {
+  const { q: curQ, year: curYear } = _goalCurrentQuarter();
+  const qOptions = [1, 2, 3, 4].map(q => `<option value="${q}" ${q === curQ ? 'selected' : ''}>Q${q}</option>`).join('');
 
-
-  const name = prompt('Goal group name (e.g. Q3 2026 <svg class="icn icn-blue" aria-hidden="true"><use href="#ic-dot"></use></svg>):');
-  if (!name) return;
-  _goalsData.groups.push({ q: name, items: [] });
-  buildGoals();
-  _goalsSave();
+  openGlassModal({
+    icon: '<svg class="icn icn-blue" aria-hidden="true"><use href="#ic-dot"></use></svg>',
+    title: 'Add Quarter Group',
+    confirmLabel: 'Add Group',
+    confirmClass: 'glass-btn-restore',
+    body: `
+      <div class="gform-row">
+        <div class="gform-field"><label>Quarter</label><select id="ag-quarter">${qOptions}</select></div>
+        <div class="gform-field"><label>Year</label><input type="number" id="ag-year" value="${curYear}" min="2000" max="2100" step="1"></div>
+      </div>
+      <div class="gform-hint">Goals are organized by quarter — new goals are automatically filed under the current quarter.</div>
+    `,
+    onConfirm: async () => {
+      const q = parseInt(document.getElementById('ag-quarter')?.value, 10) || curQ;
+      const year = parseInt(document.getElementById('ag-year')?.value, 10) || curYear;
+      const label = _goalQuarterLabel(q, year);
+      if (_goalsData.groups.some(g => g.q === label)) {
+        showToast(`"${label}" already exists`, 'danger');
+        return;
+      }
+      _goalsData.groups.push({ q: label, items: [] });
+      buildGoals();
+      await _goalsSave();
+    },
+  });
 }
 
 function goalsDeleteGroup(gi) {

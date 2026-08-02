@@ -825,22 +825,6 @@
           <div class="acc-detail-body" id="acc-detail-body"></div>
         </div>
 
-        <!-- Milestones -->
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;margin-top:24px">
-          <div class="sec-head" style="margin-bottom:0">Milestones</div>
-          <button class="wl-add-week-btn" onclick="accAddMilestone()">＋ Add Milestone</button>
-        </div>
-        <div class="acc-progress-wrap">
-          <div class="acc-progress-label">
-            <span id="acc-progress-text">0 of 0 complete</span>
-            <span id="acc-progress-pct">0%</span>
-          </div>
-          <div class="acc-progress-bg">
-            <div class="acc-progress-fill" id="acc-progress-fill" style="width:0%"></div>
-          </div>
-        </div>
-        <div class="checklist-grid" id="milestones-list"></div>
-
         <!-- Archived Accounts -->
         <div id="acc-archived-section"></div>
 
@@ -1012,7 +996,7 @@
             </div>
             <div class="goals-hd-actions">
               <button class="wl-week-btn" onclick="document.getElementById('goals-list').scrollIntoView({behavior:'smooth',block:'start'})">Manage Groups</button>
-              <button class="wl-add-week-btn" onclick="goalOpenNewGoalModal(0)">+ New Goal</button>
+              <button class="wl-add-week-btn" onclick="goalOpenNewGoalModal()">+ New Goal</button>
             </div>
           </div>
           <div class="goals-hd-ring-row" id="goals-hd-ring"></div>
