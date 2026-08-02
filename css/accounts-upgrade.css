@@ -199,10 +199,14 @@
 
 /* Subtle left-edge accent per account type so cards are distinguishable
    at a glance across the grid, without overpowering the glass aesthetic. */
-.acch-card-t-funded     { border-left:3px solid var(--acc-t-funded); }
-.acch-card-t-evaluation { border-left:3px solid var(--acc-t-evaluation); }
-.acch-card-t-live       { border-left:3px solid var(--acc-t-live); }
-.acch-card-t-paper      { border-left:3px solid var(--acc-t-paper); }
+.acch-card-t-funded     { box-shadow: inset 0 0 0 1.5px var(--acc-t-funded); }
+.acch-card-t-evaluation { box-shadow: inset 0 0 0 1.5px var(--acc-t-evaluation); }
+.acch-card-t-live       { box-shadow: inset 0 0 0 1.5px var(--acc-t-live); }
+.acch-card-t-paper      { box-shadow: inset 0 0 0 1.5px var(--acc-t-paper); }
+.acch-card-t-funded:hover     { box-shadow: inset 0 0 0 1.5px var(--acc-t-funded); }
+.acch-card-t-evaluation:hover { box-shadow: inset 0 0 0 1.5px var(--acc-t-evaluation); }
+.acch-card-t-live:hover       { box-shadow: inset 0 0 0 1.5px var(--acc-t-live); }
+.acch-card-t-paper:hover      { box-shadow: inset 0 0 0 1.5px var(--acc-t-paper); }
 
 /* Shown on cards / panels for account types with no drawdown limits,
    profit targets, or payout goals (e.g. Live, Paper accounts). */
