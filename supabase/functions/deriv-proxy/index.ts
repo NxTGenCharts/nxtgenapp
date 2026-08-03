@@ -129,6 +129,31 @@ serve(async (req) => {
     // If THIS also fails, the problem is Supabase's Edge Runtime /
     // egress network in general. If THIS succeeds but Deriv still
     // fails, Deriv is specifically rejecting Supabase's IP range.
+    if (body.diagnose === "fetch-deriv-new") {
+      const testAppId = body.appId || DERIV_APP_ID;
+      const results: Record<string, any> = {};
+
+      // Variant A: new endpoint, app_id as query param, no custom header
+      try {
+        const r = await fetch(`https://api.derivws.com/trading/v1/options/ws/public?app_id=${testAppId}`, {
+          headers: { "Upgrade": "websocket", "Connection": "Upgrade" },
+        });
+        results.queryParamOnly = { status: r.status, body: (await r.text().catch(() => "")).slice(0, 300) };
+      } catch (e) { results.queryParamOnly = { error: e.message || String(e) }; }
+
+      // Variant B: new endpoint, Deriv-App-ID header (fetch CAN set arbitrary headers, unlike WebSocket)
+      try {
+        const r = await fetch(`https://api.derivws.com/trading/v1/options/ws/public`, {
+          headers: { "Upgrade": "websocket", "Connection": "Upgrade", "Deriv-App-ID": testAppId },
+        });
+        results.headerOnly = { status: r.status, body: (await r.text().catch(() => "")).slice(0, 300) };
+      } catch (e) { results.headerOnly = { error: e.message || String(e) }; }
+
+      return new Response(JSON.stringify({ diagnose: "fetch-deriv-new", appIdUsed: testAppId, results }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (body.diagnose === "fetch-deriv") {
       try {
         const testAppId = body.appId || DERIV_APP_ID;
