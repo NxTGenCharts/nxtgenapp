@@ -1040,7 +1040,19 @@
   function _sigCloseNotifPanelOnce(e) {
     const panel = document.getElementById('sig-notif-panel');
     const bell = document.getElementById('sig-notif-bell');
-    if (panel && !panel.contains(e.target) && !(bell && bell.contains(e.target))) {
+    // Buttons like "Select" / "Mark all read" re-render #sig-notif-head-wrap's
+    // innerHTML on click, which detaches the clicked <button> from the DOM
+    // *during* this same click's bubble phase. By the time this handler runs,
+    // panel.contains(e.target) is false for that stale, now-detached node —
+    // even though the click genuinely happened inside the panel — so the
+    // panel was closing itself right as it should have stayed open.
+    // e.composedPath() is captured at dispatch time and stays accurate even
+    // after the DOM mutates mid-event, so use that instead of a live
+    // containment check on a node that may no longer be attached.
+    const path = typeof e.composedPath === 'function' ? e.composedPath() : [e.target];
+    const insidePanel = !!panel && path.includes(panel);
+    const insideBell = !!bell && path.includes(bell);
+    if (panel && !insidePanel && !insideBell) {
       panel.remove();
       document.removeEventListener('click', _sigCloseNotifPanelOnce);
       document.removeEventListener('keydown', _sigNotifEscHandler);

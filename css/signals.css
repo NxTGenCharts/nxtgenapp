@@ -1102,6 +1102,12 @@
   border-radius:999px;display:inline-flex;align-items:center;justify-content:center;
 }
 .sig-notif-panel{width:420px;max-width:calc(100vw - 24px);max-height:min(70vh,560px);overflow:hidden;display:flex;flex-direction:column;padding:0}
+/* The notif panel sits at z-index:2000 (.sig-actions-menu). Its "Clear all" /
+   "Delete selected" confirm dialog reuses the generic .modal-overlay, which
+   is only z-index:200 elsewhere — that let the panel render on top of the
+   dialog and swallow clicks meant for the Clear all/Cancel buttons. Pin this
+   specific overlay above the panel. */
+#sig-notif-confirm-overlay.modal-overlay{z-index:2100}
 #sig-notif-head-wrap{flex-shrink:0;border-bottom:1px solid var(--glass-border);background:var(--bg2,var(--glass-1))}
 .sig-notif-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;font-size:13px;font-weight:700;color:var(--text)}
 .sig-notif-head-title{display:flex;align-items:center;gap:8px;white-space:nowrap}
