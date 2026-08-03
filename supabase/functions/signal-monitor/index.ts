@@ -504,12 +504,21 @@ async function evaluateSignal(s: SignalRow, price: number, source: string) {
 
   // ── Stop Loss hit (checked first — most protective) ─────────────
   if (isSlHit(s, price)) {
+    // Once breakeven_at is set, the effective stop IS entry (see
+    // effectiveStop() above), so this branch getting hit means the
+    // trade scratched at entry, not that it lost — result must be
+    // "breakeven", never "loss", or a risk-free trade gets counted
+    // (and emailed) as a losing one. Hardcoded on purpose: there is
+    // no price-based way this branch can fire post-breakeven and
+    // NOT be a flat close.
+    const isBreakevenStop = !!s.breakeven_at;
+    const result = isBreakevenStop ? "breakeven" : "loss";
     const { data } = await sb.from("journal_signals")
-      .update({ status: "stopped_out", result: "loss", closed_at: new Date().toISOString() })
+      .update({ status: "stopped_out", result, closed_at: new Date().toISOString() })
       .eq("id", s.id).in("status", OPEN_STATUSES)
       .select("id");
     if (data && data.length) {
-      const note = s.breakeven_at
+      const note = isBreakevenStop
         ? `🔒 Stop hit at breakeven (${price}) — closed flat.`
         : `🛑 Stop loss hit at ${price}.`;
       const wrote = await logAutoUpdate(s.id, "stopped_out", "sl_hit", note, price);
@@ -553,19 +562,38 @@ async function evaluateSignal(s: SignalRow, price: number, source: string) {
   }
 
   // ── TP1 hit ──────────────────────────────────────────────────────
+  // A signal with no TP2 configured has nothing left to wait for once
+  // TP1 is hit — TP1 IS the final target for it. Leaving it at status
+  // "tp1_hit" (an ONGOING_STATUS/OPEN_STATUS) would mean it can only
+  // ever close via a TP2 or SL trigger that will never fire, so it
+  // sits "Ongoing" forever even after the target was reached. Mirrors
+  // the TP2-hit branch below: single-TP signals close (status:
+  // "closed", result: "win", closed_at set) in the same write that
+  // records TP1, exactly like the manual "Close" flow already does
+  // for a tp1_hit-stage signal (see _sigCloseResultFor in signals.js).
   if (!s.tp1_hit_at && isTp1Hit(s, price)) {
+    const hasTp2 = s.tp2 != null;
+    const nextStatus = hasTp2 ? "tp1_hit" : "closed";
+    const update: Record<string, unknown> = { status: nextStatus, tp1_hit_at: new Date().toISOString(), result: "win" };
+    if (!hasTp2) update.closed_at = new Date().toISOString();
+
     const { data } = await sb.from("journal_signals")
-      .update({ status: "tp1_hit", tp1_hit_at: new Date().toISOString(), result: "win" })
+      .update(update)
       .eq("id", s.id).is("tp1_hit_at", null)
       .select("id");
     if (data && data.length) {
-      const note = `✅ TP1 hit at ${price}.`;
-      const wrote = await logAutoUpdate(s.id, "tp1_hit", "tp1_hit", note, price);
+      const note = hasTp2 ? `✅ TP1 hit at ${price}.` : `🎯 TP1 hit at ${price}. Signal completed.`;
+      const wrote = await logAutoUpdate(s.id, nextStatus, "tp1_hit", note, price);
       if (wrote) {
         await logActivity(s.id, s.owner_id, note);
-        await broadcast(s.id, s.pair, s.direction, "status_changed", `${s.pair}: ${note}`);
+        // "tp1_hit_final" (not the generic "status_changed") so
+        // notify-subscribers can tell "TP1, more to go" apart from
+        // "TP1, and that's the whole trade" — same pattern as the
+        // dedicated "tp2_hit" event_type below.
+        await broadcast(s.id, s.pair, s.direction, hasTp2 ? "status_changed" : "tp1_hit_final", `${s.pair}: ${note}`);
       }
     }
+    if (!hasTp2) return; // terminal — nothing left to monitor
     // fall through — breakeven can still fire in the same tick if both conditions are already true
   }
 

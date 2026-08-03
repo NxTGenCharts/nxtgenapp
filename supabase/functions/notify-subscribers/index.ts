@@ -265,6 +265,13 @@ function resolveEmailKind(eventType: string, status: string): EmailKind {
   // "Take Profit 2 Hit" template still renders instead of falling back to
   // the generic "Trade Closed" one.
   if (eventType === 'tp2_hit') return 'tp2_hit';
+  // Same reasoning as tp2_hit above: a single-TP signal writes
+  // status:"closed" the moment TP1 fires (see the signal-monitor TP1
+  // branch), so status alone can't tell "TP1, final target reached"
+  // apart from any other closed trade. signal-monitor passes this
+  // explicit event_type so the "Take Profit 1 Hit" template renders
+  // instead of falling back to the generic "Trade Closed" one.
+  if (eventType === 'tp1_hit_final') return 'tp1_hit';
   switch (status) {
     case 'tp1_hit': return 'tp1_hit';
     case 'tp2_hit': return 'tp2_hit';
