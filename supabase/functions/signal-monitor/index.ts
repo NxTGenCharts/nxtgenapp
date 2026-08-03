@@ -15,7 +15,10 @@
 //      live quote — ONE upstream call per unique symbol per tick,
 //      shared across every signal on that symbol, and short-cached
 //      in `market_quote_cache` so overlapping/adjacent ticks don't
-//      re-hit the vendor at all.
+//      re-hit the vendor at all. Source priority: Deriv first (same
+//      feed the New Signal modal's live price uses — one source of
+//      truth end to end), then TradingView, then Twelve Data for
+//      anything neither of those could price.
 //   3. Evaluate each signal's trigger conditions (pending entry,
 //      breakeven RR, TP1, TP2, stop loss) against the live price.
 //   4. For any condition newly met: atomically flip the milestone
@@ -33,8 +36,9 @@
 // Deploy:
 //   supabase functions deploy signal-monitor
 //
-// Secrets (reuses the same ones market-data-proxy already needs):
+// Secrets (reuses the same ones market-data-proxy/deriv-proxy already need):
 //   supabase secrets set TWELVE_DATA_API_KEY=...
+//   supabase secrets set DERIV_APP_ID=...  (already set if deriv-proxy is deployed — shared per-project)
 //   (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are provided
 //   automatically to every Edge Function — nothing to set.)
 //
@@ -47,6 +51,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const TWELVE_DATA_KEY = Deno.env.get("TWELVE_DATA_API_KEY") ?? "";
+const DERIV_APP_ID = Deno.env.get("DERIV_APP_ID") ?? "";
+// Same project secrets are shared across every Edge Function, so if
+// deriv-proxy already has DERIV_APP_ID set, this function picks it up
+// automatically — nothing extra to configure.
 // Same project — call the sibling function directly by URL so this
 // keeps working under `supabase functions serve` locally too.
 const NOTIFY_URL = `${SUPABASE_URL}/functions/v1/notify-subscribers`;
@@ -141,13 +149,17 @@ function toTradingViewTicker(pair: string, market: string): string | null {
 
 // ── 2. Quote fetching (batched, cached) ───────────────────────────
 
-// PRIMARY source: TradingView's public (unofficial) scanner endpoint,
+// FALLBACK source #1: TradingView's public (unofficial) scanner endpoint,
 // queried directly against FOREXCOM for forex/metals/indices and
 // Binance for crypto — i.e. the actual broker/exchange feed, not a
-// third-party aggregated rate. This is the same undocumented endpoint
-// class as symbol-search (see that function's own notes on the
-// tradeoff) — wrapped the same way: short timeout, never throws, and
-// silently yields to Twelve Data for anything it can't resolve.
+// third-party aggregated rate. Used only for whatever Deriv (the
+// primary source, see fetchDerivPrices above) couldn't price this
+// tick — e.g. stocks/synthetics Deriv's public feed doesn't cover, or
+// a symbol Deriv's endpoint had a bad moment on. This is the same
+// undocumented endpoint class as symbol-search (see that function's
+// own notes on the tradeoff) — wrapped the same way: short timeout,
+// never throws, and silently yields further down the chain for
+// anything it can't resolve either.
 async function fetchTradingViewScannerPrices(tickers: string[]): Promise<Record<string, number>> {
   if (!tickers.length) return {};
   const out: Record<string, number> = {};
@@ -177,7 +189,98 @@ async function fetchTradingViewScannerPrices(tickers: string[]): Promise<Record<
   return out;
 }
 
-// FALLBACK source: Twelve Data — official, always available, but an
+// PRIMARY source: Deriv — same broker feed the New Signal modal's live
+// price already uses (see js/signals.js _sfFetchLivePrice, and the
+// 'deriv' entry in REP_SOURCES / js/backtesting-lab.js). Using it here
+// too means the price that triggers your TP/SL is the exact same price
+// you were looking at when you set them — one source of truth instead
+// of "triggered on TradingView's feed but you were watching Deriv's."
+//
+// KEEP THIS MAPPING IN SYNC with mapPair() in js/backtesting-lab.js —
+// duplicated here (rather than imported) because Edge Functions and
+// client JS are separate deploy targets, but it MUST resolve pairs to
+// the exact same Deriv symbol both places, or your live-price display
+// and your actual trigger price could silently drift onto different
+// instruments.
+const DERIV_INDEX_CODES: Record<string, string> = {
+  NAS100: "OTC_NDX", USTECH100: "OTC_NDX", NASDAQ100: "OTC_NDX",
+  SPX500: "OTC_SPC", US500: "OTC_SPC", SP500: "OTC_SPC",
+  US30: "OTC_DJI", DOW: "OTC_DJI", DJI: "OTC_DJI", WALLSTREET30: "OTC_DJI",
+  UK100: "OTC_FTSE", FTSE100: "OTC_FTSE",
+  GER40: "OTC_GDAXI", DE40: "OTC_GDAXI", DAX40: "OTC_GDAXI", GERMANY40: "OTC_GDAXI",
+  FRA40: "OTC_FCHI", CAC40: "OTC_FCHI", FRANCE40: "OTC_FCHI",
+  EU50: "OTC_SX5E", EUSTOXX50: "OTC_SX5E", EURO50: "OTC_SX5E",
+  JPN225: "OTC_N225", NIKKEI225: "OTC_N225", JAPAN225: "OTC_N225",
+  AUS200: "OTC_AS51", ASX200: "OTC_AS51", AUSTRALIA200: "OTC_AS51",
+  HK50: "OTC_HSI", HANGSENG: "OTC_HSI", HONGKONG50: "OTC_HSI",
+  NETH25: "OTC_AEX", NETHERLANDS25: "OTC_AEX", AEX: "OTC_AEX",
+  SWI20: "OTC_SSMI", SWISS20: "OTC_SSMI", SMI: "OTC_SSMI",
+};
+function toDerivSymbol(pair: string, market: string): string | null {
+  const clean = (pair || "").replace(/[\/\s_]/g, "").toUpperCase();
+  if (!clean) return null;
+  if (/^(FRX|CRY|OTC_)/.test(clean)) return clean; // already a full Deriv code
+  if (market === "crypto") return `CRY${clean}`; // only resolves for BTCUSD/ETHUSD — Deriv genuinely offers nothing else, not a mapping gap
+  if (market === "indices") return DERIV_INDEX_CODES[clean] || null;
+  if (market === "forex" || market === "commodities") return `frx${clean}`;
+  return null; // stocks/synthetics — not on Deriv's public feed, falls through to Twelve Data below
+}
+
+// Deriv batches via a single shared WebSocket connection per tick,
+// correlating each symbol's response by req_id, rather than one
+// connection per symbol — much cheaper and avoids hammering the
+// handshake when many signals are open across many symbols at once.
+function fetchDerivPrices(symbols: string[]): Promise<Record<string, number>> {
+  const out: Record<string, number> = {};
+  if (!symbols.length || !DERIV_APP_ID) return Promise.resolve(out);
+  const unique = Array.from(new Set(symbols));
+  return new Promise((resolve) => {
+    let settled = false;
+    let remaining = unique.length;
+    const reqIdToSymbol = new Map<number, string>();
+    const url = `wss://api.derivws.com/trading/v1/options/ws/public?app_id=${DERIV_APP_ID}`;
+    const ws = new WebSocket(url);
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try { ws.close(); } catch { /* ignore */ }
+      resolve(out); // resolve with whatever we got — partial results are fine, caller falls through to TradingView/Twelve Data for the rest
+    };
+    // Don't let one slow/hanging Deriv connection stall the whole
+    // 1-minute tick — 8s is generous for even a full batch.
+    const timer = setTimeout(finish, 8000);
+    ws.onopen = () => {
+      unique.forEach((sym, i) => {
+        reqIdToSymbol.set(i, sym);
+        ws.send(JSON.stringify({ ticks_history: sym, style: "candles", granularity: 60, count: 1, end: "latest", req_id: i }));
+      });
+    };
+    ws.onmessage = (ev) => {
+      if (settled) return;
+      try {
+        const msg = JSON.parse(typeof ev.data === "string" ? ev.data : "{}");
+        const sym = reqIdToSymbol.get(msg.req_id);
+        if (sym === undefined) return;
+        if (msg.error) {
+          console.error(`deriv price fetch failed for ${sym}:`, msg.error.message || msg.error);
+        } else if (msg.msg_type === "candles" && Array.isArray(msg.candles) && msg.candles.length) {
+          const price = parseFloat(msg.candles[msg.candles.length - 1].close);
+          if (!isNaN(price)) out[sym] = price;
+        }
+        reqIdToSymbol.delete(msg.req_id);
+        remaining--;
+        if (remaining <= 0) finish();
+      } catch (e) {
+        console.error("deriv price fetch parse error:", e);
+      }
+    };
+    ws.onerror = () => finish();
+    ws.onclose = () => finish();
+  });
+}
+
+// FALLBACK source #2: Twelve Data — official, always available, but an
 // aggregated/interbank-style rate rather than a specific broker's own
 // feed. Only used for symbols the scanner couldn't price this tick
 // (stocks, synthetics, or if TradingView's endpoint is having a bad
@@ -220,12 +323,13 @@ async function fetchTwelveDataPrices(symbols: string[]): Promise<Record<string, 
 // evaluateSignal) records exactly which one supplied the price that
 // tick, so this is always inspectable, not a black box.
 async function resolveQuotes(signals: SignalRow[]): Promise<Map<string, { price: number; source: string }>> {
-  const bySymbolKey = new Map<string, { market: string; pair: string; tvTicker: string | null; tdSymbol: string | null }>();
+  const bySymbolKey = new Map<string, { market: string; pair: string; derivSymbol: string | null; tvTicker: string | null; tdSymbol: string | null }>();
   for (const s of signals) {
     const key = symbolCacheKey(s.market, s.pair);
     if (!bySymbolKey.has(key)) {
       bySymbolKey.set(key, {
         market: s.market, pair: s.pair,
+        derivSymbol: toDerivSymbol(s.pair, s.market),
         tvTicker: toTradingViewTicker(s.pair, s.market),
         tdSymbol: toTwelveDataSymbol(s.pair, s.market),
       });
@@ -257,34 +361,57 @@ async function resolveQuotes(signals: SignalRow[]): Promise<Map<string, { price:
 
   if (!keysToFetch.length) return result;
 
-  // Pass 1 — TradingView@FOREXCOM/Binance for every symbol that maps
-  // to one of those feeds.
-  const tvTickerByKey = new Map<string, string>();
-  for (const key of keysToFetch) {
-    const meta = bySymbolKey.get(key)!;
-    if (meta.tvTicker) tvTickerByKey.set(key, meta.tvTicker);
-  }
-  const tvPrices = await fetchTradingViewScannerPrices(Array.from(new Set(tvTickerByKey.values())));
-
-  const stillNeeded: string[] = [];
   const upserts: { symbol_key: string; price: number; source: string; fetched_at: string }[] = [];
   const nowIso = new Date().toISOString();
 
+  // Pass 0 — Deriv, the primary source, for every symbol that maps to
+  // a real Deriv instrument.
+  const derivSymbolByKey = new Map<string, string>();
   for (const key of keysToFetch) {
-    const ticker = tvTickerByKey.get(key);
-    const price = ticker ? tvPrices[ticker] : undefined;
+    const meta = bySymbolKey.get(key)!;
+    if (meta.derivSymbol) derivSymbolByKey.set(key, meta.derivSymbol);
+  }
+  const derivPrices = await fetchDerivPrices(Array.from(new Set(derivSymbolByKey.values())));
+
+  let stillNeeded: string[] = [];
+  for (const key of keysToFetch) {
+    const symbol = derivSymbolByKey.get(key);
+    const price = symbol ? derivPrices[symbol] : undefined;
     if (price !== undefined) {
-      const source = `tradingview:${ticker!.split(":")[0].toLowerCase()}`; // e.g. "tradingview:forexcom"
-      result.set(key, { price, source });
-      upserts.push({ symbol_key: key, price, source, fetched_at: nowIso });
+      result.set(key, { price, source: "deriv" });
+      upserts.push({ symbol_key: key, price, source: "deriv", fetched_at: nowIso });
     } else {
       stillNeeded.push(key);
     }
   }
 
-  // Pass 2 — Twelve Data fallback for anything Pass 1 didn't price
-  // (stocks/synthetics that have no TV ticker mapping at all, or a
-  // symbol the scanner just didn't return this tick).
+  // Pass 1 — TradingView@FOREXCOM/Binance for whatever Deriv didn't
+  // cover (no mapping, or Deriv had a bad moment this tick).
+  if (stillNeeded.length) {
+    const tvTickerByKey = new Map<string, string>();
+    for (const key of stillNeeded) {
+      const meta = bySymbolKey.get(key)!;
+      if (meta.tvTicker) tvTickerByKey.set(key, meta.tvTicker);
+    }
+    const tvPrices = await fetchTradingViewScannerPrices(Array.from(new Set(tvTickerByKey.values())));
+
+    const afterTv: string[] = [];
+    for (const key of stillNeeded) {
+      const ticker = tvTickerByKey.get(key);
+      const price = ticker ? tvPrices[ticker] : undefined;
+      if (price !== undefined) {
+        const source = `tradingview:${ticker!.split(":")[0].toLowerCase()}`; // e.g. "tradingview:forexcom"
+        result.set(key, { price, source });
+        upserts.push({ symbol_key: key, price, source, fetched_at: nowIso });
+      } else {
+        afterTv.push(key);
+      }
+    }
+    stillNeeded = afterTv;
+  }
+
+  // Pass 2 — Twelve Data, the final fallback, for anything neither
+  // Deriv nor TradingView could price this tick.
   if (stillNeeded.length) {
     const tdSymbolByKey = new Map<string, string>();
     for (const key of stillNeeded) {
