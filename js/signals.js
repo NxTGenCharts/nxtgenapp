@@ -5061,10 +5061,18 @@
       return;
     }
     const targetPair = st.pair;
+    const targetMarket = st.market;
     const myToken = ++st.token;
     if (st.price == null) { st.loading = true; _sfRenderLivePrice(); }
     try {
-      const symbol = _repGetSource('deriv').mapPair(targetPair);
+      const symbol = _repGetSource('deriv').mapPair(targetPair, targetMarket);
+      if (!symbol) {
+        // No known Deriv mapping for this pair/market combo (e.g. an index
+        // ticker not in our lookup table, or a crypto pair Deriv simply
+        // doesn't list). Not a bug to retry — surface it plainly instead
+        // of guessing a symbol that would just 404 against Deriv.
+        throw new Error(`no Deriv symbol mapping for "${targetPair}" in market "${targetMarket}"`);
+      }
       const result = await _repFetchCandles(symbol, 'm1', 10, 'deriv');
       // Guard against a slower earlier request landing after a newer one
       // (rapid instrument switching), and against the modal/pair having
@@ -5081,7 +5089,7 @@
       _sfSyncEntryIfMarket();
     } catch (err) {
       if (!_sfLiveState || _sfLiveState !== st || st.token !== myToken || st.pair !== targetPair) return;
-      console.error(`[Zen live price] Deriv fetch failed for pair "${targetPair}" (mapped symbol "${_repGetSource('deriv').mapPair(targetPair)}"):`, err.message || err);
+      console.error(`[Zen live price] Deriv fetch failed for pair "${targetPair}" (market "${targetMarket}"):`, err.message || err);
       st.loading = false;
       st.error = 'unavailable';
       _sfRenderLivePrice();

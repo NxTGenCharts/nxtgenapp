@@ -310,11 +310,47 @@ const REP_SOURCES = [
     intervals: ['m1', 'm5', 'm15', 'm30', 'h1', 'h4', 'd1'],
     defaultInterval: 'h1',
     symbolPlaceholder: 'frxEURUSD',
-    mapPair(pair) {
-      if (!pair) return 'frxEURUSD';
-      let p = pair.trim().toUpperCase().replace(/[\/\s_]/g, '');
-      if (p.startsWith('FRX')) p = p.slice(3); // strip any case-variant frx prefix so it isn't doubled
-      return `frx${p}`; // Deriv symbol IDs are case-sensitive — lowercase "frx" + uppercase pair
+    // Deriv's real symbol codes, confirmed directly against their own
+    // Symbol Search UI (charts.deriv.com) — these do NOT follow a
+    // predictable formula from the ticker name, especially indices, so
+    // this is a lookup table rather than a string transform.
+    //   Forex/metals: "frx" + PAIR, e.g. frxEURUSD, frxXAUUSD
+    //   Crypto:       "CRY" + PAIR, e.g. CRYBTCUSD — Deriv only lists
+    //                 BTC/USD and ETH/USD, nothing else, no USDT pairs
+    //   Indices:      "OTC_" + an unrelated short code, e.g. OTC_NDX
+    //                 for Nasdaq 100 — must be looked up, can't be derived
+    INDEX_CODES: {
+      NAS100: 'OTC_NDX', USTECH100: 'OTC_NDX', NASDAQ100: 'OTC_NDX',
+      SPX500: 'OTC_SPC', US500: 'OTC_SPC', SP500: 'OTC_SPC',
+      US30: 'OTC_DJI', DOW: 'OTC_DJI', DJI: 'OTC_DJI', WALLSTREET30: 'OTC_DJI',
+      UK100: 'OTC_FTSE', FTSE100: 'OTC_FTSE',
+      GER40: 'OTC_GDAXI', DE40: 'OTC_GDAXI', DAX40: 'OTC_GDAXI', GERMANY40: 'OTC_GDAXI',
+      FRA40: 'OTC_FCHI', CAC40: 'OTC_FCHI', FRANCE40: 'OTC_FCHI',
+      EU50: 'OTC_SX5E', EUSTOXX50: 'OTC_SX5E', EURO50: 'OTC_SX5E',
+      JPN225: 'OTC_N225', NIKKEI225: 'OTC_N225', JAPAN225: 'OTC_N225',
+      AUS200: 'OTC_AS51', ASX200: 'OTC_AS51', AUSTRALIA200: 'OTC_AS51',
+      HK50: 'OTC_HSI', HANGSENG: 'OTC_HSI', HONGKONG50: 'OTC_HSI',
+      NETH25: 'OTC_AEX', NETHERLANDS25: 'OTC_AEX', AEX: 'OTC_AEX',
+      SWI20: 'OTC_SSMI', SWISS20: 'OTC_SSMI', SMI: 'OTC_SSMI',
+    },
+    // market: the signal's Market field ('forex'|'crypto'|'indices'|
+    // 'commodities'|'stocks'|...) — needed because the same-looking
+    // ticker can require a totally different Deriv prefix depending on
+    // asset class. Returns null when there's no known mapping (caller
+    // should treat that as "unsupported on Deriv", not silently guess).
+    mapPair(pair, market) {
+      if (!pair) return null;
+      const clean = pair.trim().toUpperCase().replace(/[\/\s_]/g, '');
+      if (/^(FRX|CRY|OTC_)/.test(clean)) return clean; // already a full Deriv code
+
+      if (market === 'crypto') {
+        return `CRY${clean}`; // will only actually resolve for BTCUSD/ETHUSD — anything else is a real "Deriv doesn't offer this pair" case, not a mapping bug
+      }
+      if (market === 'indices') {
+        return this.INDEX_CODES[clean] || null;
+      }
+      // forex, commodities (metals), and anything unrecognized
+      return `frx${clean}`;
     },
   },
 ];

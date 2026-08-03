@@ -69,9 +69,17 @@ const GRANULARITY_SEC: Record<string, number> = {
 };
 
 function toDerivSymbol(symbol: string): string {
-  let clean = symbol.trim().toUpperCase().replace(/[\/\s_]/g, "");
-  if (clean.startsWith("FRX")) clean = clean.slice(3); // strip any case-variant frx prefix so it isn't doubled
-  return `frx${clean}`; // Deriv symbol IDs are case-sensitive — lowercase "frx" + uppercase pair, e.g. "frxEURUSD"
+  // The client (mapPair in backtesting-lab.js) now sends a fully-qualified
+  // Deriv symbol already — frxEURUSD, CRYBTCUSD, OTC_NDX, etc — since which
+  // prefix applies depends on asset class (forex vs crypto vs indices),
+  // not just the ticker text. Just normalize casing per-prefix rather than
+  // re-deriving it here, so we don't fight the client's correct mapping.
+  // Underscores are preserved (OTC_ needs one); slashes/spaces are not.
+  const clean = symbol.trim().toUpperCase().replace(/[\/\s]/g, "");
+  if (clean.startsWith("FRX")) return `frx${clean.slice(3)}`; // Deriv symbol IDs are case-sensitive: lowercase "frx"
+  if (clean.startsWith("CRY")) return clean; // CRYBTCUSD — already correct case
+  if (clean.startsWith("OTC")) return clean; // OTC_NDX — already correct case
+  return `frx${clean}`; // fallback for anything unrecognized — old forex-only behavior
 }
 
 function fetchDerivCandles(symbol: string, granularitySec: number, count: number): Promise<any[]> {
