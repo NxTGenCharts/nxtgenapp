@@ -131,13 +131,14 @@ serve(async (req) => {
     // fails, Deriv is specifically rejecting Supabase's IP range.
     if (body.diagnose === "fetch-deriv") {
       try {
-        const url = `https://ws.derivws.com/websockets/v3?app_id=${DERIV_APP_ID}`;
+        const testAppId = body.appId || DERIV_APP_ID;
+        const url = `https://ws.derivws.com/websockets/v3?app_id=${testAppId}`;
         const resp = await fetch(url, {
           headers: { "Upgrade": "websocket", "Connection": "Upgrade" },
         });
         const text = await resp.text().catch(() => "");
         return new Response(JSON.stringify({
-          diagnose: "fetch-deriv", status: resp.status, statusText: resp.statusText,
+          diagnose: "fetch-deriv", appIdUsed: testAppId, status: resp.status, statusText: resp.statusText,
           headers: Object.fromEntries(resp.headers.entries()),
           bodySnippet: text.slice(0, 500),
         }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
