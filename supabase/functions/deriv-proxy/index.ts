@@ -151,6 +151,65 @@ serve(async (req) => {
     // If THIS also fails, the problem is Supabase's Edge Runtime /
     // egress network in general. If THIS succeeds but Deriv still
     // fails, Deriv is specifically rejecting Supabase's IP range.
+    if (body.diagnose === "symbols") {
+      const search = (body.search || "").toUpperCase();
+      try {
+        const result = await new Promise((resolve, reject) => {
+          let settled = false;
+          const url = `wss://api.derivws.com/trading/v1/options/ws/public?app_id=${DERIV_APP_ID}`;
+          const ws = new WebSocket(url);
+          const timer = setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            try { ws.close(); } catch { /* ignore */ }
+            reject(new Error("Timed out after 8s"));
+          }, 8000);
+          ws.onopen = () => {
+            ws.send(JSON.stringify({ active_symbols: "brief", product_type: "basic" }));
+          };
+          ws.onmessage = (ev) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            try { ws.close(); } catch { /* ignore */ }
+            try {
+              const msg = JSON.parse(typeof ev.data === "string" ? ev.data : "{}");
+              const all = msg.active_symbols || [];
+              const matches = search
+                ? all.filter((s: any) =>
+                    (s.symbol || "").toUpperCase().includes(search) ||
+                    (s.display_name || "").toUpperCase().includes(search) ||
+                    (s.market || "").toUpperCase().includes(search) ||
+                    (s.submarket || "").toUpperCase().includes(search))
+                : all;
+              resolve({
+                totalSymbols: all.length,
+                matchCount: matches.length,
+                matches: matches.slice(0, 30).map((s: any) => ({
+                  symbol: s.symbol, display_name: s.display_name, market: s.market, submarket: s.submarket,
+                })),
+              });
+            } catch (e) {
+              reject(e instanceof Error ? e : new Error("Failed to parse active_symbols response"));
+            }
+          };
+          ws.onerror = () => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            reject(new Error("WebSocket connection error"));
+          };
+        });
+        return new Response(JSON.stringify({ diagnose: "symbols", search: body.search, result }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ diagnose: "symbols", ok: false, error: err.message || String(err) }), {
+          status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     if (body.diagnose === "ws-deriv-new") {
       const testAppId = body.appId || DERIV_APP_ID;
       try {
