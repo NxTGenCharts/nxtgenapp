@@ -49,10 +49,10 @@ select cron.schedule(
   '* * * * *',  -- every minute
   $$
   select net.http_post(
-    url     := 'https://YOUR-PROJECT-REF.supabase.co/functions/v1/signal-monitor',
+    url     := 'https://jlqgdwfbwdiieafhwisy.supabase.co/functions/v1/signal-monitor',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer YOUR-SERVICE-ROLE-KEY'
+      'Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpscWdkd2Zid2RpaWVhZmh3aXN5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODk5MjA1MiwiZXhwIjoyMDk0NTY4MDUyfQ.iAXXyiujEOq7KpQ9TjWjQy5KsK5HKQadW20WgKa6Kfk'
     ),
     body    := '{}'::jsonb
   );
