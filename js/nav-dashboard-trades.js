@@ -1891,6 +1891,10 @@ function openLightboxById(tradeId, slot) {
 
 
 // ── MODAL ─────────────────────────────────────────────
+// Set by openModal() when launched with a locked account (e.g. "Add Trade"
+// from the Account Tracker detail view). Consumed once by saveTrade() to
+// decide where to send the user after saving, then cleared.
+let _modalLockedAccount = null;
 function openModal(prefill) {
   document.getElementById('m-date').value = localToday();
   document.getElementById('m-pair').value = 'GBPUSD';
@@ -1928,11 +1932,17 @@ function openModal(prefill) {
     accSel.disabled = true;
     if (manageBtn) manageBtn.style.display = 'none';
     if (lockNote) { lockNote.textContent = 'Locked to ' + prefill.account; lockNote.style.display = ''; }
+    // Remember that this trade was started from a specific account's "Add
+    // Trade" button (e.g. the Account Tracker detail view) so saveTrade()
+    // can return the user to that account's Trades tab instead of the
+    // full Trade Log page.
+    _modalLockedAccount = prefill.account;
   } else {
     accSel.innerHTML = _buildAccountOptions('PaperTrading');
     accSel.disabled = false;
     if (manageBtn) manageBtn.style.display = '';
     if (lockNote) lockNote.style.display = 'none';
+    _modalLockedAccount = null;
   }
   document.getElementById('m-rating').value = '★★★★★';
   document.getElementById('m-risk').value = '0.5%';
@@ -2222,9 +2232,20 @@ async function saveTrade() {
   _clearDraft();
   _playChime('save');
   _refreshAll();
-  nav('tradelog', null, 'Trade Log');
-  renderTradeTable(trades);
-  document.getElementById('page-tradelog').scrollTop = 0;
+
+  if (_modalLockedAccount) {
+    // Trade was added from an account's own "Add Trade" button — return to
+    // that account's Trades tab instead of the full Trade Log page.
+    const lockedName = _modalLockedAccount;
+    _modalLockedAccount = null;
+    if (typeof _accPendingDetailTab !== 'undefined') _accPendingDetailTab = 'trades';
+    nav('accounts', document.getElementById('sb-accounts'), 'Account Tracker');
+    if (typeof accShowDetail === 'function') accShowDetail(lockedName);
+  } else {
+    nav('tradelog', null, 'Trade Log');
+    renderTradeTable(trades);
+    document.getElementById('page-tradelog').scrollTop = 0;
+  }
   showToast(t.pair + ' trade saved ✓', 'restore');
 }
 

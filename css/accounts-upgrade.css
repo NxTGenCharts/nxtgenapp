@@ -193,6 +193,15 @@
   --acc-t-live:       #34d399; --acc-t-live-bg:       rgba(52,211,153,0.12); --acc-t-live-bd:       rgba(52,211,153,0.28);
   --acc-t-paper:      #a78bfa; --acc-t-paper-bg:      rgba(167,139,250,0.14); --acc-t-paper-bd:      rgba(167,139,250,0.28);
 }
+/* Light theme — the dark-tuned gold/blue/green/violet above wash out to
+   near-invisible pastel on a white card, so swap in darker, more saturated
+   text colours with a touch more background/border opacity for contrast. */
+[data-theme="light"]{
+  --acc-t-funded:     #b45309; --acc-t-funded-bg:     rgba(245,158,11,0.14); --acc-t-funded-bd:     rgba(245,158,11,0.38);
+  --acc-t-evaluation: #1d4ed8; --acc-t-evaluation-bg: rgba(37,99,235,0.12);  --acc-t-evaluation-bd: rgba(37,99,235,0.32);
+  --acc-t-live:       #047857; --acc-t-live-bg:       rgba(5,150,105,0.12); --acc-t-live-bd:       rgba(5,150,105,0.32);
+  --acc-t-paper:      #6d28d9; --acc-t-paper-bg:      rgba(124,58,237,0.12); --acc-t-paper-bd:     rgba(124,58,237,0.32);
+}
 
 .acc-type-badge-funded,     .acc-mgr-type-badge-funded     { background:var(--acc-t-funded-bg);     color:var(--acc-t-funded);     border-color:var(--acc-t-funded-bd); }
 .acc-type-badge-evaluation, .acc-mgr-type-badge-evaluation { background:var(--acc-t-evaluation-bg); color:var(--acc-t-evaluation); border-color:var(--acc-t-evaluation-bd); }
