@@ -1,14 +1,23 @@
 // Supabase Edge Function: deriv-proxy
 // Deploy with:  supabase functions deploy deriv-proxy
 //
-// Secrets: none required. DERIV_APP_ID is optional — defaults to "1089",
-// Deriv's public demo app id, which works for anonymous market-data
-// requests (no login, no account, no country-availability restriction —
-// unlike OANDA, and no daily-call quota — unlike Twelve Data's free tier).
-// If you later register your own Deriv app (recommended for production,
-// since the shared 1089 id is rate-limited across everyone using it),
-// set your own:
+// IMPORTANT (as of Aug 2026): Deriv retired their legacy WebSocket API
+// (ws.derivws.com/websockets/v3) and moved to a new endpoint —
+// wss://api.derivws.com/trading/v1/options/ws/public — with a new,
+// separate app_id system issued via the new developer portal at
+// developers.deriv.com (Registered Apps -> Native apps). The old public
+// test id "1089" belonged to the legacy system and no longer works.
+//
+// You MUST set DERIV_APP_ID to a real app_id from developers.deriv.com:
 //   supabase secrets set DERIV_APP_ID=your_app_id
+//   supabase functions deploy deriv-proxy
+// There's no working public fallback anymore, unlike before.
+//
+// Deriv's docs describe authenticating this endpoint via a Deriv-App-ID
+// HTTP header. That's NOT usable here — no WebSocket client (browser or
+// Deno) supports custom handshake headers, full stop. Passing app_id as
+// a query param on the same URL is confirmed working in practice, so
+// that's what this function does, despite not being the "documented" way.
 //
 // This is now the ONLY source used for New Signal's live price (see
 // _sfFetchLivePrice in js/signals.js). Twelve Data and Dukascopy are
@@ -26,6 +35,13 @@
 //
 // Same request/response shape as the other proxies: { candles: {time,
 // open,high,low,close}[], cached, source, symbol, interval }.
+//
+// This file also has several diagnose:"..." request branches used while
+// debugging Deriv's endpoint migration (echo/fetch-deriv/ws-deriv-new
+// etc). Safe to strip out once things have been stable for a while —
+// they're unreachable in normal use (require an explicit "diagnose"
+// field the app never sends) but there's no reason to keep the dead
+// weight in the file forever.
 
 import { serve } from "https://deno.land/std@0.203.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -61,7 +77,13 @@ function toDerivSymbol(symbol: string): string {
 function fetchDerivCandles(symbol: string, granularitySec: number, count: number): Promise<any[]> {
   return new Promise((resolve, reject) => {
     let settled = false;
-    const ws = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${DERIV_APP_ID}`);
+    // Deriv retired the legacy ws.derivws.com/websockets/v3 endpoint — this
+    // is their current endpoint (as of Aug 2026). app_id as a query param
+    // is confirmed working here; their docs describe a Deriv-App-ID header
+    // as the "proper" way, but that's not settable via the standard
+    // WebSocket API (browsers/Deno never support custom handshake headers),
+    // and query param works fine in practice.
+    const ws = new WebSocket(`wss://api.derivws.com/trading/v1/options/ws/public?app_id=${DERIV_APP_ID}`);
 
     const finish = (fn: () => void) => {
       if (settled) return;
@@ -129,6 +151,54 @@ serve(async (req) => {
     // If THIS also fails, the problem is Supabase's Edge Runtime /
     // egress network in general. If THIS succeeds but Deriv still
     // fails, Deriv is specifically rejecting Supabase's IP range.
+    if (body.diagnose === "ws-deriv-new") {
+      const testAppId = body.appId || DERIV_APP_ID;
+      try {
+        const result = await new Promise((resolve, reject) => {
+          let settled = false;
+          const url = `wss://api.derivws.com/trading/v1/options/ws/public?app_id=${testAppId}`;
+          const ws = new WebSocket(url);
+          const timer = setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            try { ws.close(); } catch { /* ignore */ }
+            reject(new Error("Timed out after 8s waiting for open/message"));
+          }, 8000);
+          ws.onopen = () => {
+            // Connection upgraded successfully — try a real request to confirm it's fully functional,
+            // not just an open socket that later rejects the first message.
+            ws.send(JSON.stringify({ ticks_history: "frxEURUSD", style: "candles", granularity: 60, count: 3, end: "latest" }));
+          };
+          ws.onmessage = (ev) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            try { ws.close(); } catch { /* ignore */ }
+            resolve({ opened: true, firstMessage: typeof ev.data === "string" ? ev.data.slice(0, 500) : "[binary]" });
+          };
+          ws.onerror = () => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            reject(new Error("WebSocket connection error (handshake rejected)"));
+          };
+          ws.onclose = (ev) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            reject(new Error(`Closed before responding (code ${ev.code}, reason: ${ev.reason || "none"})`));
+          };
+        });
+        return new Response(JSON.stringify({ diagnose: "ws-deriv-new", appIdUsed: testAppId, ok: true, result }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (wsErr) {
+        return new Response(JSON.stringify({ diagnose: "ws-deriv-new", appIdUsed: testAppId, ok: false, error: wsErr.message || String(wsErr) }), {
+          status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     if (body.diagnose === "fetch-deriv-new") {
       const testAppId = body.appId || DERIV_APP_ID;
       const results: Record<string, any> = {};
