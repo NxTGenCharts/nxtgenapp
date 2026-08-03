@@ -70,7 +70,12 @@ const CORS_HEADERS = {
 // Keep this at/under the cron interval — no point caching longer than
 // the gap between ticks — but long enough that two signals on the
 // same symbol processed microseconds apart never double-fetch.
-const QUOTE_CACHE_TTL_MS = 20_000;
+// NOTE: this MUST be updated together with the cron schedule in
+// supabase/signals_auto_monitor_cron.sql — if that file runs every
+// 10s but this stays at the old 20s, most ticks just re-serve stale
+// cache and skip fetching entirely, silently undoing the point of
+// scheduling more often.
+const QUOTE_CACHE_TTL_MS = 8_000;
 
 // Only pending order types actually "wait" for price — a market order
 // signal that's still 'waiting' is a data-entry mistake, not a real

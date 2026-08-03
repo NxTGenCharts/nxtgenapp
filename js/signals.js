@@ -3921,10 +3921,15 @@
   // ══════════════════════════════════════════════════════════════
 
   // How stale `monitor_last_checked_at` can get before the card stops
-  // calling itself "LIVE" — kept just above the monitor's own 1-minute
-  // cron interval so normal tick-to-tick jitter never falsely trips
-  // "reconnecting".
-  const SIG_LIVE_FRESH_MS = 90000;
+  // calling itself "LIVE" — kept just above the monitor's own cron
+  // interval so normal tick-to-tick jitter never falsely trips
+  // "reconnecting". MUST be updated together with the cron schedule in
+  // supabase/signals_auto_monitor_cron.sql — this was 90000 when the
+  // cron ran every 60s (1.5x ratio); now scaled the same way for a 10s
+  // cron. Left too high after a schedule speedup, this just makes a
+  // genuinely broken monitor look "LIVE" for way too long before the
+  // UI admits it's stale.
+  const SIG_LIVE_FRESH_MS = 15000;
 
   function _sigIsLiveTrackedStatus(s) {
     return SIG_LIVE_STATUSES.includes(s.status) && !s.archived && !s.is_draft;
