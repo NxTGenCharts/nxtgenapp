@@ -168,6 +168,15 @@
   .cal-an-bar-main{font-size:10px}
   .cal-an-bar-sub{font-size:9px}
 
+  /* Win-streak dot timeline: row2 card is squeezed to half-width here
+     (.cal-an-grid.row2 → 2-up), so up to 14 dots no longer fit on one
+     line. flex-wrap on .pf3-dot-timeline (dashboard-premium.css) lets
+     them wrap instead of being clipped by .cal-an-card's overflow:hidden;
+     shrink the dots themselves too so more still fit per row before that
+     happens. */
+  .pf3-dot-timeline{gap:3px;margin-top:6px}
+  .pf3-dot{width:6px;height:6px}
+
   /* ── Weekly summary: moved BELOW the calendar as its own roomy row, not squeezed to the side ── */
   .cal-grid-with-weeks{flex-direction:column;gap:14px;align-items:stretch}
   #page-calendar .cal-grid-with-weeks{min-height:0}

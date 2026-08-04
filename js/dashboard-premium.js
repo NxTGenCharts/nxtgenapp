@@ -64,7 +64,14 @@ function pf3DollarsOf(t) {
   return toPnlDollars(t, getAccSizeForAccount(t.account));
 }
 function pf3SortedByDate(list) {
-  return [...list].sort((a, b) => a.date.localeCompare(b.date));
+  // Trades are stored newest-added-first (unshift), so reverse to
+  // oldest-added-first BEFORE the stable date sort — otherwise same-day
+  // trades keep reverse-entry order once the sort settles ties, which
+  // scrambles win/loss sequencing for anything keyed off same-day order
+  // (win-streak dot timeline, equity curve). Same fix already applied in
+  // dashboard-analytics.js's kpi streak calc — this brings this file in
+  // line with it.
+  return [...list].reverse().sort((a, b) => a.date.localeCompare(b.date));
 }
 
 function pf3EquitySeries(list, mode) {

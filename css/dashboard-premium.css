@@ -69,7 +69,7 @@
 #page-dashboard .kpi-card:hover .pf3-expand-hint{ opacity:.75; }
 
 /* ══ Win streak dot timeline ═════════════════════════════════════ */
-.pf3-dot-timeline{ display:flex; gap:4px; margin-top:8px; align-items:center; }
+.pf3-dot-timeline{ display:flex; flex-wrap:wrap; gap:4px; margin-top:8px; align-items:center; max-width:100%; }
 .pf3-dot{
   width:7px; height:7px; border-radius:50%; background:var(--glass-3);
   transition: transform 200ms var(--pf3-ease);
