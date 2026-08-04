@@ -24,14 +24,12 @@ document.addEventListener('click', e => {
   if (overlay && overlay.classList.contains('open') && e.target === overlay) closeGlassModal();
 });
 
-function showToast(msg, type = 'info', action = null) {
-  const t = document.getElementById('app-toast');
-  if (!t) return;
-  t.textContent = msg;
-  if (action) { const btn = document.createElement('button'); btn.textContent = action.label; btn.style.cssText = 'margin-left:10px;background:none;border:1px solid rgba(255,255,255,.3);color:inherit;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px'; btn.onclick = () => { eval(action.fn); t.classList.remove('show'); }; t.appendChild(btn); }
-  t.className = 'app-toast show ' + type;
-  setTimeout(() => t.classList.remove('show'), 3500);
-}
+// showToast() now lives in js/toast-notifications.js (loaded earlier,
+// right after core-utils-ai.js) as part of the centralized, premium
+// notification system. Kept out of this file so there is exactly one
+// implementation for the whole app — see that file for the full API
+// (toast.success/error/warning/info/loading) and the legacy shim that
+// keeps every showToast(msg, type, action) call below working as-is.
 
 // ── SIGN OUT ──────────────────────────────────────────
 async function handleLogout() {

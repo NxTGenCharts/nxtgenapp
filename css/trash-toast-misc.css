@@ -278,25 +278,10 @@
   .ai-float-chat-card{width:100%;height:86vh;border-radius:var(--r-xl) var(--r-xl) 0 0}
 }
 
-/* ════════════ APP TOAST ════════════════════════ */
-.app-toast{
-  position:fixed;bottom:24px;left:50%;
-  transform:translateX(-50%) translateY(0);
-  background:var(--glass-2);
-  backdrop-filter:var(--blur-xl);
-  -webkit-backdrop-filter:var(--blur-xl);
-  border:1px solid var(--glass-border);
-  border-radius:var(--r-xl);padding:12px 20px;
-  font-size:13px;color:var(--text);z-index:999;
-  display:flex;gap:12px;align-items:center;
-  box-shadow:var(--shadow-xl),inset 0 1px 0 var(--glass-shine);
-  transition:opacity 0.4s var(--ease-out),transform 0.4s var(--ease-spring);
-  opacity:0;pointer-events:none;font-weight:500;
-  min-width:240px;max-width:380px;
-}
-.app-toast.show{opacity:1;pointer-events:all}
-.app-toast.hide{opacity:0;transform:translateX(-50%) translateY(14px)}
-[data-theme="light"] .app-toast{background:rgba(255,255,255,0.96)}
+/* ════════════ APP TOAST ════════════════════════
+   Moved to css/toast-notifications.css — the whole app now uses
+   one centralized .nx-toast notification system. Do not re-add
+   .app-toast rules here. */
 
 /* ════════════ ROW ACTIONS ══════════════════════ */
 .row-actions button{
