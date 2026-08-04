@@ -1140,12 +1140,22 @@ async function _pbLoad() {
     .eq('user_id', _currentUser.id)
     .maybeSingle();
   if (error) { console.error('pbLoad:', error.message); return; }
-  if (data) {
-    _pbRowId = data.id;
-    _pbData  = data.data || { models: [...MODELS], rules: [...RULES] };
-    if (!_pbData.models) _pbData.models = [...MODELS];
-    if (!_pbData.rules)  _pbData.rules  = [...RULES];
+  if (!data) {
+    // First login — no row yet. _pbData already holds the in-memory
+    // default (the 3 built-in models) from module load, which is fine
+    // to *show* as a starting point. But do NOT write it to the
+    // database and do NOT run the legacy migration/save below — that's
+    // only relevant to existing rows. _pbRowId stays null, so the first
+    // time this user actually adds/edits/deletes a model, _pbSave()
+    // takes the insert branch and creates their row from what they
+    // chose, not from our defaults. A user who never touches the
+    // playbook simply never gets a row.
+    return;
   }
+  _pbRowId = data.id;
+  _pbData  = data.data || { models: [...MODELS], rules: [...RULES] };
+  if (!_pbData.models) _pbData.models = [...MODELS];
+  if (!_pbData.rules)  _pbData.rules  = [...RULES];
   // Migrate: ensure every model has strategyName + status
   // Priority: (1) existing strategyName already on model, (2) legacy title map, (3) infer from title
   _pbData.models = _pbData.models.map(m => {
@@ -1169,6 +1179,7 @@ async function _pbLoad() {
     return true;
   });
   // Save the migrated data back so we don't re-migrate every load
+  // (only reached for a row that already existed — see early return above)
   await _pbSave();
 }
 

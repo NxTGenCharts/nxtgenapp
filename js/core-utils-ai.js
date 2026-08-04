@@ -719,8 +719,14 @@ async function _checklistItemsLoad() {
       _checklistRowId = data.id;
       if (Array.isArray(data.items) && data.items.length) CHECKLIST_ITEMS = data.items;
     } else {
-      // First login — seed the row with the defaults so future edits have something to update
-      await _checklistItemsSave([...DEFAULT_CHECKLIST_ITEMS]);
+      // First login — no row yet. Show DEFAULT_CHECKLIST_ITEMS in this
+      // session as a starting suggestion (CHECKLIST_ITEMS already equals
+      // that by default at module load), but do NOT write it to the
+      // database. _checklistRowId stays null, so the first time the user
+      // actually adds/edits/removes an item, _checklistItemsSave() takes
+      // the insert branch and creates their row from what they chose —
+      // not from our defaults. A user who never touches the checklist
+      // manager simply never gets a row.
     }
   } catch (err) {
     console.warn('checklistItemsLoad failed, using defaults:', err.message || err);
