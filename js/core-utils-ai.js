@@ -616,7 +616,7 @@ const SEED_TRADES = [
 // actually rendered everywhere and is reassigned once the user's own
 // saved list loads from the cloud — see _checklistItemsLoad() below.
 const DEFAULT_CHECKLIST_ITEMS=["HTF PDA confirmed","4h Profiling","Liquidity Sweep","SMT Divergence","CISD Confirmed","R:R ≥ 1:2","Active Killzone"];
-let CHECKLIST_ITEMS=[...DEFAULT_CHECKLIST_ITEMS];
+let CHECKLIST_ITEMS=[];
 const EMOTIONS=["Calm","Relaxed","Confident","Focused","Neutral","Anxious","Impatient","Fearful","Greedy","Revenge"];
 const CHART_LABELS=["Daily HTF","4h Structure","1h Confirm","30m Trigger","3m/5m Entry","Result"];
 const RULES=["Never trade without HTF bias confirmed","Never enter without an active killzone","Never risk more than 1% on funded accounts","Never chase price — missed entry = no entry","Never move SL before 30% of target is hit","Never trade 15 min before/after red news","Never skip the entry checklist","Never take more than 2 trades per day","Never take a 3★ or below setup","Never trade while angry, fearful or revenge-seeking"];
@@ -719,14 +719,12 @@ async function _checklistItemsLoad() {
       _checklistRowId = data.id;
       if (Array.isArray(data.items) && data.items.length) CHECKLIST_ITEMS = data.items;
     } else {
-      // First login — no row yet. Show DEFAULT_CHECKLIST_ITEMS in this
-      // session as a starting suggestion (CHECKLIST_ITEMS already equals
-      // that by default at module load), but do NOT write it to the
-      // database. _checklistRowId stays null, so the first time the user
-      // actually adds/edits/removes an item, _checklistItemsSave() takes
-      // the insert branch and creates their row from what they chose —
-      // not from our defaults. A user who never touches the checklist
-      // manager simply never gets a row.
+      // First login — no row yet, and CHECKLIST_ITEMS stays [] (its
+      // module-load default). Nothing is written to the database and
+      // nothing is shown until the user actually adds an item or taps
+      // "Reset to defaults" themselves (_resetChecklistToDefaults, an
+      // explicit user action, not automatic). _checklistRowId stays
+      // null, so the first real save takes the insert branch.
     }
   } catch (err) {
     console.warn('checklistItemsLoad failed, using defaults:', err.message || err);

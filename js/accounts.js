@@ -1120,7 +1120,7 @@ async function accDeleteMilestone(i) {
 // Table: journal_playbook { id, user_id, data jsonb }
 // data = { models:[{title,strategyName,sub,steps,status}], rules:[str] }
 // ═══════════════════════════════════════════════════
-let _pbData  = { models: MODELS.map(m=>({...m,steps:(m.steps||[]).slice()})), rules: [...RULES] };
+let _pbData  = { models: [], rules: [] };
 let _pbRowId = null;
 
 // Known legacy title → correct strategyName mapping for backward compat
@@ -1141,21 +1141,20 @@ async function _pbLoad() {
     .maybeSingle();
   if (error) { console.error('pbLoad:', error.message); return; }
   if (!data) {
-    // First login — no row yet. _pbData already holds the in-memory
-    // default (the 3 built-in models) from module load, which is fine
-    // to *show* as a starting point. But do NOT write it to the
-    // database and do NOT run the legacy migration/save below — that's
-    // only relevant to existing rows. _pbRowId stays null, so the first
-    // time this user actually adds/edits/deletes a model, _pbSave()
-    // takes the insert branch and creates their row from what they
-    // chose, not from our defaults. A user who never touches the
-    // playbook simply never gets a row.
+    // First login — no row yet, and _pbData stays { models: [], rules: [] }
+    // (its module-load default) — genuinely empty, nothing shown. Do NOT
+    // write anything to the database and do NOT run the legacy
+    // migration/save below — that's only relevant to existing rows.
+    // _pbRowId stays null, so the first time this user actually adds a
+    // model or rule, _pbSave() takes the insert branch and creates their
+    // row from what they chose. A user who never touches the playbook
+    // simply never gets a row.
     return;
   }
   _pbRowId = data.id;
-  _pbData  = data.data || { models: [...MODELS], rules: [...RULES] };
-  if (!_pbData.models) _pbData.models = [...MODELS];
-  if (!_pbData.rules)  _pbData.rules  = [...RULES];
+  _pbData  = data.data || { models: [], rules: [] };
+  if (!_pbData.models) _pbData.models = [];
+  if (!_pbData.rules)  _pbData.rules  = [];
   // Migrate: ensure every model has strategyName + status
   // Priority: (1) existing strategyName already on model, (2) legacy title map, (3) infer from title
   _pbData.models = _pbData.models.map(m => {
