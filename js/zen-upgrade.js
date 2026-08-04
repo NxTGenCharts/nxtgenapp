@@ -97,6 +97,7 @@
     if (!document.getElementById('page-zen') || _zenBuilding) return;
     _zenBuilding = true;
     try {
+      if (typeof buildZenSession === 'function') buildZenSession();
       zenLoadChecklistLocal();
       renderZenChecklist();
       renderZenPause();
