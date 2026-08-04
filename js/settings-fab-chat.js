@@ -97,15 +97,15 @@ function _scheduleDraftSave() {
   if (!modal || !modal.classList.contains('open')) return;
   clearTimeout(_draftSaveTimer);
   _draftSaveTimer = setTimeout(() => {
-    try { localStorage.setItem(_DRAFT_KEY, JSON.stringify({ savedAt: Date.now(), data: _collectDraft() })); }
+    try { localStorage.setItem(_nxKey(_DRAFT_KEY), JSON.stringify({ savedAt: Date.now(), data: _collectDraft() })); }
     catch (e) { /* storage full or unavailable — ignore */ }
   }, 500);
 }
-function _clearDraft() { try { localStorage.removeItem(_DRAFT_KEY); } catch (e) {} }
+function _clearDraft() { try { localStorage.removeItem(_nxKey(_DRAFT_KEY)); } catch (e) {} }
 
 function _restoreDraftIfAny() {
   if (_profileData.autosave === false) return false;
-  let raw; try { raw = localStorage.getItem(_DRAFT_KEY); } catch (e) { return false; }
+  let raw; try { raw = localStorage.getItem(_nxKey(_DRAFT_KEY)); } catch (e) { return false; }
   if (!raw) return false;
   let parsed; try { parsed = JSON.parse(raw); } catch (e) { return false; }
   if (!parsed || !parsed.data) return false;

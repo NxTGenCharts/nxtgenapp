@@ -1219,7 +1219,7 @@ async function _pbSave() {
   if (!_currentUser) return;
   const row = { user_id: _currentUser.id, data: _pbData };
   if (_pbRowId) {
-    await sb.from('journal_playbook').update(row).eq('id', _pbRowId);
+    await sb.from('journal_playbook').update(row).eq('id', _pbRowId).eq('user_id', _currentUser.id);
   } else {
     const { data } = await sb.from('journal_playbook').insert(row).select('id').single();
     if (data) _pbRowId = data.id;
@@ -1580,7 +1580,7 @@ async function _blSave() {
   if (!_currentUser) return;
   const row = { user_id: _currentUser.id, data: _blData };
   if (_blRowId) {
-    await sb.from('journal_backtest_lab').update(row).eq('id', _blRowId);
+    await sb.from('journal_backtest_lab').update(row).eq('id', _blRowId).eq('user_id', _currentUser.id);
   } else {
     const { data } = await sb.from('journal_backtest_lab').insert(row).select('id').single();
     if (data) _blRowId = data.id;

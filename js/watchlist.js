@@ -194,7 +194,7 @@ async function _wlSaveWeek(week) {
     daily_plans:  week.dailyPlans || {},
   };
   if (week.id) {
-    const { error } = await sb.from('journal_watchlist').update(row).eq('id', week.id);
+    const { error } = await sb.from('journal_watchlist').update(row).eq('id', week.id).eq('user_id', _currentUser.id);
     if (error) console.error('wl update error:', error.message);
   } else {
     const { data, error } = await sb.from('journal_watchlist').insert(row).select().single();
@@ -206,7 +206,7 @@ async function _wlSaveWeek(week) {
 }
 
 async function _wlDeleteWeek(id) {
-  const { error } = await sb.from('journal_watchlist').delete().eq('id', id);
+  const { error } = await sb.from('journal_watchlist').delete().eq('id', id).eq('user_id', _currentUser.id);
   if (error) { console.error('wl delete error:', error.message); return false; }
   _wlData = _wlData.filter(w => w.id !== id);
   return true;
@@ -3805,7 +3805,7 @@ async function _accLoad() {
     );
     _accData.calendarAccount = data.calendar_account || '';
     // Keep localStorage in sync with cloud value
-    try { if (_accData.calendarAccount) localStorage.setItem('nxtgen_cal_account', _accData.calendarAccount); } catch(e) {}
+    try { if (_accData.calendarAccount) localStorage.setItem(_nxKey('nxtgen_cal_account'), _accData.calendarAccount); } catch(e) {}
   }
 }
 

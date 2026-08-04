@@ -569,6 +569,23 @@ function formatUserDateTime(date, opts) {
 // Current authenticated user — set on boot
 let _currentUser = null;
 
+// ── Per-user localStorage scoping ──────────────────────────────────
+// A handful of localStorage keys across the app (trade-form autosave
+// drafts, cached prefs, etc.) were written unscoped — same key for every
+// account on a given browser. That's invisible on a personal device, but
+// on a shared/public computer (or a family sharing one PC) it means one
+// person's in-progress trade notes, avatar, or saved filters can surface
+// under a different logged-in account. This doesn't touch server data —
+// journal_* tables were already correctly scoped per user — it's purely
+// about what's cached in the browser.
+// Usage: localStorage.setItem(_nxKey('some_key'), val) instead of
+// localStorage.setItem('some_key', val). Falls back to the bare key when
+// no user is signed in yet (e.g. pre-auth demo/preview state), so this is
+// safe to call before _currentUser resolves.
+function _nxKey(baseKey) {
+  return _currentUser && _currentUser.id ? `${baseKey}::${_currentUser.id}` : baseKey;
+}
+
 // ── SEED DATA (shown on first load / for new users) ───
 const SEED_TRADES = [
   {id:1,date:"2026-03-02",pair:"EURGBP",pos:"Sell",rr:"1:4",pnl:0,outcome:"B.E",kz:"Asian",strategy:"IRL > ERL",tf:"30m > 3m",account:"PaperTrading",rating:4,notes:"Price tapped Asian range high and stalled — moved SL to BE. Valid setup but no follow-through.",pretrade:"Bearish bias from daily OB",emotion:"Calm",risk:"0.5%",checklist:[0,1,2,3,4,6],charts:[]},
@@ -716,7 +733,7 @@ async function _checklistItemsSave(list) {
   try {
     const row = { user_id: _currentUser.id, items: list, updated_at: new Date().toISOString() };
     if (_checklistRowId) {
-      const { error } = await sb.from('journal_checklist_items').update(row).eq('id', _checklistRowId);
+      const { error } = await sb.from('journal_checklist_items').update(row).eq('id', _checklistRowId).eq('user_id', _currentUser.id);
       if (error) throw error;
     } else {
       const { data, error } = await sb.from('journal_checklist_items').insert(row).select('id').single();

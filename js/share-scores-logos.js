@@ -679,7 +679,7 @@ async function _profileSave() {
   };
   delete row.id; // don't send PK in payload
   if (_profileRowId) {
-    const { error } = await sb.from('journal_profiles').update(row).eq('id', _profileRowId);
+    const { error } = await sb.from('journal_profiles').update(row).eq('id', _profileRowId).eq('user_id', _currentUser.id);
     if (error) { showToast('Save failed: ' + error.message, 'danger'); return false; }
   } else {
     const { data, error } = await sb.from('journal_profiles').insert(row).select('id').single();

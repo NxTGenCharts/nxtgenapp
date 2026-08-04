@@ -3061,7 +3061,7 @@ async function _goalsSave() {
   if (!_currentUser) return;
   const row = { user_id: _currentUser.id, data: _goalsData };
   if (_goalsRowId) {
-    await sb.from('journal_goals').update(row).eq('id', _goalsRowId);
+    await sb.from('journal_goals').update(row).eq('id', _goalsRowId).eq('user_id', _currentUser.id);
   } else {
     const { data } = await sb.from('journal_goals').insert(row).select('id').single();
     if (data) _goalsRowId = data.id;
@@ -4201,7 +4201,7 @@ async function mrSaveReflections() {
   const btn = document.getElementById('mr-save-btn');
   if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
   if (_mrCache[key]?.id) {
-    await sb.from('journal_monthly').update(row).eq('id', _mrCache[key].id);
+    await sb.from('journal_monthly').update(row).eq('id', _mrCache[key].id).eq('user_id', _currentUser.id);
     _mrCache[key] = { ..._mrCache[key], r1, r2, r3 };
   } else {
     const { data } = await sb.from('journal_monthly').insert(row).select('id').single();

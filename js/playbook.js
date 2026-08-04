@@ -442,7 +442,7 @@ async function _btSaveTrade(trade) {
     data: trade.data || {},
   };
   if (trade.id) {
-    const { error } = await sb.from('journal_backtest_trades').update(row).eq('id', trade.id);
+    const { error } = await sb.from('journal_backtest_trades').update(row).eq('id', trade.id).eq('user_id', _currentUser.id);
     if (error) { console.error('_btSaveTrade update:', error.message); showToast('Failed to save trade', 'danger'); return null; }
     const idx = _btTrades.findIndex(t => t.id === trade.id);
     if (idx !== -1) _btTrades[idx] = { ..._btTrades[idx], ...row, id: trade.id };
@@ -456,7 +456,7 @@ async function _btSaveTrade(trade) {
 }
 
 async function _btDeleteTrade(id) {
-  const { error } = await sb.from('journal_backtest_trades').delete().eq('id', id);
+  const { error } = await sb.from('journal_backtest_trades').delete().eq('id', id).eq('user_id', _currentUser.id);
   if (error) { console.error('_btDeleteTrade:', error.message); return false; }
   _btTrades = _btTrades.filter(t => t.id !== id);
   return true;

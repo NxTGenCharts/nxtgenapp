@@ -1363,7 +1363,7 @@
       if (error) console.error('notif prefs load failed:', error.message);
     }
     try {
-      const raw = localStorage.getItem(SIG_NOTIF_PREFS_KEY);
+      const raw = localStorage.getItem(_nxKey(SIG_NOTIF_PREFS_KEY));
       if (raw) return JSON.parse(raw);
     } catch (e) { /* ignore corrupt storage */ }
     return {
@@ -1515,7 +1515,7 @@
       if (error) { console.error('notif prefs save failed:', error.message); showToast('Save failed: ' + error.message, 'error'); return false; }
       return true;
     }
-    try { localStorage.setItem(SIG_NOTIF_PREFS_KEY, JSON.stringify(prefs)); return true; }
+    try { localStorage.setItem(_nxKey(SIG_NOTIF_PREFS_KEY), JSON.stringify(prefs)); return true; }
     catch (e) { showToast('Save failed', 'error'); return false; }
   }
 

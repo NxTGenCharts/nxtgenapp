@@ -923,7 +923,7 @@ async function _saveCalendarAccountSelection(accountName) {
   if (!_currentUser) return;
   _accData.calendarAccount = accountName || '';
   // Persist to localStorage immediately (instant, cross-session on same device)
-  try { localStorage.setItem('nxtgen_cal_account', _accData.calendarAccount); } catch(e) {}
+  try { localStorage.setItem(_nxKey('nxtgen_cal_account'), _accData.calendarAccount); } catch(e) {}
   // Also persist to Supabase so it survives device switches
   try {
     await sb.from('journal_account_data').upsert({
@@ -942,7 +942,7 @@ async function _saveCalendarAccountSelection(accountName) {
 function _restoreCalendarAccountSelection() {
   // Prefer cloud value (loaded in _accData), fallback to localStorage
   const saved = _accData.calendarAccount
-    || (() => { try { return localStorage.getItem('nxtgen_cal_account') || ''; } catch(e) { return ''; } })();
+    || (() => { try { return localStorage.getItem(_nxKey('nxtgen_cal_account')) || ''; } catch(e) { return ''; } })();
   // Restore both desktop and mobile dropdowns
   ['cal-acc-filter', 'cal-acc-filter-2'].forEach(selId => {
     const sel = document.getElementById(selId);
