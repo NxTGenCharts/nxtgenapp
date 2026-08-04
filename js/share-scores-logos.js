@@ -615,9 +615,19 @@ async function _profileLoad() {
     _profileData  = data;
     _profileMigrateBase64Avatar(); // fire-and-forget backfill, see below
   } else {
-    // First login — seed from auth metadata
+    // First login — seed from auth metadata.
+    //
+    // Email/password accounts already went through the Create Account
+    // form (name + email verification), so treat them as fully
+    // registered right away. Google accounts are auto-provisioned by
+    // Supabase the moment the OAuth consent screen completes — there's
+    // no separate "sign up" step for them — so mark these as NOT yet
+    // onboarded; js/core-modals-userbar.js gates the dashboard behind a
+    // short "Complete your registration" step for these until they
+    // submit it, at which point onboarding_completed flips to true.
     const meta = _currentUser.user_metadata || {};
-    const fullName = meta.full_name || '';
+    const provider = (_currentUser.app_metadata && _currentUser.app_metadata.provider) || 'email';
+    const fullName = meta.full_name || meta.name || '';
     const parts    = fullName.trim().split(/\s+/);
     _profileData = {
       fname:        parts[0] || '',
@@ -639,8 +649,9 @@ async function _profileLoad() {
       sounds:       false,
       compact:      false,
       autosave:     true,
-      avatar_url:   meta.avatar_url || '',
+      avatar_url:   meta.avatar_url || meta.picture || '',
       local_prefs:  {}, // Floating Assistant / interface prefs — see profile-premium.js
+      onboarding_completed: provider !== 'google',
     };
     // Persist the seed immediately
     await _profileSave();

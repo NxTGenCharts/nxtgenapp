@@ -401,7 +401,7 @@
     <!-- Tabs -->
     <div class="tabs">
       <button class="tab active" id="tabLogin" onclick="switchTab('login')">Sign In</button>
-      <button class="tab" id="tabRegister" onclick="switchTab('register')" style="display:none">Create Account</button>
+      <button class="tab" id="tabRegister" onclick="switchTab('register')">Create Account</button>
     </div>
 
     <!-- SIGN IN -->
@@ -622,9 +622,11 @@
     });
     clearAlerts();
     if (t==='register') { document.getElementById('confirmScreen').classList.remove('show'); document.getElementById('registerForm').style.display=''; }
+    history.replaceState(null, '', t==='register' ? '#register' : location.pathname + location.search);
   }
-  // Deep-link support for #register is intentionally disabled on this
-  // admin-only subdomain — sign-up isn't offered here.
+  // Deep-link support: /login.html#register opens straight on the
+  // Create Account tab (e.g. linked from the marketing site's "Sign up" CTA).
+  if (location.hash === '#register') switchTab('register');
 
   function clearAlerts() {
     ['loginErr','loginOk','regErr'].forEach(id => { document.getElementById(id).classList.remove('show'); });

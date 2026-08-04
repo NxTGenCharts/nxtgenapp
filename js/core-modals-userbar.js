@@ -383,6 +383,17 @@ document.addEventListener('DOMContentLoaded', async function () {
   ]);
   await runAutoCleanup();
 
+  // 5a2. First-time Google sign-ups haven't been through a real
+  // registration step (Supabase auto-creates their account the moment
+  // the OAuth consent screen completes). Gate the dashboard behind a
+  // short "Complete your registration" form until they submit it —
+  // mirrors the confirm step email/password users already get.
+  if (_profileData && _profileData.onboarding_completed === false) {
+    if (window.AppLoader) window.AppLoader.hide();
+    _showOnboardingGate();
+    return;
+  }
+
   // 5b. Apply settings that affect initial rendering (week start, $/% default mode)
   _applyWeekStartSetting();
   _pnlToggleMode = (_profileData.currency && _profileData.currency !== '% (Percentage)') ? '$' : '%';
@@ -1006,3 +1017,98 @@ function _onCalAccSize2Change() {
   renderCalendar();
 }
 
+
+// ════════════════════════════════════════════════════════════════════
+//  ONBOARDING GATE — first-time Google sign-ups only.
+//
+//  Supabase auto-creates the auth.users row the instant someone
+//  completes the Google consent screen, so unlike email/password there
+//  is no separate "sign up" step to require beforehand. This renders a
+//  mandatory completion screen in its place: it takes over the whole
+//  page (real trade data is never fetched/rendered behind it), lets the
+//  user confirm their name, and only then flips
+//  journal_profiles.onboarding_completed to true and continues into the
+//  dashboard. Returning users (onboarding_completed already true) never
+//  see this — they sign in seamlessly, same as before.
+// ════════════════════════════════════════════════════════════════════
+function _showOnboardingGate() {
+  const meta = (_currentUser && _currentUser.user_metadata) || {};
+  const prefillName = (_profileData && _profileData.display_name) || meta.full_name || meta.name || '';
+  const email = (_currentUser && _currentUser.email) || '';
+
+  const wrap = document.createElement('div');
+  wrap.id = 'onboardingGate';
+  wrap.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:#07090f;color:#e8edf5;font-family:system-ui,-apple-system,sans-serif;padding:24px;';
+  wrap.innerHTML = `
+    <div style="width:100%;max-width:420px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);border-radius:20px;padding:32px;box-shadow:0 32px 80px rgba(0,0,0,0.55);">
+      <div style="font-size:34px;margin-bottom:6px;">👋</div>
+      <div style="font-size:20px;font-weight:700;margin-bottom:6px;">Welcome to NxTGen — one last step</div>
+      <div style="font-size:13.5px;color:#8899aa;line-height:1.5;margin-bottom:22px;">
+        You signed up with Google, so let's quickly confirm your details before we open your dashboard.
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:12px;color:#8899aa;margin-bottom:6px;">Full name</label>
+        <input id="obName" type="text" value="${prefillName.replace(/"/g, '&quot;')}" placeholder="e.g. John Doe"
+          style="width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.09);background:rgba(255,255,255,0.05);color:#e8edf5;font-size:14px;box-sizing:border-box;" />
+      </div>
+
+      <div style="margin-bottom:18px;">
+        <label style="display:block;font-size:12px;color:#8899aa;margin-bottom:6px;">Email</label>
+        <input type="email" value="${email.replace(/"/g, '&quot;')}" disabled
+          style="width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.09);background:rgba(255,255,255,0.03);color:#8899aa;font-size:14px;box-sizing:border-box;" />
+      </div>
+
+      <label style="display:flex;gap:9px;align-items:flex-start;font-size:12.5px;color:#8899aa;margin-bottom:20px;cursor:pointer;">
+        <input id="obTerms" type="checkbox" style="margin-top:2px;" />
+        <span>I agree to the Terms of Service and confirm the details above are correct.</span>
+      </label>
+
+      <div id="obErr" style="display:none;color:#f97878;font-size:12.5px;margin-bottom:12px;"></div>
+
+      <button id="obSubmit" style="width:100%;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#4fd1c5,#2c9e94);color:#07090f;font-weight:700;font-size:14px;cursor:pointer;">
+        Finish Setup &amp; Continue
+      </button>
+
+      <button id="obSignOut" style="width:100%;padding:10px;border:none;background:transparent;color:#8899aa;font-size:12.5px;margin-top:10px;cursor:pointer;">
+        Not you? Sign out
+      </button>
+    </div>
+  `;
+  document.body.innerHTML = '';
+  document.body.appendChild(wrap);
+
+  document.getElementById('obSignOut').onclick = async () => {
+    try { await sb.auth.signOut(); } catch (e) { /* ignore */ }
+    window.location.replace('./login.html');
+  };
+
+  document.getElementById('obSubmit').onclick = async () => {
+    const errEl = document.getElementById('obErr');
+    errEl.style.display = 'none';
+    const name = document.getElementById('obName').value.trim();
+    const agreed = document.getElementById('obTerms').checked;
+    if (!name) { errEl.textContent = 'Please enter your full name.'; errEl.style.display = 'block'; return; }
+    if (!agreed) { errEl.textContent = 'Please confirm the checkbox to continue.'; errEl.style.display = 'block'; return; }
+
+    const btn = document.getElementById('obSubmit');
+    btn.disabled = true; btn.textContent = 'Setting things up…';
+
+    const parts = name.split(/\s+/);
+    _profileData.fname = parts[0] || '';
+    _profileData.lname = parts.slice(1).join(' ') || '';
+    _profileData.display_name = name;
+    _profileData.onboarding_completed = true;
+
+    const ok = await _profileSave();
+    if (!ok) {
+      btn.disabled = false; btn.textContent = 'Finish Setup & Continue';
+      errEl.textContent = 'Something went wrong saving your details — please try again.';
+      errEl.style.display = 'block';
+      return;
+    }
+    // Reload so the normal boot sequence in DOMContentLoaded runs fresh —
+    // it will now see onboarding_completed=true and render the dashboard.
+    window.location.reload();
+  };
+}
