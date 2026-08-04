@@ -1848,6 +1848,15 @@
   background: transparent; border-color: transparent;
   color: var(--text3); cursor: default;
 }
+.chart-sort-dup {
+  background: none; border: none;
+  color: var(--text3); cursor: pointer;
+  font-size: 13px; padding: 2px 4px;
+  border-radius: 4px; flex-shrink: 0;
+  transition: color .15s;
+  line-height: 1;
+}
+.chart-sort-dup:hover { color: var(--blue); }
 .chart-sort-del {
   background: none; border: none;
   color: var(--text3); cursor: pointer;

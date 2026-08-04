@@ -1066,6 +1066,7 @@ function _renderDetail(id) {
                   onfocus="this.style.borderColor='rgba(96,165,250,.45)'"
                   onblur="this.style.borderColor='var(--glass-border)'"
                   ${!_detEditMode ? 'readonly' : ''}>
+                ${_detEditMode ? `<button class="chart-sort-dup" onclick="duplicateChartSlot(${id},${i})" title="Duplicate slot"><svg class="icn" aria-hidden="true"><use href="#ic-copy"></use></svg></button>` : ''}
                 ${_detEditMode ? `<button class="chart-sort-del" onclick="removeChartSlot(${id},${i})" title="Remove slot"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>` : ''}
               </div>
               ${hasImg && _detEditMode ? `<button class="chart-sort-clear" onclick="clearChartImage(${id},${i})"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg> Clear</button>` : ''}

@@ -1,0 +1,83 @@
+/* ══════════════════════════════════════════════════════════════
+   NxTGen — Zen Avatar (talking avatar for the Zen Focus Session)
+   Additive to zen-session.css. Mounts inside the existing
+   .zs-orb-wrap so it inherits sizing, positioning and the
+   breathing-phase state classes (inhale/hold/exhale/rest) that
+   zen-session.js already toggles on that wrapper — no changes to
+   the wrapper's own layout rules were needed.
+   ══════════════════════════════════════════════════════════════ */
+
+.zs-orb-wrap.zs-has-avatar .zs-orb-core{ opacity:0; }
+.zs-orb-wrap.zs-has-avatar .zs-orb-glow{ transition:transform 1.1s ease, opacity .6s ease; }
+.zs-orb-wrap.avatar-speaking .zs-orb-glow{ opacity:.95; transform:scale(1.1); }
+.zs-orb-wrap.avatar-speaking .zs-orb-ring{ border-color:rgba(45,212,191,0.5); }
+
+.zs-avatar{
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  pointer-events:none; user-select:none;
+}
+.zsav-svg{ width:78%; height:78%; overflow:visible; }
+
+/* ── Head / hair ── */
+.zsav-head{ transform-origin:110px 168px; animation:zsavHeadDrift 9s ease-in-out infinite; }
+.zsav-head-shape{ filter:drop-shadow(0 0 14px rgba(45,212,191,0.16)); }
+.zsav-hair{ fill:rgba(6,16,18,0.55); }
+@keyframes zsavHeadDrift{
+  0%,100%{ transform:rotate(0deg) translateY(0); }
+  25%{ transform:rotate(-1deg) translateY(-1px); }
+  50%{ transform:rotate(.35deg) translateY(0); }
+  75%{ transform:rotate(.9deg) translateY(-.5px); }
+}
+
+/* ── Brows ── */
+.zsav-brow{ fill:none; stroke:rgba(8,20,20,0.5); stroke-width:2.6; stroke-linecap:round; transition:transform .4s ease; }
+
+/* ── Eyes / blink ── */
+.zsav-eye-shape{ fill:rgba(255,255,255,0.88); }
+.zsav-iris{ fill:#0a2320; }
+.zsav-lid{ fill:#04070a; transform-origin:center; transform:scaleY(0); animation:zsavBlink 6.4s ease-in-out infinite; }
+.zsav-eye-r .zsav-lid{ animation-delay:.04s; }
+@keyframes zsavBlink{
+  0%,91%,100%{ transform:scaleY(0); }
+  93%{ transform:scaleY(1); }
+  95%{ transform:scaleY(.15); }
+  96.5%{ transform:scaleY(1); }
+  98.5%{ transform:scaleY(0); }
+}
+
+/* ── Nose ── */
+.zsav-nose{ fill:none; stroke:rgba(8,20,20,0.28); stroke-width:1.6; stroke-linecap:round; }
+
+/* ── Mouth ── */
+.zsav-mouth-neutral{ fill:none; stroke:rgba(6,16,16,0.55); stroke-width:2.4; stroke-linecap:round; opacity:1; transition:opacity .3s ease; }
+.zsav-mouth-content{ fill:none; stroke:rgba(6,16,16,0.55); stroke-width:2.4; stroke-linecap:round; opacity:0; transition:opacity .5s ease; }
+.zsav-mouth-open{ fill:rgba(6,16,16,0.62); opacity:0; transform-origin:110px 133px; transform:scaleY(.3); transition:opacity .1s ease, transform .1s ease; }
+
+/* ── States ── */
+.zs-avatar.state-speaking .zsav-mouth-neutral{ opacity:.25; }
+.zs-avatar.state-listening .zsav-head{ animation-duration:13s; }
+.zs-avatar.state-listening .zsav-brow{ transform:translateY(.4px); }
+.zs-avatar.state-breathing .zsav-head{ animation-duration:11s; }
+.zs-avatar.state-focus .zsav-head{ animation-duration:17s; }
+.zs-avatar.state-focus{ filter:saturate(.94); }
+.zs-avatar.state-focus .zsav-brow{ transform:translateY(-.5px); }
+.zs-avatar.state-complete .zsav-mouth-neutral{ opacity:0; }
+.zs-avatar.state-complete .zsav-mouth-content{ opacity:1; }
+.zs-avatar.state-complete .zsav-head{ animation-duration:14s; }
+
+/* ── Breathing-phase tie-in (reuses .zs-orb-wrap.inhale/hold/exhale/rest) ── */
+.zs-orb-wrap.inhale .zsav-shoulders{ transform:scale(1.05); transition:transform 1.2s ease; }
+.zs-orb-wrap.exhale .zsav-shoulders{ transform:scale(.92); transition:transform 1.2s ease; }
+.zs-orb-wrap.inhale .zsav-head{ transform:translateY(-1.5px); }
+.zs-orb-wrap.exhale .zsav-head{ transform:translateY(1px); }
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce){
+  .zsav-head, .zsav-lid{ animation:none !important; }
+  .zsav-shoulders{ transition:none !important; }
+}
+
+/* ── Fallback (avatar script unavailable / SVG unsupported) ──
+   zen-session.js only injects .zs-avatar markup when ZenAvatar is
+   present and supported; when it isn't, the classic orb core (with
+   its normal opacity) renders alone and nothing here applies. */

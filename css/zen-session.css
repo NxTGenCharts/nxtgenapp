@@ -102,6 +102,7 @@
   outline:2px solid var(--teal); outline-offset:2px;
 }
 .zs-icon-btn.zs-active{ border-color:var(--teal); color:var(--teal); background:rgba(45,212,191,0.12); }
+.zs-icon-btn.zs-cc-btn{ font-size:10px; font-weight:800; letter-spacing:.02em; }
 
 /* ── Phase progress dots ── */
 .zs-progress{ position:relative; z-index:2; display:flex; gap:5px; padding:12px 20px 0; }
@@ -165,6 +166,9 @@
 .zs-setup-actions button{ flex:1; }
 
 /* ── Completion summary ── */
+.zs-complete-orb{ margin-bottom:6px; }
+.zs-complete-orb .zs-orb-wrap{ width:120px; height:120px; margin-bottom:8px; }
+.zs-complete-orb .zs-orb-core{ width:48px; height:48px; }
 .zs-complete-badge{ font-size:11px; font-weight:700; color:var(--teal); text-transform:uppercase; letter-spacing:.1em; margin-bottom:8px; }
 .zs-complete-title{ font-family:var(--font-head,inherit); font-size:24px; font-weight:800; color:#eef4f4; text-align:center; }
 .zs-complete-copy{ font-size:13.5px; color:rgba(238,244,244,0.75); text-align:center; margin-top:8px; max-width:420px; line-height:1.6; }

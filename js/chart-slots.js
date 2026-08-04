@@ -9,6 +9,17 @@ function addChartSlot(id) {
   _renderDetail(id);          // instant UI update
   _bgSave(id);                // background save
 }
+function duplicateChartSlot(id, idx) {
+  const s = getTS(id);
+  if (!s.chartLabels || !s.chartLabels.length) s.chartLabels = [...CHART_LABELS];
+  if (!s.charts) s.charts = [];
+  const label = s.chartLabels[idx];
+  const img = s.charts[idx] || null;
+  s.chartLabels.splice(idx + 1, 0, label); // copy sits right next to the original, label included
+  s.charts.splice(idx + 1, 0, img);
+  _renderDetail(id);          // instant UI update
+  _bgSave(id);                // background save
+}
 function removeChartSlot(id, idx) {
   const s = getTS(id);
   if (!s.chartLabels) s.chartLabels = [...CHART_LABELS];

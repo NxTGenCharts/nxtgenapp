@@ -35,16 +35,99 @@
   const ZS_EMOTIONS = ['Calm', 'Focused', 'Neutral', 'Anxious', 'Frustrated', 'Impatient', 'Overconfident', 'Tired'];
 
   const ZS_LINES = {
-    arrival: ['Welcome to Zen.', 'For the next few minutes, there is nothing to chase.', 'Let the market wait.', 'Sit comfortably and allow your attention to settle.'],
-    breathing: ['Take a slow breath in through your nose.', 'Feel your lungs expand.', 'Hold gently.', 'Now breathe out slowly.', 'Release tension from your jaw, shoulders, hands, and chest.'],
-    body: ['Notice your posture.', 'Relax your shoulders.', 'Unclench your jaw.', 'Release tension from your hands.', 'Feel your feet supported.', 'Allow your body to become steady and comfortable.'],
-    emotion: ['Notice what you are feeling without judging it.', 'You do not need to act on every emotion.', 'Awareness gives you the ability to choose.'],
-    visualization: ['Picture yourself waiting patiently for your setup.', 'You do not need to trade every movement.', 'You only need to execute your edge.', 'Let price come to your level.', 'Follow your process, not your emotions.', 'A missed trade is not a reason to force the next one.'],
-    commitment: ['I will wait for confirmation.', 'I will respect my risk.', 'I will not chase.', 'I will accept losses without revenge trading.', 'I will protect my capital and my mindset.'],
-    closing: ['You are prepared.', 'Trade with patience.', 'Trade with clarity.', 'Your edge is discipline.', 'Wait for your setup. Execute with intention.'],
+    arrival: [
+      'Let the last few hours settle. Whatever happened before this moment can wait outside this room.',
+      "Nothing here requires you to react. For the next few minutes, there is nothing to chase and nothing to recover.",
+      'Set your position, physically and mentally. Let your attention narrow to just this space.',
+      "The market will still be there when you return. Right now, it doesn't need you.",
+      'Notice any residue from your last trade — a win, a loss, a hesitation — and let it sit without needing to solve it.',
+      "You don't owe the market an immediate response. Give yourself this pause first.",
+      "Screens, notifications, other tabs — none of it needs your attention right now. Just this.",
+      'This is a deliberate reset, not a break from discipline. It\u2019s part of it.',
+    ],
+    breathing: [
+      'For the next stretch, let your breath lead. In through the nose, out slowly, with nothing forced.',
+      'Match your attention to the rhythm on screen. There is nothing else to manage right now.',
+      "If your mind drifts to a trade, a number, a decision — that's fine. Come back to the breath.",
+      'A longer exhale than inhale tends to settle the nervous system. Let that happen on its own.',
+      "This isn't about control. It's about noticing what happens when you stop forcing things.",
+    ],
+    body: [
+      'Unclench your jaw. Let your tongue rest away from the roof of your mouth.',
+      'Drop your shoulders away from your ears. Let your arms hang heavy.',
+      "Open your hands. Notice where you've been gripping — a mouse, a pen, your own thoughts.",
+      'Settle your weight evenly. Let your spine lengthen without effort.',
+      "Soften your eyes. There's nothing you need to track right now.",
+      'Let your breathing find its own rhythm — no need to control it yet.',
+      "Notice where tension has collected. You don't have to fix it, just notice it.",
+      'A steady body makes a steady mind easier to hold onto.',
+    ],
+    emotion: [
+      "Name what's present, if anything is. You don't have to change it — just see it clearly.",
+      'A feeling is information, not an instruction. You can notice frustration without acting on it.',
+      "Whatever your last trade was, it isn't a verdict on your ability. It's one data point.",
+      'The urge to make something happen right now is worth noticing — and worth setting down.',
+      "Separate who you are from what the market just did. They aren't the same thing.",
+      'If there\u2019s an impulse to recover a loss quickly, let it pass through without following it.',
+    ],
+    visualization: [
+      "Picture your process, not a specific outcome — the setup you're waiting for, the conditions that confirm it.",
+      "You don't need to force an opportunity that isn't there yet. Waiting is part of the work.",
+      'See yourself checking your plan before your emotions, not after.',
+      "A missed move isn't a mistake — it's the cost of only taking trades that meet your criteria.",
+      "Picture your risk defined before you're in the trade, not while you're already in it.",
+      "Your edge isn't predicting the market. It's executing your process consistently when it shows up.",
+      "If nothing meets your conditions today, that's a valid outcome too.",
+      "See yourself walking away from a trade that almost fits. Almost isn't your criteria.",
+    ],
+    commitment: [
+      'I will wait for my setup to confirm before I act.',
+      'I will size my risk before I decide anything else.',
+      'I will not chase a move I missed.',
+      'A loss will not decide my next trade — my plan will.',
+      'I am responsible for my execution, not the outcome of any single trade.',
+    ],
+    closing: [
+      "You're not returning to predict the market. You're returning to observe it.",
+      'Your job from here is simple: watch for your conditions, and act only when they\u2019re met.',
+      'Nothing about this moment requires urgency. Let the market come to you.',
+      'Keep your attention on what\u2019s yours to control — your risk, your patience, your execution.',
+      "You're ready to look at the screen again, without needing it to hand you anything right away.",
+      "Take this composure with you. The market doesn't need to be won today — just handled well.",
+    ],
+  };
+
+  // Short breathing-loop cues — spoken sparingly (see zsStartBreathingLoop),
+  // never on every cycle, so the loop doesn't talk over the silence it's meant to create.
+  const ZS_BREATH_CUES = {
+    inhale: ['Breathe in.', 'In, gently.', 'Let the breath in.'],
+    exhale: ['Breathe out, slowly.', 'Let it go.', 'Release, unhurried.'],
   };
 
   const ZS_BREATH_PATTERN = { inhale: 4, hold: 2, exhale: 6, rest: 2 }; // seconds — calm default
+
+  // ── No-repeat line picker (per session) ─────────────────────────
+  // Each pool (arrival/body/emotion/...) draws without replacement
+  // until exhausted, then reshuffles, so a session never reads the
+  // same line twice back-to-back and rarely repeats at all.
+  let _zsUsedLines = {};
+  function zsResetUsedLines() { _zsUsedLines = {}; }
+  function zsPickLine(poolKey, pool) {
+    if (!pool || !pool.length) return '';
+    if (pool.length === 1) return pool[0];
+    if (!_zsUsedLines[poolKey]) _zsUsedLines[poolKey] = new Set();
+    const used = _zsUsedLines[poolKey];
+    if (used.size >= pool.length) used.clear();
+    let idx, guard = 0;
+    do { idx = Math.floor(Math.random() * pool.length); guard++; }
+    while (used.has(idx) && guard < 20);
+    used.add(idx);
+    return pool[idx];
+  }
+  function zsEstimateSpeechMs(text) {
+    const words = String(text || '').trim().split(/\s+/).filter(Boolean).length;
+    return Math.max(700, Math.round(words * 340)); // ~176 wpm at a calm, natural pace
+  }
 
   // ── Config (launcher selections) ──────────────────────────────
   let _zsConfig = { duration: 10, intention: null, mode: 'guided' };
@@ -58,6 +141,7 @@
   let _zsTickTimer = null;
   let _zsLineTimer = null;
   let _zsBreathTimer = null;
+  let _zsQuietTimer = null;
   let _zsBreathStep = 'inhale';
   let _zsBreathStepElapsed = 0;
   let _zsEmotionBefore = null;
@@ -86,20 +170,141 @@
 
   /* ════════════════════════════════════════════════════════════
      NARRATION (Web Speech API — see AUDIO UPGRADE PATH note above)
+
+     Picks the calmest, most natural available female voice, speaks
+     sentence-by-sentence with a brief natural gap between sentences
+     (instead of one long run-on utterance), and exposes pause/resume
+     so the pause control can genuinely hold position mid-line rather
+     than cancel and restart it.
      ════════════════════════════════════════════════════════════ */
+
+  let _zsPreferredVoice = null, _zsVoiceListPrimed = false;
+  const ZS_PREFERRED_VOICE_NAMES = [
+    'Samantha', 'Google UK English Female', 'Serena', 'Moira', 'Karen', 'Victoria', 'Ava',
+    'Microsoft Aria Online (Natural) - English (United States)',
+    'Microsoft Jenny Online (Natural) - English (United States)',
+    'Microsoft Libby Online (Natural) - English (United Kingdom)',
+    'Microsoft Zira Desktop - English (United States)',
+    'Google US English',
+  ];
+  function zsPickVoice() {
+    if (typeof window.speechSynthesis === 'undefined') return null;
+    let voices = [];
+    try { voices = window.speechSynthesis.getVoices() || []; } catch (e) {}
+    if (!voices.length) return _zsPreferredVoice;
+    for (const name of ZS_PREFERRED_VOICE_NAMES) {
+      const v = voices.find(v => v.name === name);
+      if (v) { _zsPreferredVoice = v; return v; }
+    }
+    const femaleHint = /female|zira|aria|jenny|libby|samantha|victoria|susan|karen|moira|serena|fiona|ava|emma|olivia|salli|joanna|kimberly|woman/i;
+    const localEnFemale = voices.find(v => /^en/i.test(v.lang) && v.localService && femaleHint.test(v.name));
+    if (localEnFemale) { _zsPreferredVoice = localEnFemale; return localEnFemale; }
+    const enFemale = voices.find(v => /^en/i.test(v.lang) && femaleHint.test(v.name));
+    if (enFemale) { _zsPreferredVoice = enFemale; return enFemale; }
+    const localEn = voices.find(v => /^en/i.test(v.lang) && v.localService);
+    if (localEn) { _zsPreferredVoice = localEn; return localEn; }
+    const en = voices.find(v => /^en/i.test(v.lang));
+    _zsPreferredVoice = en || voices[0] || null;
+    return _zsPreferredVoice;
+  }
+  if (typeof window.speechSynthesis !== 'undefined') {
+    try {
+      window.speechSynthesis.addEventListener?.('voiceschanged', () => { if (!_zsVoiceListPrimed) { _zsVoiceListPrimed = true; zsPickVoice(); } });
+    } catch (e) {}
+  }
+
   const ZenNarration = {
-    speak(text) {
-      if (_zsConfig.mode === 'silent' || _zsAudioPrefs.muted) return;
-      if (typeof window.speechSynthesis === 'undefined') return;
-      try {
-        window.speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(text);
-        u.rate = 0.92; u.pitch = 1; u.volume = _zsAudioPrefs.voiceVol;
-        window.speechSynthesis.speak(u);
-      } catch (e) { /* speech synthesis unavailable — captions still show */ }
+    _queue: [],
+    _speaking: false,
+    _paused: false,
+    _onEndCb: null,
+    _onStartCb: null,
+    _onBoundaryCb: null,
+
+    supported() { return typeof window.speechSynthesis !== 'undefined'; },
+
+    // opts: { onStart, onEnd, onBoundary }
+    speak(text, opts) {
+      opts = opts || {};
+      this.stop(); // never let two utterances overlap
+      if (_zsConfig.mode === 'silent' || _zsAudioPrefs.muted || !this.supported()) {
+        // No audio will actually play — skip onStart so callers don't
+        // animate a talking mouth with nothing being said (captions,
+        // which are shown independently of this call, still cover it).
+        if (typeof opts.onEnd === 'function') setTimeout(opts.onEnd, zsEstimateSpeechMs(text));
+        return;
+      }
+      const sentences = String(text || '').split(/(?<=[.!?\u2026])\s+/).filter(Boolean);
+      this._queue = sentences.length ? sentences : [String(text || '')];
+      this._onEndCb = opts.onEnd || null;
+      this._onStartCb = opts.onStart || null;
+      this._onBoundaryCb = opts.onBoundary || null;
+      this._speaking = true;
+      this._paused = false;
+      this._playNext();
     },
-    stop() { try { if (typeof window.speechSynthesis !== 'undefined') window.speechSynthesis.cancel(); } catch (e) {} },
+
+    _playNext() {
+      if (!this._speaking) return;
+      if (!this._queue.length) {
+        this._speaking = false;
+        const cb = this._onEndCb; this._onEndCb = null;
+        if (typeof cb === 'function') cb();
+        return;
+      }
+      const sentence = this._queue.shift();
+      let u;
+      try { u = new SpeechSynthesisUtterance(sentence); } catch (e) { this._speaking = false; return; }
+      const voice = zsPickVoice();
+      if (voice) u.voice = voice;
+      u.rate = 0.96; u.pitch = 0.98; u.volume = _zsAudioPrefs.voiceVol;
+      u.onstart = () => { if (typeof this._onStartCb === 'function') { this._onStartCb(); this._onStartCb = null; } };
+      u.onboundary = (e) => { if (!e || e.name === 'word') { if (typeof this._onBoundaryCb === 'function') this._onBoundaryCb(); } };
+      u.onend = () => { if (!this._speaking) return; setTimeout(() => this._playNext(), this._queue.length ? 260 : 0); };
+      u.onerror = () => { if (!this._speaking) return; setTimeout(() => this._playNext(), 0); };
+      try { window.speechSynthesis.speak(u); } catch (e) { this._speaking = false; }
+    },
+
+    pause() {
+      this._paused = true;
+      try { if (this.supported() && typeof window.speechSynthesis.pause === 'function') window.speechSynthesis.pause(); } catch (e) {}
+    },
+    resume() {
+      if (!this._paused) return;
+      this._paused = false;
+      try { if (this.supported() && typeof window.speechSynthesis.resume === 'function') window.speechSynthesis.resume(); } catch (e) {}
+    },
+    stop() {
+      this._queue = [];
+      this._speaking = false;
+      this._paused = false;
+      this._onEndCb = null; this._onStartCb = null; this._onBoundaryCb = null;
+      try { if (this.supported()) window.speechSynthesis.cancel(); } catch (e) {}
+    },
   };
+
+  // ── Unified speak call: drives narration + avatar lip-sync + captions together ──
+  function zsAvatarTarget() { return document.getElementById('zs-live'); }
+  function zsSpeakLine(text, opts) {
+    opts = opts || {};
+    const target = zsAvatarTarget();
+    const hasAvatar = typeof window.ZenAvatar !== 'undefined';
+    ZenNarration.speak(text, {
+      onStart() {
+        if (hasAvatar) { ZenAvatar.startTalking(target); }
+        const wrap = target && target.querySelector('.zs-orb-wrap');
+        if (wrap) wrap.classList.add('avatar-speaking');
+        if (typeof opts.onStart === 'function') opts.onStart();
+      },
+      onBoundary() { if (hasAvatar) ZenAvatar.pulseMouth(target); },
+      onEnd() {
+        if (hasAvatar) { ZenAvatar.stopTalking(target); ZenAvatar.setState(target, opts.restState || 'listening'); }
+        const wrap = target && target.querySelector('.zs-orb-wrap');
+        if (wrap) wrap.classList.remove('avatar-speaking');
+        if (typeof opts.onEnd === 'function') opts.onEnd();
+      },
+    });
+  }
 
   /* ════════════════════════════════════════════════════════════
      AMBIENT SOUND (generated WebAudio pad — see AUDIO UPGRADE PATH note above)
@@ -225,6 +430,23 @@
     document.getElementById('zs-progress').innerHTML = '';
   }
 
+  // Shared central visual — the classic breathing orb, with the talking
+  // avatar layered on top when the avatar module is available and
+  // supported. idAttr is only applied to the wrap during the live
+  // session (so the setup screen's copy never collides on id lookups
+  // with the live one, since both can sit in the DOM at once).
+  function zsOrbHtml(idAttr, extraChildren) {
+    const hasAvatar = (typeof window.ZenAvatar !== 'undefined') && window.ZenAvatar.supported();
+    const id = idAttr ? ` id="${idAttr}"` : '';
+    const cls = 'zs-orb-wrap idle' + (hasAvatar ? ' zs-has-avatar' : '');
+    return `
+      <div class="${cls}"${id}>
+        <div class="zs-orb-glow"></div><div class="zs-orb-ring r2"></div><div class="zs-orb-ring"></div><div class="zs-orb-core"></div>
+        ${hasAvatar ? window.ZenAvatar.markup() : ''}
+        ${extraChildren || ''}
+      </div>`;
+  }
+
   function zsRenderSetup() {
     const wrap = document.getElementById('zs-setup');
     if (!wrap) return;
@@ -233,7 +455,7 @@
       `<div class="zs-p-seg-btn ${_zsReadinessBefore === n ? 'active' : ''}" style="min-width:38px" onclick="zsSetReadinessBefore(${n})">${n}</div>`
     ).join('');
     wrap.innerHTML = `
-      <div class="zs-orb-wrap idle"><div class="zs-orb-glow"></div><div class="zs-orb-ring r2"></div><div class="zs-orb-ring"></div><div class="zs-orb-core"></div></div>
+      ${zsOrbHtml()}
       <div class="zs-setup-title">${d.label}</div>
       <div class="zs-setup-sub">${d.desc} — about ${d.mins} minutes.</div>
       <div class="zs-setup-summary">
@@ -288,6 +510,7 @@
     _zsCommitIdx = 0;
     _zsSessionStartedAt = Date.now();
     _zsStage = 'live';
+    zsResetUsedLines();
     zsShowStage('live');
     zsRenderProgressDots();
     if (_zsAudioPrefs.ambientVol > 0) ZenAmbient.start();
@@ -305,7 +528,9 @@
   }
 
   function zsRunPhase(idx) {
-    clearInterval(_zsTickTimer); clearInterval(_zsLineTimer); clearInterval(_zsBreathTimer);
+    clearInterval(_zsTickTimer); clearInterval(_zsLineTimer); clearInterval(_zsBreathTimer); clearTimeout(_zsQuietTimer);
+    ZenNarration.stop(); // moving phases always cuts any in-flight line — never carries over or overlaps
+    if (typeof window.ZenAvatar !== 'undefined') { window.ZenAvatar.stopTalking(zsAvatarTarget()); }
     if (idx < 0) idx = 0;
     if (idx >= _zsPhases.length) { zsFinishSession(); return; }
     _zsPhaseIdx = idx; _zsPhaseElapsed = 0;
@@ -326,7 +551,8 @@
       zsStartBreathingLoop();
     } else {
       live.innerHTML = zsGuideHtml();
-      zsStartLineCycle(phase);
+      // Visualization reads as more settled/concentrated than arrival or closing.
+      zsStartLineCycle(phase, phase.key === 'visualization' ? 'focus' : 'listening');
     }
 
     _zsTickTimer = setInterval(() => {
@@ -356,57 +582,85 @@
 
   function zsGuideHtml() {
     return `
-      <div class="zs-orb-wrap idle" id="zs-orb"><div class="zs-orb-glow"></div><div class="zs-orb-ring r2"></div><div class="zs-orb-ring"></div><div class="zs-orb-core"></div></div>
-      <div class="zs-guide-text" id="zs-guide-text"></div>`;
+      ${zsOrbHtml('zs-orb')}
+      <div class="zs-guide-text" id="zs-guide-text" aria-live="polite"></div>`;
   }
 
-  function zsStartLineCycle(phase) {
+  // Cycles through a phase's line pool with real pauses in between —
+  // the line is spoken once, the avatar settles into "listening" while
+  // it's read, and only after a beat does the next line begin. Total
+  // cadence still respects the phase duration (per-line budget), it
+  // just doesn't fill every second of it with speech.
+  function zsStartLineCycle(phase, restState) {
+    restState = restState || 'listening';
+    const t0 = document.getElementById('zs-guide-text');
     if (_zsConfig.mode === 'silent') {
       // Silent focus: show only the phase title, no scripted lines.
-      const t = document.getElementById('zs-guide-text');
-      if (t) t.textContent = phase.title + '.';
+      if (t0) t0.textContent = phase.title + '.';
+      if (typeof window.ZenAvatar !== 'undefined') window.ZenAvatar.setState(zsAvatarTarget(), restState);
       return;
     }
     const lines = phase.lines;
-    const per = Math.max(2.5, phase.duration / lines.length);
-    let i = 0;
+    const per = Math.max(3.2, phase.duration / lines.length);
     const show = () => {
       const t = document.getElementById('zs-guide-text');
       if (!t) return;
+      const line = zsPickLine(phase.key, lines);
       t.style.opacity = 0;
+      clearTimeout(_zsQuietTimer);
       setTimeout(() => {
-        t.textContent = lines[i % lines.length];
-        t.style.opacity = 1;
-        if (_zsConfig.mode === 'guided') ZenNarration.speak(lines[i % lines.length]);
+        if (!document.getElementById('zs-guide-text')) return; // phase moved on mid-fade
+        t.textContent = line;
+        t.style.opacity = _zsAudioPrefs.captions ? 1 : 0.001;
+        if (_zsConfig.mode === 'guided') {
+          zsSpeakLine(line, { restState });
+        } else {
+          if (typeof window.ZenAvatar !== 'undefined') window.ZenAvatar.setState(zsAvatarTarget(), restState);
+        }
+        // Let the line breathe: settle to a quieter avatar state for the
+        // remainder of its on-screen dwell instead of talking the whole time.
+        const quietAfter = Math.min(zsEstimateSpeechMs(line) + 500, per * 1000 * 0.75);
+        _zsQuietTimer = setTimeout(() => {
+          if (typeof window.ZenAvatar !== 'undefined') window.ZenAvatar.setState(zsAvatarTarget(), restState);
+        }, quietAfter);
       }, _zsReducedMotion ? 0 : 250);
-      i++;
     };
     show();
     _zsLineTimer = setInterval(() => { if (!_zsPaused) show(); }, per * 1000);
   }
 
   function zsBreathingHtml() {
-    return `
-      <div class="zs-orb-wrap idle" id="zs-orb">
-        <div class="zs-orb-glow"></div><div class="zs-orb-ring r2"></div><div class="zs-orb-ring"></div><div class="zs-orb-core"></div>
+    const extra = `
         <div class="zs-breath-lbl" id="zs-breath-lbl">Breathe In</div>
-        <div class="zs-breath-count" id="zs-breath-count"></div>
-      </div>
+        <div class="zs-breath-count" id="zs-breath-count"></div>`;
+    return `
+      ${zsOrbHtml('zs-orb', extra)}
       <div class="zs-guide-text" id="zs-guide-text" style="font-size:13px;color:rgba(238,244,244,0.55)">Let your breathing settle into this rhythm.</div>`;
   }
 
   function zsStartBreathingLoop() {
     const steps = [['inhale', 'Breathe In', ZS_BREATH_PATTERN.inhale], ['hold', 'Hold', ZS_BREATH_PATTERN.hold], ['exhale', 'Breathe Out', ZS_BREATH_PATTERN.exhale], ['rest', 'Rest', ZS_BREATH_PATTERN.rest]];
-    let stepIdx = 0, stepElapsed = 0;
+    let stepIdx = 0, stepElapsed = 0, cycles = 0;
+    const target = zsAvatarTarget();
+    if (typeof window.ZenAvatar !== 'undefined') window.ZenAvatar.setState(target, 'breathing');
     const apply = () => {
       const [cls, lbl, secs] = steps[stepIdx];
       const orb = document.getElementById('zs-orb');
-      if (orb) orb.className = 'zs-orb-wrap ' + cls;
+      if (orb) {
+        ['inhale', 'hold', 'exhale', 'rest'].forEach(c => orb.classList.remove(c));
+        orb.classList.remove('idle');
+        orb.classList.add(cls);
+      }
       const lblEl = document.getElementById('zs-breath-lbl');
       if (lblEl) lblEl.textContent = lbl;
-      if (_zsConfig.mode === 'guided' && stepElapsed === 0) {
-        if (cls === 'inhale') ZenNarration.speak('Breathe in.');
-        else if (cls === 'exhale') ZenNarration.speak('Breathe out slowly.');
+      if (stepIdx === 0 && stepElapsed === 0) cycles++;
+      // Speak the cue for the first two full cycles, then let the
+      // visual rhythm carry it — checking back in only occasionally
+      // so the loop isn't narrating over every single breath.
+      const shouldSpeak = _zsConfig.mode === 'guided' && stepElapsed === 0 && (cycles <= 2 || cycles % 4 === 0);
+      if (shouldSpeak) {
+        if (cls === 'inhale') zsSpeakLine(zsPickLine('breath-in', ZS_BREATH_CUES.inhale), { restState: 'breathing' });
+        else if (cls === 'exhale') zsSpeakLine(zsPickLine('breath-out', ZS_BREATH_CUES.exhale), { restState: 'breathing' });
       }
     };
     apply();
@@ -428,8 +682,9 @@
     const chips = ZS_EMOTIONS.map(e =>
       `<div class="zs-emo-chip ${_zsEmotionBefore === e ? 'active' : ''}" onclick="zsPickEmotionBefore('${e}')">${e}</div>`
     ).join('');
+    if (typeof window.ZenAvatar !== 'undefined') setTimeout(() => window.ZenAvatar.setState(zsAvatarTarget(), 'focus'), 0);
     return `
-      <div class="zs-orb-wrap idle" id="zs-orb"><div class="zs-orb-glow"></div><div class="zs-orb-ring r2"></div><div class="zs-orb-ring"></div><div class="zs-orb-core"></div></div>
+      ${zsOrbHtml('zs-orb')}
       <div class="zs-guide-text" id="zs-guide-text">${_zsConfig.mode === 'silent' ? 'Notice what you are feeling.' : 'Notice what you are feeling, without judging it.'}</div>
       <div class="zs-emo-grid">${chips}</div>
       <div style="font-size:10.5px;color:rgba(238,244,244,0.4);margin-top:10px">Optional — tap Next when ready.</div>`;
@@ -443,9 +698,10 @@
 
   function zsCommitmentHtml() {
     const dots = ZS_LINES.commitment.map((_, i) => `<div class="zs-commit-dot" id="zs-cdot-${i}"></div>`).join('');
+    if (typeof window.ZenAvatar !== 'undefined') setTimeout(() => window.ZenAvatar.setState(zsAvatarTarget(), 'focus'), 0);
     return `
-      <div class="zs-orb-wrap idle" id="zs-orb"><div class="zs-orb-glow"></div><div class="zs-orb-ring r2"></div><div class="zs-orb-ring"></div><div class="zs-orb-core"></div></div>
-      <div class="zs-commit-line" id="zs-commit-line"></div>
+      ${zsOrbHtml('zs-orb')}
+      <div class="zs-commit-line" id="zs-commit-line" aria-live="polite"></div>
       <div class="zs-commit-dots">${dots}</div>
       <div id="zs-commit-cta" style="margin-top:18px;width:100%;max-width:280px;display:none">
         <button class="zs-cta" onclick="zsCommitToPlan()">${_ic('check-c')} Commit to My Plan</button>
@@ -461,8 +717,8 @@
       line.style.opacity = 0;
       setTimeout(() => {
         line.textContent = lines[_zsCommitIdx];
-        line.style.opacity = 1;
-        if (_zsConfig.mode === 'guided') ZenNarration.speak(lines[_zsCommitIdx]);
+        line.style.opacity = _zsAudioPrefs.captions ? 1 : 0.001;
+        if (_zsConfig.mode === 'guided') zsSpeakLine(lines[_zsCommitIdx], { restState: 'focus' });
       }, _zsReducedMotion ? 0 : 250);
     }
     _zsCommitIdx++;
@@ -486,13 +742,40 @@
   window.zsTogglePause = function () {
     if (_zsStage !== 'live') return;
     _zsPaused = !_zsPaused;
-    ZenNarration.stop();
+    const target = zsAvatarTarget();
+    const wrap = target && target.querySelector('.zs-orb-wrap');
+    if (_zsPaused) {
+      // Genuinely hold position — pause() keeps the current utterance
+      // queued instead of cancelling it, so resuming doesn't restart
+      // the line from the beginning or talk over itself.
+      ZenNarration.pause();
+      if (typeof window.ZenAvatar !== 'undefined') { window.ZenAvatar.stopTalking(target); window.ZenAvatar.setState(target, 'listening'); }
+      if (wrap) wrap.classList.remove('avatar-speaking');
+    } else {
+      ZenNarration.resume();
+      // The browser resumes the audio itself; restart the visual side
+      // (mouth movement, glow) if a line was actually mid-speech.
+      if (ZenNarration._speaking && typeof window.ZenAvatar !== 'undefined') {
+        window.ZenAvatar.startTalking(target);
+        if (wrap) wrap.classList.add('avatar-speaking');
+      }
+    }
     zsRenderBottomForStage();
   };
   window.zsToggleSound = function () {
     _zsAudioPrefs.muted = !_zsAudioPrefs.muted;
-    if (_zsAudioPrefs.muted) { ZenNarration.stop(); ZenAmbient.stop(); } else if (_zsStage === 'live') { ZenAmbient.start(); }
+    if (_zsAudioPrefs.muted) {
+      ZenNarration.stop(); ZenAmbient.stop();
+      if (typeof window.ZenAvatar !== 'undefined') { window.ZenAvatar.stopTalking(zsAvatarTarget()); window.ZenAvatar.setState(zsAvatarTarget(), 'listening'); }
+    } else if (_zsStage === 'live') { ZenAmbient.start(); }
     zsSaveAudioPrefs();
+    zsRenderBottomForStage();
+  };
+  window.zsToggleCaptions = function () {
+    _zsAudioPrefs.captions = !_zsAudioPrefs.captions;
+    zsSaveAudioPrefs();
+    const t = document.getElementById('zs-guide-text') || document.getElementById('zs-commit-line');
+    if (t && t.textContent) t.style.opacity = _zsAudioPrefs.captions ? 1 : 0.001;
     zsRenderBottomForStage();
   };
   window.zsToggleFullscreen = function () {
@@ -511,6 +794,7 @@
       <button class="zs-icon-btn zs-primary" onclick="zsTogglePause()" aria-label="${_zsPaused ? 'Resume' : 'Pause'}">${_ic(_zsPaused ? 'play' : 'pause')}</button>
       <button class="zs-icon-btn" onclick="zsNextPhase()" aria-label="Next phase">${_ic('skip-forward')}</button>
       <button class="zs-icon-btn ${_zsAudioPrefs.muted ? '' : 'zs-active'}" onclick="zsToggleSound()" aria-label="${_zsAudioPrefs.muted ? 'Unmute' : 'Mute'}">${_ic(_zsAudioPrefs.muted ? 'volume-off' : 'volume')}</button>
+      <button class="zs-icon-btn zs-cc-btn ${_zsAudioPrefs.captions ? 'zs-active' : ''}" onclick="zsToggleCaptions()" aria-label="${_zsAudioPrefs.captions ? 'Hide captions' : 'Show captions'}" title="${_zsAudioPrefs.captions ? 'Hide captions' : 'Show captions'}">CC</button>
       <button class="zs-icon-btn" onclick="zsToggleFullscreen()" aria-label="Toggle fullscreen">${_ic('expand')}</button>`;
   }
 
@@ -533,9 +817,10 @@
   };
 
   function zsCloseOverlay() {
-    clearInterval(_zsTickTimer); clearInterval(_zsLineTimer); clearInterval(_zsBreathTimer); clearTimeout(_zsLineTimer);
+    clearInterval(_zsTickTimer); clearInterval(_zsLineTimer); clearInterval(_zsBreathTimer); clearTimeout(_zsLineTimer); clearTimeout(_zsQuietTimer);
     ZenNarration.stop();
     ZenAmbient.stop();
+    if (typeof window.ZenAvatar !== 'undefined') window.ZenAvatar.reset(zsAvatarTarget());
     document.removeEventListener('keydown', zsKeyHandler);
     const overlay = document.getElementById('zs-overlay');
     if (overlay) overlay.classList.remove('open');
@@ -549,7 +834,7 @@
      ════════════════════════════════════════════════════════════ */
 
   function zsFinishSession() {
-    clearInterval(_zsTickTimer); clearInterval(_zsLineTimer); clearInterval(_zsBreathTimer);
+    clearInterval(_zsTickTimer); clearInterval(_zsLineTimer); clearInterval(_zsBreathTimer); clearTimeout(_zsQuietTimer);
     ZenNarration.stop(); ZenAmbient.stop();
     _zsStage = 'complete';
     zsShowStage('complete');
@@ -557,6 +842,7 @@
     document.getElementById('zs-remaining').textContent = '0:00';
     document.getElementById('zs-bottom').innerHTML = '';
     zsRenderComplete();
+    if (typeof window.ZenAvatar !== 'undefined') window.ZenAvatar.setState(document.getElementById('zs-complete'), 'complete');
   }
 
   function zsRenderComplete() {
@@ -571,6 +857,7 @@
     ).join('');
 
     wrap.innerHTML = `
+      <div class="zs-complete-orb">${zsOrbHtml()}</div>
       <div class="zs-complete-badge">Zen Session Complete</div>
       <div class="zs-complete-title">You are prepared.</div>
       <div class="zs-complete-copy">Your focus is clear. Your trading plan is active. Trade only when your setup is present.</div>

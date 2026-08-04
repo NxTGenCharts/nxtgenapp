@@ -1040,6 +1040,7 @@
   function _sigCloseNotifPanelOnce(e) {
     const panel = document.getElementById('sig-notif-panel');
     const bell = document.getElementById('sig-notif-bell');
+    const confirmOverlay = document.getElementById('sig-notif-confirm-overlay');
     // Buttons like "Select" / "Mark all read" re-render #sig-notif-head-wrap's
     // innerHTML on click, which detaches the clicked <button> from the DOM
     // *during* this same click's bubble phase. By the time this handler runs,
@@ -1052,7 +1053,16 @@
     const path = typeof e.composedPath === 'function' ? e.composedPath() : [e.target];
     const insidePanel = !!panel && path.includes(panel);
     const insideBell = !!bell && path.includes(bell);
-    if (panel && !insidePanel && !insideBell) {
+    // The "Delete selected" / "Clear all" confirmation dialog renders into
+    // its own overlay appended to <body>, as a sibling of the panel rather
+    // than a child of it — so a click on its Confirm/Cancel buttons (or its
+    // backdrop) never shows up as "inside" the panel above. Left unguarded,
+    // that made confirming a delete also dismiss the whole notifications
+    // dropdown in the same click. Treat any click that lands inside that
+    // confirm dialog as part of the notifications flow too, so the panel
+    // only closes on a genuine click elsewhere after the dialog is done.
+    const insideConfirm = !!confirmOverlay && path.includes(confirmOverlay);
+    if (panel && !insidePanel && !insideBell && !insideConfirm) {
       panel.remove();
       document.removeEventListener('click', _sigCloseNotifPanelOnce);
       document.removeEventListener('keydown', _sigNotifEscHandler);
