@@ -70,17 +70,90 @@ function _accAddBusinessDays(startDate, days) {
   return d;
 }
 
+// Converts a wall-clock date/time (as entered in the Payout Schedule
+// settings) into an absolute instant, interpreted in the ACCOUNT'S
+// configured timezone (Account tab → Timezone, the same setting the
+// topbar clock reads via getUserTz()) — not the visiting device's local
+// timezone. Without this, "10:00 AM" would mean different real moments
+// depending on what timezone the browser happens to be in.
+function _accZonedTimeToUtc(y, m, d, hh, mm, tz) {
+  const guess = Date.UTC(y, m - 1, d, hh, mm, 0);
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz, hour12: false,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+    }).formatToParts(new Date(guess));
+    const map = {};
+    parts.forEach(p => { if (p.type !== 'literal') map[p.type] = parseInt(p.value, 10); });
+    const wallAtGuess = Date.UTC(map.year, (map.month || 1) - 1, map.day || 1, map.hour === 24 ? 0 : (map.hour || 0), map.minute || 0, map.second || 0);
+    return new Date(guess - (wallAtGuess - guess));
+  } catch (e) {
+    return new Date(guess); // invalid tz string — fall back to treating input as UTC
+  }
+}
+
 // Combines an account's nextPayoutDate + nextPayoutTime into a real Date
 // object, so "the payout date is reached" means the exact scheduled
 // moment, not just the calendar day. Returns null when no date is set yet.
+//
+// Canonical source of truth is `nextPayoutAt` — an ISO UTC instant frozen
+// at the moment the schedule was last saved, using whatever timezone was
+// active THEN. That's what makes "10:00 AM Lagos" stay the same real-world
+// moment even if the account's timezone setting is later switched to New
+// York — only the *displayed* wall-clock time changes, not the instant.
+// Accounts saved before this existed (nextPayoutDate/nextPayoutTime only,
+// no nextPayoutAt) fall back to interpreting those against the CURRENT
+// timezone, same as before.
 function _accPayoutDateTimeValue(acc) {
+  if (acc.nextPayoutAt) {
+    const d = new Date(acc.nextPayoutAt);
+    if (!isNaN(d.getTime())) return d;
+  }
   const nextDate = acc.nextPayoutDate || '';
   if (!nextDate) return null;
   const p = _accPayoutDefaults(acc);
-  const d = _accParseDate(nextDate);
+  const [y, m, d] = nextDate.split('-').map(Number);
   const [hh, mm] = (p.nextPayoutTime || '00:00').split(':').map(Number);
-  d.setHours(hh || 0, mm || 0, 0, 0);
-  return d;
+  const tz = (typeof getUserTz === 'function') ? getUserTz() : null;
+  return tz ? _accZonedTimeToUtc(y, m || 1, d || 1, hh || 0, mm || 0, tz)
+            : new Date(y, (m || 1) - 1, d || 1, hh || 0, mm || 0, 0, 0);
+}
+
+// The reverse conversion — given an absolute instant, what date/time does
+// it read as in a given IANA timezone. Used to correctly re-populate the
+// schedule form (in the CURRENTLY active timezone) from a frozen instant.
+function _accUtcToZonedParts(date, tz) {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz, hour12: false,
+      year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+    }).formatToParts(date);
+    const map = {};
+    parts.forEach(p => { if (p.type !== 'literal') map[p.type] = p.value; });
+    return { y: map.year, m: map.month, d: map.day, hh: map.hour === '24' ? '00' : map.hour, mm: map.minute };
+  } catch (e) {
+    return {
+      y: String(date.getFullYear()), m: String(date.getMonth() + 1).padStart(2, '0'), d: String(date.getDate()).padStart(2, '0'),
+      hh: String(date.getHours()).padStart(2, '0'), mm: String(date.getMinutes()).padStart(2, '0'),
+    };
+  }
+}
+function _accZonedDateInputValue(date, tz) { const p = _accUtcToZonedParts(date, tz); return `${p.y}-${p.m}-${p.d}`; }
+function _accZonedTimeInputValue(date, tz) { const p = _accUtcToZonedParts(date, tz); return `${p.hh}:${p.mm}`; }
+
+// Takes what the user just typed into a date/time field (a wall-clock value
+// meant "in the timezone they're currently viewing the app in") and freezes
+// it into an absolute ISO instant. Returns null for an empty date so the
+// caller can fall back to whatever was already saved.
+function _accFreezePayoutAt(dateStr, timeStr) {
+  if (!dateStr) return null;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const [hh, mm] = (timeStr || '00:00').split(':').map(Number);
+  const tz = (typeof getUserTz === 'function') ? getUserTz() : null;
+  const dt = tz ? _accZonedTimeToUtc(y, m || 1, d || 1, hh || 0, mm || 0, tz)
+                : new Date(y, (m || 1) - 1, d || 1, hh || 0, mm || 0, 0, 0);
+  return isNaN(dt.getTime()) ? null : dt.toISOString();
 }
 
 function _accIntervalDaysFor(acc) {
@@ -197,6 +270,21 @@ function _accPayoutId() {
   return 'py_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
+// Formats a payout Date/time in the account's configured timezone (not the
+// device's), with the UTC offset appended so it's always unambiguous which
+// clock a scheduled time refers to — e.g. "Aug 13, 2026, 10:00 AM (UTC-4)".
+function _accFmtPayoutDateTime(dt, opts) {
+  if (!dt) return '—';
+  const tz = (typeof getUserTz === 'function') ? getUserTz() : undefined;
+  const offset = (typeof getUserTzOffsetLabel === 'function') ? getUserTzOffsetLabel(tz) : '';
+  try {
+    const label = dt.toLocaleString('en-US', { timeZone: tz, ...opts });
+    return offset ? `${label} (${offset})` : label;
+  } catch (e) {
+    return dt.toLocaleString('en-US', opts);
+  }
+}
+
 // ── Trade-entry gate — respects "Pause trading until payout is processed" ──
 // Only ever blocks the specific account that's paused; every other account
 // (and every non-funded account) trades exactly as before.
@@ -243,7 +331,7 @@ async function accMarkPayoutProcessing(name) {
   if (!s.supported || !s.targetReached) { showToast('This account has not reached its payout target yet.', 'danger'); return; }
   if (s.isProcessing) { showToast('A payout is already processing for this account.', 'danger'); return; }
   if (s.opStatus === 'target_reached') {
-    const when = s.payoutDateTime ? s.payoutDateTime.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'the scheduled date';
+    const when = s.payoutDateTime ? _accFmtPayoutDateTime(s.payoutDateTime, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'the scheduled date';
     showToast(`This account's scheduled payout date/time hasn't arrived yet (${when}).`, 'danger');
     return;
   }
@@ -327,7 +415,15 @@ async function accConfirmCompletePayout(name) {
   list[idx].activePayoutId = null;
   list[idx].currentCycleStartDate = today;
   if (s.p.payoutDateMode === 'automatic') {
-    list[idx].nextPayoutDate = _accComputeNextPayoutDate(list[idx].nextPayoutDate || today, list[idx]);
+    // Advance by the interval while preserving the same time-of-day, in
+    // whichever timezone is currently active — then re-freeze the instant
+    // so the next cycle's schedule is correct however far in the future it is.
+    const tz = (typeof getUserTz === 'function') ? getUserTz() : null;
+    const prevDateStr = (s.payoutDateTime && tz) ? _accZonedDateInputValue(s.payoutDateTime, tz) : (list[idx].nextPayoutDate || today);
+    const timeStr = (s.payoutDateTime && tz) ? _accZonedTimeInputValue(s.payoutDateTime, tz) : (list[idx].nextPayoutTime || '00:00');
+    list[idx].nextPayoutDate = _accComputeNextPayoutDate(prevDateStr, list[idx]);
+    list[idx].nextPayoutTime = timeStr;
+    list[idx].nextPayoutAt   = _accFreezePayoutAt(list[idx].nextPayoutDate, timeStr);
   }
   await _saveCustomAccounts(list);
   await _accSave();
@@ -372,10 +468,15 @@ function _accPayoutScheduleBlockHtml(name) {
   if (!t.payout) return '';
   const p = _accPayoutDefaults(acc);
   const escName = name.replace(/'/g, "\\'");
-  const nextDate = acc.nextPayoutDate || '';
   const isCustomFreq = p.payoutFrequency === 'custom';
   const dt = _accPayoutDateTimeValue(acc);
-  const preview = dt ? dt.toLocaleString(undefined, { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Not set';
+  const tz = (typeof getUserTz === 'function') ? getUserTz() : null;
+  // Prefill the form in the CURRENTLY active timezone, converted from the
+  // frozen instant — so if the account tz was switched since this was set,
+  // the fields show the correct equivalent local time, not stale raw values.
+  const nextDate = dt && tz ? _accZonedDateInputValue(dt, tz) : (acc.nextPayoutDate || '');
+  const nextTimeVal = dt && tz ? _accZonedTimeInputValue(dt, tz) : (p.nextPayoutTime || '00:00');
+  const preview = dt ? _accFmtPayoutDateTime(dt, { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Not set';
   const intervalPreview = isCustomFreq ? `Every ${p.payoutIntervalDays} day${p.payoutIntervalDays === 1 ? '' : 's'}` : PAYOUT_FREQ_LABEL[p.payoutFrequency];
 
   return `
@@ -412,13 +513,13 @@ function _accPayoutScheduleBlockHtml(name) {
       <div class="wl-form-2col">
         <div class="wl-form-row">
           <label class="wl-form-label">Payout Time</label>
-          <input type="time" class="wl-form-input" id="aps-nexttime-${escName}" value="${p.nextPayoutTime}">
+          <input type="time" class="wl-form-input" id="aps-nexttime-${escName}" value="${nextTimeVal}">
         </div>
       </div>
       <div class="apw-schedule-preview" id="aps-preview-${escName}">
         ${p.payoutDateMode === 'manual'
           ? `<span class="apw-manual-badge">Manual schedule enabled</span>`
-          : `Next payout request: <strong>${preview}</strong> · Frequency: <strong>${intervalPreview}</strong> · The request itself is made automatically once this date/time arrives.`}
+          : `Eligible for payout: <strong>${preview}</strong> · Frequency: <strong>${intervalPreview}</strong> · Status moves to "Awaiting Payout" automatically at that time — you still submit to your firm and mark it Processing yourself.`}
       </div>
       <div class="wl-form-2col">
         <div class="wl-form-row">
@@ -494,6 +595,7 @@ async function _saveAccPayoutSchedule(name) {
   list[idx].payoutDateMode       = mode;
   list[idx].nextPayoutDate       = nextDate || list[idx].nextPayoutDate || '';
   list[idx].nextPayoutTime       = nextTime;
+  list[idx].nextPayoutAt         = _accFreezePayoutAt(nextDate || list[idx].nextPayoutDate, nextTime) || list[idx].nextPayoutAt || null;
   list[idx].payoutProcessingDays = procDays;
   list[idx].tradingDuringPayout  = tradingDuring;
 
@@ -528,13 +630,13 @@ function _accPayoutWidgetHtml(name) {
 
   if (s.opStatus === 'target_reached') {
     const ring = _accPayoutRingSvg(100, 'var(--blue)');
-    const dueLabel = s.payoutDateTime ? s.payoutDateTime.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Not scheduled';
+    const dueLabel = s.payoutDateTime ? _accFmtPayoutDateTime(s.payoutDateTime, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Not scheduled';
     return `
     <div class="apw-widget apw-widget-reached">
       <div class="apw-widget-ring">${ring}<svg class="icn apw-ring-icon" aria-hidden="true"><use href="#ic-check-c"></use></svg></div>
       <div class="apw-widget-body">
         <div class="apw-widget-title">Target Reached</div>
-        <div class="apw-widget-sub">Your payout target has been reached. The payout request is made automatically and will move to Awaiting Payout once the scheduled date/time arrives.</div>
+        <div class="apw-widget-sub">Your payout target has been reached. This will automatically move to Awaiting Payout once the scheduled date/time arrives — you'll submit the request to your firm and mark it Processing from there.</div>
         <div class="apw-widget-meta">
           <span>Payout Amount <strong>$${s.cycleProfit.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></span>
           <span>Scheduled For <strong>${dueLabel}</strong></span>
@@ -722,7 +824,7 @@ function _accPayoutDecorateGrid() {
       } else if (s.opStatus === 'awaiting') {
         noteHtml = `<svg class="icn" aria-hidden="true"><use href="#ic-lock"></use></svg> Payout target reached — awaiting processing`;
       } else {
-        const dueLabel = s.payoutDateTime ? s.payoutDateTime.toLocaleDateString(undefined,{month:'short',day:'numeric'}) : '—';
+        const dueLabel = s.payoutDateTime ? _accFmtPayoutDateTime(s.payoutDateTime, {month:'short',day:'numeric'}) : '—';
         noteHtml = `<svg class="icn" aria-hidden="true"><use href="#ic-check-c"></use></svg> Payout target reached — scheduled ${dueLabel}`;
       }
       note.innerHTML = noteHtml;

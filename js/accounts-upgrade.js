@@ -304,13 +304,17 @@ function _openAccRiskSettings(name) {
         ${t.target ? `<div class="wl-form-row"><label class="wl-form-label">Profit Target (%)</label><input type="number" class="wl-form-input" id="ars-target" value="${r.profitTargetPct}" min="0" step="0.5"></div>` : ''}
         ${t.payout ? `<div class="wl-form-row"><label class="wl-form-label">Payout Threshold (%)</label><input type="number" class="wl-form-input" id="ars-payout" value="${r.payoutThresholdPct || ''}" min="0" step="0.5" placeholder="e.g. 6"></div>` : ''}
       </div>` : '';
+  const _apwDt = (typeof _accPayoutDateTimeValue === 'function') ? _accPayoutDateTimeValue(list[idx]) : null;
+  const _apwTz = (typeof getUserTz === 'function') ? getUserTz() : null;
+  const nextDateVal = (_apwDt && _apwTz && typeof _accZonedDateInputValue === 'function') ? _accZonedDateInputValue(_apwDt, _apwTz) : r.nextPayoutDate;
+  const nextTimeVal = (_apwDt && _apwTz && typeof _accZonedTimeInputValue === 'function') ? _accZonedTimeInputValue(_apwDt, _apwTz) : (list[idx].nextPayoutTime || '00:00');
   const payoutMetaRow = t.payout ? `
       <div class="wl-form-2col">
         <div class="wl-form-row"><label class="wl-form-label">Min Trading Days</label><input type="number" class="wl-form-input" id="ars-mindays" value="${r.minTradingDays || ''}" min="0" placeholder="e.g. 5"></div>
       </div>
       <div class="wl-form-2col">
-        <div class="wl-form-row"><label class="wl-form-label">Next Payout Date</label><input type="date" class="wl-form-input" id="ars-nextdate" value="${r.nextPayoutDate}"></div>
-        <div class="wl-form-row"><label class="wl-form-label">Next Payout Time</label><input type="time" class="wl-form-input" id="ars-nexttime" value="${list[idx].nextPayoutTime || '00:00'}"></div>
+        <div class="wl-form-row"><label class="wl-form-label">Next Payout Date</label><input type="date" class="wl-form-input" id="ars-nextdate" value="${nextDateVal}"></div>
+        <div class="wl-form-row"><label class="wl-form-label">Next Payout Time</label><input type="time" class="wl-form-input" id="ars-nexttime" value="${nextTimeVal}"></div>
       </div>` : '';
   const noRulesNote = (!ddRow && !targetPayoutRow) ? `<div class="acch-ov-health-sub" style="margin:-2px 0 2px">${t.label} accounts have no drawdown limits, profit targets, or payout goals — just ${_accFirmLabel(t)} and Platform below.</div>` : '';
   const isPaperOrLiveModal = t.cls === 'paper' || t.cls === 'live';
@@ -357,6 +361,9 @@ async function _saveAccRiskSettings(name) {
   list[idx].minTradingDays    = parseInt(val('ars-mindays'), 10) || 0;
   list[idx].nextPayoutDate    = val('ars-nextdate') || '';
   list[idx].nextPayoutTime    = val('ars-nexttime') || '00:00';
+  if (typeof _accFreezePayoutAt === 'function') {
+    list[idx].nextPayoutAt = _accFreezePayoutAt(list[idx].nextPayoutDate, list[idx].nextPayoutTime) || list[idx].nextPayoutAt || null;
+  }
   await _saveCustomAccounts(list);
   document.getElementById('acc-risk-overlay')?.remove();
   showToast(isPaperOrLive ? 'Account settings saved ✓' : 'Risk & payout settings saved ✓', 'restore');
