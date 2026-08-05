@@ -32,8 +32,11 @@ const CORS = {
 };
 
 // MetaApi base URLs
-const META_API_URL    = "https://mt-provisioning-api-v1.agiliumtrade.agiliumtrade.ai";
-const META_CLIENT_URL = "https://mt-client-api-v1.london.agiliumtrade.ai";
+const META_API_URL = "https://mt-provisioning-api-v1.agiliumtrade.agiliumtrade.ai";
+// Client API base is region-specific — never hardcode. See metaApiClientUrl() below.
+function metaApiClientUrl(region: string) {
+  return `https://mt-client-api-v1.${region}.agiliumtrade.ai`;
+}
 
 function makeAdmin() {
   const url = Deno.env.get("SUPABASE_URL");
@@ -101,9 +104,21 @@ async function handleConnect(req: Request): Promise<Response> {
   const acc = accounts.find((a: AccObj) => a?.mt5?.webhookToken === token);
   const existingMetaId = acc?.mt5?.metaApiAccountId;
 
-  // If already provisioned, just return it
+  // If already provisioned, just return it (backfill region if it predates this field)
   if (existingMetaId) {
     console.log(`[mt5-sync] account already provisioned: ${existingMetaId}`);
+    if (!acc?.mt5?.region) {
+      const region = await fetchAccountRegion(existingMetaId);
+      if (region) {
+        const backfilled = accounts.map((a: AccObj) =>
+          a?.mt5?.webhookToken === token ? { ...a, mt5: { ...a.mt5, region } } : a
+        );
+        await admin.from("journal_account_data").upsert(
+          { user_id: user.id, accounts: backfilled },
+          { onConflict: "user_id" }
+        );
+      }
+    }
     return json({ ok: true, metaApiAccountId: existingMetaId, status: "existing" });
   }
 
@@ -137,10 +152,15 @@ async function handleConnect(req: Request): Promise<Response> {
   const metaApiAccountId = provData.id;
   if (!metaApiAccountId) return jsonError("MetaApi did not return account ID", 502);
 
-  // Persist metaApiAccountId into the account's mt5 config
+  // The create response doesn't reliably include `region` across API versions —
+  // fetch the freshly-created account to get the region it was actually deployed to.
+  const region = provData.region || await fetchAccountRegion(metaApiAccountId) || "new-york";
+  console.log(`[mt5-sync] account ${metaApiAccountId} assigned region=${region}`);
+
+  // Persist metaApiAccountId + region into the account's mt5 config
   const updatedAccounts = accounts.map((a: AccObj) => {
     if (a?.mt5?.webhookToken !== token) return a;
-    return { ...a, mt5: { ...a.mt5, metaApiAccountId, metaApiStatus: "provisioned" } };
+    return { ...a, mt5: { ...a.mt5, metaApiAccountId, region, metaApiStatus: "provisioned" } };
   });
 
   await admin.from("journal_account_data").upsert(
@@ -170,8 +190,9 @@ async function handleSync(req: Request): Promise<Response> {
   console.log(`[mt5-sync] syncing MetaApi account ${metaApiAccountId}`);
 
   // Fetch account state first
-  // Wait for account to deploy (poll state up to 60s)
+  // Wait for account to deploy (poll state up to 60s), and pick up its assigned region
   let state = "DEPLOYING";
+  let region = "";
   let stateAttempts = 0;
   while (state !== "DEPLOYED" && state !== "ERROR" && stateAttempts < 6) {
     await new Promise(r => setTimeout(r, 10000)); // wait 10s between checks
@@ -182,8 +203,9 @@ async function handleSync(req: Request): Promise<Response> {
     );
     if (stateResp.ok) {
       const stateData = await stateResp.json();
-      state = stateData.state || "DEPLOYING";
-      console.log(`[mt5-sync] account state attempt ${stateAttempts}: ${state}`);
+      state  = stateData.state  || "DEPLOYING";
+      region = stateData.region || region;
+      console.log(`[mt5-sync] account state attempt ${stateAttempts}: ${state} (region=${region || "unknown"})`);
     }
   }
 
@@ -191,12 +213,25 @@ async function handleSync(req: Request): Promise<Response> {
     return jsonError("MetaApi failed to connect — check your login, password, and server name", 502);
   }
 
+  // Fall back to the region we saved at provisioning time, or ask MetaApi directly,
+  // before defaulting — never assume a fixed region.
+  if (!region) {
+    const { data: accData } = await admin
+      .from("journal_account_data")
+      .select("accounts")
+      .eq("user_id", user.id)
+      .single();
+    const acc = (accData?.accounts ?? []).find((a: AccObj) => a?.mt5?.metaApiAccountId === metaApiAccountId);
+    region = acc?.mt5?.region || await fetchAccountRegion(metaApiAccountId) || "new-york";
+  }
+  const clientUrl = metaApiClientUrl(region);
+
   // Fetch deal history (from epoch → now)
   const from = "1970-01-01T00:00:00.000Z";
   const to   = new Date().toISOString();
 
   const dealsResp = await fetch(
-    `${META_CLIENT_URL}/users/current/accounts/${metaApiAccountId}/history-deals/time/${encodeURIComponent(from)}/${encodeURIComponent(to)}`,
+    `${clientUrl}/users/current/accounts/${metaApiAccountId}/history-deals/time/${encodeURIComponent(from)}/${encodeURIComponent(to)}`,
     { headers: metaApiHeaders() }
   );
 
@@ -212,7 +247,7 @@ async function handleSync(req: Request): Promise<Response> {
 
   // Fetch open positions
   const posResp = await fetch(
-    `${META_CLIENT_URL}/users/current/accounts/${metaApiAccountId}/positions`,
+    `${clientUrl}/users/current/accounts/${metaApiAccountId}/positions`,
     { headers: metaApiHeaders() }
   );
 
@@ -297,10 +332,10 @@ async function handleDisconnect(req: Request): Promise<Response> {
   const owns = await verifyOwnership(admin, token, accountName, user.id);
   if (!owns) return jsonError("Forbidden", 403);
 
-  // Delete MetaApi account
+  // Delete MetaApi account (this lives on the provisioning API, not the client API)
   if (metaApiAccountId) {
     const delResp = await fetch(
-      `${META_CLIENT_URL}/users/current/accounts/${metaApiAccountId}`,
+      `${META_API_URL}/users/current/accounts/${metaApiAccountId}`,
       { method: "DELETE", headers: metaApiHeaders() }
     );
     console.log(`[mt5-sync] MetaApi delete: ${delResp.status}`);
@@ -422,7 +457,24 @@ function buildTradeRows(
 // ── Helpers ───────────────────────────────────────────────────────────────────
 interface AccObj {
   name?: string;
-  mt5?: { webhookToken?: string; metaApiAccountId?: string; [key: string]: unknown };
+  mt5?: { webhookToken?: string; metaApiAccountId?: string; region?: string; [key: string]: unknown };
+}
+
+// Look up which region MetaApi actually deployed an account to (new-york | london | ...).
+// Client API calls must hit the matching regional host, or they 404.
+async function fetchAccountRegion(metaApiAccountId: string): Promise<string | null> {
+  try {
+    const resp = await fetch(
+      `${META_API_URL}/users/current/accounts/${metaApiAccountId}`,
+      { headers: metaApiHeaders() }
+    );
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    return data.region || null;
+  } catch (e) {
+    console.warn("[mt5-sync] fetchAccountRegion failed:", String(e));
+    return null;
+  }
 }
 
 async function verifyJWT(req: Request): Promise<{ id: string } | null> {
