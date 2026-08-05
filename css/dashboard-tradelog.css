@@ -235,7 +235,7 @@
   background:rgba(0,0,0,0.72);
   backdrop-filter:blur(22px);
   -webkit-backdrop-filter:blur(22px);
-  z-index:200;display:none;
+  z-index:700;display:none;
   align-items:center;justify-content:center;
   animation:fadeInBG 0.2s var(--ease-out);
 }
