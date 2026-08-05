@@ -37,6 +37,7 @@ function _accPayoutDefaults(acc) {
     payoutFrequency:      acc.payoutFrequency || 'biweekly',
     payoutIntervalDays:   (acc.payoutIntervalDays !== undefined && acc.payoutIntervalDays !== null && acc.payoutIntervalDays !== '') ? parseInt(acc.payoutIntervalDays, 10) : 14,
     payoutDateMode:       acc.payoutDateMode || 'automatic',
+    nextPayoutTime:       acc.nextPayoutTime || '00:00',
     payoutProcessingDays: (acc.payoutProcessingDays !== undefined && acc.payoutProcessingDays !== null && acc.payoutProcessingDays !== '') ? parseInt(acc.payoutProcessingDays, 10) : 2,
     tradingDuringPayout:  acc.tradingDuringPayout || 'continue',
     currentCycleStartDate: acc.currentCycleStartDate || '',
@@ -66,6 +67,19 @@ function _accAddBusinessDays(startDate, days) {
     const dow = d.getDay();
     if (dow !== 0 && dow !== 6) added++;
   }
+  return d;
+}
+
+// Combines an account's nextPayoutDate + nextPayoutTime into a real Date
+// object, so "the payout date is reached" means the exact scheduled
+// moment, not just the calendar day. Returns null when no date is set yet.
+function _accPayoutDateTimeValue(acc) {
+  const nextDate = acc.nextPayoutDate || '';
+  if (!nextDate) return null;
+  const p = _accPayoutDefaults(acc);
+  const d = _accParseDate(nextDate);
+  const [hh, mm] = (p.nextPayoutTime || '00:00').split(':').map(Number);
+  d.setHours(hh || 0, mm || 0, 0, 0);
   return d;
 }
 
@@ -155,17 +169,27 @@ function _accPayoutState(name) {
   const activePayout = p.activePayoutId ? (_accData.payouts || []).find(x => x.id === p.activePayoutId) : null;
   const isProcessing = !!(activePayout && activePayout.status === 'Processing');
 
+  // The payout request itself hasn't been made yet — it's an automatic,
+  // date-driven step. Hitting the profit target only earns "Target Reached";
+  // the stage doesn't advance to "Awaiting Payout" until the scheduled
+  // payout date/time actually arrives, so this is re-derived fresh (against
+  // the current clock) on every render — no cron/backend needed.
+  const payoutDateTime = _accPayoutDateTimeValue(acc);
+  const dateReached = !payoutDateTime || new Date() >= payoutDateTime;
+
   let opStatus = 'active';
   if (isProcessing) opStatus = 'processing';
-  else if (targetReached) opStatus = 'awaiting';
+  else if (targetReached && dateReached) opStatus = 'awaiting';
+  else if (targetReached) opStatus = 'target_reached';
 
   const currentBalance = accSize + cyc.net;
 
   return {
     supported: true, acc, typeInfo: t, r, p, accSize,
     cycleStartDate, cyc, payoutTarget, cycleProfit, payoutPct, minDaysMet, targetReached,
+    payoutDateTime, dateReached,
     activePayout, isProcessing, opStatus, currentBalance,
-    tradingPaused: p.tradingDuringPayout === 'pause' && (opStatus === 'awaiting' || opStatus === 'processing'),
+    tradingPaused: p.tradingDuringPayout === 'pause' && (opStatus === 'target_reached' || opStatus === 'awaiting' || opStatus === 'processing'),
   };
 }
 
@@ -218,6 +242,11 @@ async function accMarkPayoutProcessing(name) {
   const s = _accPayoutState(name);
   if (!s.supported || !s.targetReached) { showToast('This account has not reached its payout target yet.', 'danger'); return; }
   if (s.isProcessing) { showToast('A payout is already processing for this account.', 'danger'); return; }
+  if (s.opStatus === 'target_reached') {
+    const when = s.payoutDateTime ? s.payoutDateTime.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'the scheduled date';
+    showToast(`This account's scheduled payout date/time hasn't arrived yet (${when}).`, 'danger');
+    return;
+  }
 
   const id = _accPayoutId();
   const now = new Date();
@@ -307,6 +336,29 @@ async function accConfirmCompletePayout(name) {
   if (typeof _accActiveName !== 'undefined' && _accActiveName === name) { _accPendingDetailTab = 'payouts'; accShowDetail(name); }
 }
 
+// Reverts an in-flight "Processing" payout back to its previous stage
+// (Awaiting Payout, or Target Reached if the demo/mistaken action was taken
+// before the scheduled date). Since nothing was actually received, the
+// in-flight record is removed rather than kept as history.
+async function accCancelPayoutProcessing(name) {
+  const list = _getCustomAccounts();
+  const idx = list.findIndex(a => a.name === name);
+  if (idx < 0) return;
+  const s = _accPayoutState(name);
+  if (!s.supported || s.opStatus !== 'processing' || !s.activePayout) {
+    showToast('No payout is currently processing for this account.', 'danger');
+    return;
+  }
+  const payoutIdx = _accData.payouts.findIndex(p => p.id === s.activePayout.id);
+  if (payoutIdx >= 0) _accData.payouts.splice(payoutIdx, 1);
+  list[idx].activePayoutId = null;
+  await _saveCustomAccounts(list);
+  await _accSave();
+  showToast('Payout processing cancelled ✓', 'restore');
+  buildAccounts();
+  if (typeof _accActiveName !== 'undefined' && _accActiveName === name) { _accPendingDetailTab = 'risk'; accShowDetail(name); }
+}
+
 function accViewPayoutSummary(name) {
   if (typeof _accActiveName !== 'undefined') _accActiveName = name;
   _accPendingDetailTab = 'risk';
@@ -322,7 +374,8 @@ function _accPayoutScheduleBlockHtml(name) {
   const escName = name.replace(/'/g, "\\'");
   const nextDate = acc.nextPayoutDate || '';
   const isCustomFreq = p.payoutFrequency === 'custom';
-  const preview = nextDate ? new Date(_accParseDate(nextDate)).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }) : 'Not set';
+  const dt = _accPayoutDateTimeValue(acc);
+  const preview = dt ? dt.toLocaleString(undefined, { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Not set';
   const intervalPreview = isCustomFreq ? `Every ${p.payoutIntervalDays} day${p.payoutIntervalDays === 1 ? '' : 's'}` : PAYOUT_FREQ_LABEL[p.payoutFrequency];
 
   return `
@@ -356,10 +409,16 @@ function _accPayoutScheduleBlockHtml(name) {
           <input type="date" class="wl-form-input" id="aps-nextdate-${escName}" value="${nextDate}">
         </div>
       </div>
+      <div class="wl-form-2col">
+        <div class="wl-form-row">
+          <label class="wl-form-label">Payout Time</label>
+          <input type="time" class="wl-form-input" id="aps-nexttime-${escName}" value="${p.nextPayoutTime}">
+        </div>
+      </div>
       <div class="apw-schedule-preview" id="aps-preview-${escName}">
         ${p.payoutDateMode === 'manual'
           ? `<span class="apw-manual-badge">Manual schedule enabled</span>`
-          : `Next payout date: <strong>${preview}</strong> · Frequency: <strong>${intervalPreview}</strong>`}
+          : `Next payout request: <strong>${preview}</strong> · Frequency: <strong>${intervalPreview}</strong> · The request itself is made automatically once this date/time arrives.`}
       </div>
       <div class="wl-form-2col">
         <div class="wl-form-row">
@@ -424,6 +483,7 @@ async function _saveAccPayoutSchedule(name) {
   }
   const mode = val(`aps-mode-${escName}`) || 'automatic';
   const nextDate = val(`aps-nextdate-${escName}`);
+  const nextTime = val(`aps-nexttime-${escName}`) || '00:00';
   const procSel = val(`aps-proc-${escName}`);
   let procDays = procSel === 'custom' ? parseInt(val(`aps-procdays-${escName}`), 10) : parseInt(procSel, 10);
   if (!procDays || procDays <= 0) { showToast('Processing timeframe must be a positive number of business days.', 'danger'); return; }
@@ -433,6 +493,7 @@ async function _saveAccPayoutSchedule(name) {
   list[idx].payoutIntervalDays   = intervalDays;
   list[idx].payoutDateMode       = mode;
   list[idx].nextPayoutDate       = nextDate || list[idx].nextPayoutDate || '';
+  list[idx].nextPayoutTime       = nextTime;
   list[idx].payoutProcessingDays = procDays;
   list[idx].tradingDuringPayout  = tradingDuring;
 
@@ -464,6 +525,26 @@ function _accPayoutWidgetHtml(name) {
   if (s.opStatus === 'active') return '';
 
   const escName = name.replace(/'/g, "\\'");
+
+  if (s.opStatus === 'target_reached') {
+    const ring = _accPayoutRingSvg(100, 'var(--blue)');
+    const dueLabel = s.payoutDateTime ? s.payoutDateTime.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Not scheduled';
+    return `
+    <div class="apw-widget apw-widget-reached">
+      <div class="apw-widget-ring">${ring}<svg class="icn apw-ring-icon" aria-hidden="true"><use href="#ic-check-c"></use></svg></div>
+      <div class="apw-widget-body">
+        <div class="apw-widget-title">Target Reached</div>
+        <div class="apw-widget-sub">Your payout target has been reached. The payout request is made automatically and will move to Awaiting Payout once the scheduled date/time arrives.</div>
+        <div class="apw-widget-meta">
+          <span>Payout Amount <strong>$${s.cycleProfit.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></span>
+          <span>Scheduled For <strong>${dueLabel}</strong></span>
+        </div>
+      </div>
+      <div class="apw-widget-actions">
+        <button class="acch-act-btn" onclick="_openAccRiskSettings('${escName}')"><svg class="icn" aria-hidden="true"><use href="#ic-edit"></use></svg> Edit Payout Details</button>
+      </div>
+    </div>`;
+  }
 
   if (s.opStatus === 'awaiting') {
     const ring = _accPayoutRingSvg(100, 'var(--gold)');
@@ -502,6 +583,7 @@ function _accPayoutWidgetHtml(name) {
       </div>
       <div class="apw-widget-actions">
         <button class="acch-act-btn acch-act-primary" onclick="accOpenCompletePayoutModal('${escName}')"><svg class="icn" aria-hidden="true"><use href="#ic-check-c"></use></svg> Mark as Completed</button>
+        <button class="acch-act-btn" onclick="accCancelPayoutProcessing('${escName}')"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg> Cancel</button>
       </div>
     </div>`;
 }
@@ -513,6 +595,7 @@ function _accPayoutTimelineHtml(name) {
   const steps = ['Target Reached', 'Awaiting Payout', 'Processing', 'Completed', 'New Cycle'];
   let activeIdx;
   if (s.opStatus === 'active') activeIdx = -1;
+  else if (s.opStatus === 'target_reached') activeIdx = 0;
   else if (s.opStatus === 'awaiting') activeIdx = 1;
   else if (s.opStatus === 'processing') activeIdx = 2;
   return `
@@ -546,6 +629,11 @@ function _accPayoutActionsHtml(name) {
   const s = _accPayoutState(name);
   if (!s.supported || s.opStatus === 'active') return '';
   const escName = name.replace(/'/g, "\\'");
+  if (s.opStatus === 'target_reached') {
+    return `<div class="apw-actions-row">
+      <button class="acch-act-btn" onclick="_openAccRiskSettings('${escName}')"><svg class="icn" aria-hidden="true"><use href="#ic-edit"></use></svg> Adjust Payout Date</button>
+    </div>`;
+  }
   if (s.opStatus === 'awaiting') {
     return `<div class="apw-actions-row">
       <button class="acch-act-btn acch-act-primary" onclick="accMarkPayoutProcessing('${escName}')"><svg class="icn" aria-hidden="true"><use href="#ic-clock"></use></svg> Mark Payout as Processing</button>
@@ -554,6 +642,7 @@ function _accPayoutActionsHtml(name) {
   }
   return `<div class="apw-actions-row">
     <button class="acch-act-btn acch-act-primary" onclick="accOpenCompletePayoutModal('${escName}')"><svg class="icn" aria-hidden="true"><use href="#ic-check-c"></use></svg> Mark Payout as Completed</button>
+    <button class="acch-act-btn" onclick="accCancelPayoutProcessing('${escName}')"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg> Cancel Processing</button>
   </div>`;
 }
 
@@ -617,17 +706,26 @@ function _accPayoutDecorateGrid() {
     const s = _accPayoutState(name);
     if (!s.supported || s.opStatus === 'active') return;
 
+    const statusClass = { processing: 'acch-status-processing', awaiting: 'acch-status-awaiting', target_reached: 'acch-status-reached' }[s.opStatus];
+    const statusLabel = { processing: 'Payout Processing', awaiting: 'Awaiting Payout', target_reached: 'Target Reached' }[s.opStatus];
     const pill = card.querySelector('.acch-status');
     if (pill) {
-      pill.className = 'acch-status ' + (s.opStatus === 'processing' ? 'acch-status-processing' : 'acch-status-awaiting');
-      pill.textContent = s.opStatus === 'processing' ? 'Payout Processing' : 'Awaiting Payout';
+      pill.className = 'acch-status ' + statusClass;
+      pill.textContent = statusLabel;
     }
     if (!card.querySelector('.apw-card-note')) {
       const note = document.createElement('div');
-      note.className = 'apw-card-note ' + (s.opStatus === 'processing' ? 'apw-card-note-processing' : 'apw-card-note-awaiting');
-      note.innerHTML = s.opStatus === 'processing'
-        ? `<svg class="icn" aria-hidden="true"><use href="#ic-clock"></use></svg> Payout processing — est. completion ${s.activePayout?.estimatedCompletionDate ? new Date(_accParseDate(s.activePayout.estimatedCompletionDate)).toLocaleDateString(undefined,{month:'short',day:'numeric'}) : '—'}`
-        : `<svg class="icn" aria-hidden="true"><use href="#ic-lock"></use></svg> Payout target reached — awaiting processing`;
+      note.className = 'apw-card-note ' + { processing: 'apw-card-note-processing', awaiting: 'apw-card-note-awaiting', target_reached: 'apw-card-note-reached' }[s.opStatus];
+      let noteHtml;
+      if (s.opStatus === 'processing') {
+        noteHtml = `<svg class="icn" aria-hidden="true"><use href="#ic-clock"></use></svg> Payout processing — est. completion ${s.activePayout?.estimatedCompletionDate ? new Date(_accParseDate(s.activePayout.estimatedCompletionDate)).toLocaleDateString(undefined,{month:'short',day:'numeric'}) : '—'}`;
+      } else if (s.opStatus === 'awaiting') {
+        noteHtml = `<svg class="icn" aria-hidden="true"><use href="#ic-lock"></use></svg> Payout target reached — awaiting processing`;
+      } else {
+        const dueLabel = s.payoutDateTime ? s.payoutDateTime.toLocaleDateString(undefined,{month:'short',day:'numeric'}) : '—';
+        noteHtml = `<svg class="icn" aria-hidden="true"><use href="#ic-check-c"></use></svg> Payout target reached — scheduled ${dueLabel}`;
+      }
+      note.innerHTML = noteHtml;
       const actions = card.querySelector('.acch-actions');
       if (actions) actions.insertAdjacentElement('beforebegin', note);
     }
@@ -640,3 +738,27 @@ window.buildAccounts = function (...args) {
   requestAnimationFrame(_accPayoutDecorateGrid);
   return r;
 };
+
+// ── Live auto-advance ────────────────────────────────────────────────
+// "Target Reached → Awaiting Payout" is purely a function of the clock
+// (no user action, no backend cron). Re-derive every funded account's
+// stage once a minute and, only when a stage actually changed, refresh
+// the grid badges and any open detail view in place — no page reload.
+const _accPayoutLastStatus = {};
+function _accPayoutAutoAdvanceTick() {
+  let changed = false;
+  _getCustomAccounts().forEach(acc => {
+    const s = _accPayoutState(acc.name);
+    if (!s.supported) return;
+    const prev = _accPayoutLastStatus[acc.name];
+    _accPayoutLastStatus[acc.name] = s.opStatus;
+    if (prev && prev !== s.opStatus) changed = true;
+  });
+  if (!changed) return;
+  if (document.getElementById('accounts-grid')) _accPayoutDecorateGrid();
+  if (typeof _accActiveName !== 'undefined' && _accActiveName) {
+    const s2 = _accPayoutState(_accActiveName);
+    if (s2.supported) accShowDetail(_accActiveName);
+  }
+}
+setInterval(_accPayoutAutoAdvanceTick, 60000);

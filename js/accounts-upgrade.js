@@ -307,7 +307,10 @@ function _openAccRiskSettings(name) {
   const payoutMetaRow = t.payout ? `
       <div class="wl-form-2col">
         <div class="wl-form-row"><label class="wl-form-label">Min Trading Days</label><input type="number" class="wl-form-input" id="ars-mindays" value="${r.minTradingDays || ''}" min="0" placeholder="e.g. 5"></div>
+      </div>
+      <div class="wl-form-2col">
         <div class="wl-form-row"><label class="wl-form-label">Next Payout Date</label><input type="date" class="wl-form-input" id="ars-nextdate" value="${r.nextPayoutDate}"></div>
+        <div class="wl-form-row"><label class="wl-form-label">Next Payout Time</label><input type="time" class="wl-form-input" id="ars-nexttime" value="${list[idx].nextPayoutTime || '00:00'}"></div>
       </div>` : '';
   const noRulesNote = (!ddRow && !targetPayoutRow) ? `<div class="acch-ov-health-sub" style="margin:-2px 0 2px">${t.label} accounts have no drawdown limits, profit targets, or payout goals — just ${_accFirmLabel(t)} and Platform below.</div>` : '';
   const isPaperOrLiveModal = t.cls === 'paper' || t.cls === 'live';
@@ -353,6 +356,7 @@ async function _saveAccRiskSettings(name) {
   delete list[idx].payoutThreshold; // legacy $ field, superseded by payoutThresholdPct
   list[idx].minTradingDays    = parseInt(val('ars-mindays'), 10) || 0;
   list[idx].nextPayoutDate    = val('ars-nextdate') || '';
+  list[idx].nextPayoutTime    = val('ars-nexttime') || '00:00';
   await _saveCustomAccounts(list);
   document.getElementById('acc-risk-overlay')?.remove();
   showToast(isPaperOrLive ? 'Account settings saved ✓' : 'Risk & payout settings saved ✓', 'restore');

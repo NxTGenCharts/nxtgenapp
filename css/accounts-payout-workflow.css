@@ -12,6 +12,7 @@
   background:var(--glass-1); border:1px solid var(--glass-border); border-radius:var(--r-lg);
   padding:14px 16px; margin-bottom:16px;
 }
+.apw-widget-reached{ border-color:rgba(59,130,246,0.28); background:linear-gradient(135deg, rgba(59,130,246,0.06), var(--glass-1)); }
 .apw-widget-awaiting{ border-color:rgba(251,191,36,0.28); background:linear-gradient(135deg, rgba(251,191,36,0.06), var(--glass-1)); }
 .apw-widget-processing{ border-color:rgba(45,212,191,0.28); background:linear-gradient(135deg, rgba(45,212,191,0.06), var(--glass-1)); }
 
@@ -21,6 +22,7 @@
   position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
   width:16px; height:16px; color:var(--text2);
 }
+.apw-widget-reached .apw-ring-icon{ color:var(--blue); }
 .apw-widget-awaiting .apw-ring-icon{ color:var(--gold); }
 .apw-widget-processing .apw-ring-icon{ color:var(--teal); }
 .apw-pulse .apw-ring-icon{ animation:apw-pulse 2.2s ease-in-out infinite; }
@@ -34,6 +36,7 @@
 
 .apw-widget-body{ flex:1; min-width:0; }
 .apw-widget-title{ font-family:var(--font-head); font-size:13.5px; font-weight:800; color:var(--text); letter-spacing:-.1px; }
+.apw-widget-reached .apw-widget-title{ color:var(--blue); }
 .apw-widget-awaiting .apw-widget-title{ color:var(--gold); }
 .apw-widget-processing .apw-widget-title{ color:var(--teal); }
 .apw-widget-sub{ font-size:11.5px; color:var(--text2); margin-top:3px; line-height:1.4; max-width:56ch; }
@@ -50,10 +53,12 @@
   padding:6px 10px; border-radius:var(--r-md); margin-top:10px;
 }
 .apw-card-note .icn{ width:12px; height:12px; flex:none; }
+.apw-card-note-reached{ background:var(--blue-dim); color:var(--blue); }
 .apw-card-note-awaiting{ background:var(--gold-glow); color:var(--gold); }
 .apw-card-note-processing{ background:rgba(45,212,191,0.12); color:var(--teal); }
 
-/* ── Grid status pill — Awaiting Payout / Payout Processing ────────── */
+/* ── Grid status pill — Target Reached / Awaiting Payout / Processing ── */
+.acch-status-reached{ background:var(--blue-dim); color:var(--blue); }
 .acch-status-awaiting{ background:var(--gold-glow); color:var(--gold); }
 .acch-status-processing{ background:rgba(45,212,191,0.14); color:var(--teal); }
 
