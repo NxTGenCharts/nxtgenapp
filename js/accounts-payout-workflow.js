@@ -834,8 +834,41 @@ function _accPayoutDecorateGrid() {
   });
 }
 
+// ── One-time (self-healing) migration: freeze nextPayoutAt for accounts
+// that predate it ──────────────────────────────────────────────────────
+// Any account that only has nextPayoutDate/nextPayoutTime (no nextPayoutAt
+// yet — e.g. it was scheduled before this freeze mechanism existed) falls
+// into _accPayoutDateTimeValue()'s legacy branch, which re-interprets that
+// date/time against whatever timezone is CURRENTLY active on every render.
+// That makes the displayed wall-clock time incorrectly "follow" the
+// viewer's current timezone selection (switching timezones just relabels
+// the same digits) instead of converting a fixed real-world moment.
+// Freeze it once, using whatever timezone is active right now (the best
+// information available at this point), and persist it — from then on
+// every timezone switch converts correctly instead of re-deriving.
+let _accPayoutMigrating = false;
+function _accPayoutMigrateFreeze() {
+  if (typeof _accFreezePayoutAt !== 'function' || typeof _accData === 'undefined') return false;
+  let changed = false;
+  (_accData.accounts || []).forEach(acc => {
+    if (acc.nextPayoutDate && !acc.nextPayoutAt) {
+      const frozen = _accFreezePayoutAt(acc.nextPayoutDate, acc.nextPayoutTime || '00:00');
+      if (frozen) { acc.nextPayoutAt = frozen; changed = true; }
+    }
+  });
+  return changed;
+}
+
 const _accPayoutOrigBuild2 = window.buildAccounts;
 window.buildAccounts = function (...args) {
+  // Run (and persist) the migration BEFORE the original render, so this
+  // very same pass already shows the corrected, timezone-stable time.
+  if (!_accPayoutMigrating && _accPayoutMigrateFreeze()) {
+    _accPayoutMigrating = true;
+    Promise.resolve(typeof _accSave === 'function' ? _accSave() : null)
+      .catch(e => console.error('nextPayoutAt migration save failed:', e))
+      .finally(() => { _accPayoutMigrating = false; });
+  }
   const r = _accPayoutOrigBuild2.apply(this, args);
   requestAnimationFrame(_accPayoutDecorateGrid);
   return r;
