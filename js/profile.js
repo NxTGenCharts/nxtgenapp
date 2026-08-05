@@ -588,6 +588,7 @@ async function _mt5VerifyAndSync() {
     if (fIdx >= 0) {
       freshList[fIdx].mt5.lastSync = new Date().toISOString();
       freshList[fIdx].mt5.lastSyncStatus = 'ok';
+      _mt5ApplySyncResult(freshList[fIdx], data);
       await _saveCustomAccounts(freshList);
       _mt5ModalState.acc = freshList[fIdx];
     }
@@ -899,6 +900,7 @@ async function _mt5DoSync(accountName) {
       const err = await syncResp.json().catch(() => ({}));
       throw new Error(err.error || 'Sync failed');
     }
+    const syncData = await syncResp.json().catch(() => ({}));
 
     // 2. Fetch the full buffer to update pendingTrades in local state
     const getResp = await fetch(
@@ -915,6 +917,7 @@ async function _mt5DoSync(accountName) {
         freshList[fIdx].mt5.pendingTrades    = allTrades;
         freshList[fIdx].mt5.lastSyncStatus   = 'ok';
         freshList[fIdx].mt5.lastSync         = new Date().toISOString();
+        _mt5ApplySyncResult(freshList[fIdx], syncData);
         await _saveCustomAccounts(freshList);
 
         const importedSet = new Set((freshList[fIdx].mt5.importedTickets||[]).map(t=>String(t)));
@@ -933,6 +936,61 @@ async function _mt5DoSync(accountName) {
     const fIdx = freshList.findIndex(a => a.name === accountName);
     if (fIdx >= 0) { freshList[fIdx].mt5.lastSyncStatus = 'error'; await _saveCustomAccounts(freshList); }
     _mt5UpdateCardBadge(accountName, 'error');
+  }
+}
+
+// Merges an /mt5-sync/sync response into a local account object.
+// The backend only includes `accountSize` when it just captured/recaptured
+// the account's fixed size (first successful connection, or an explicit
+// refresh) — so we simply take whatever it sends and never invent a value
+// on the client. Routine syncs omit the field entirely and this is a no-op.
+function _mt5ApplySyncResult(accObj, data) {
+  if (!accObj || !data) return;
+  if (typeof data.accountSize === 'number') {
+    accObj.size = data.accountSize;
+    accObj.mt5.accountSizeSource = data.accountSizeSource || 'mt5';
+    accObj.mt5.accountSizeSyncedAt = new Date().toISOString();
+  } else if (data.accountSizeUnavailable) {
+    // Non-blocking — leave any previously saved size untouched, just surface it.
+    showToast('Could not retrieve account size from MT5 — enter it manually if needed.', 'info');
+  }
+}
+
+// User-triggered "refresh account size from MT5" — used from Manage Accounts.
+async function _mt5RefreshAccountSize(accountName) {
+  const list = _getCustomAccounts();
+  const idx  = list.findIndex(a => a.name === accountName);
+  if (idx === -1) return;
+  const token  = list[idx].mt5?.webhookToken;
+  const metaId = list[idx].mt5?.metaApiAccountId;
+  if (!token || !metaId) { showToast('Connect MT5 first', 'danger'); return; }
+
+  showToast('Refreshing account size from MT5…', 'info');
+  try {
+    const session = (await sb.auth.getSession()).data.session;
+    const resp = await fetch(`${SUPABASE_URL}/functions/v1/mt5-sync/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token || ''}` },
+      body: JSON.stringify({ token, accountName, metaApiAccountId: metaId, recalculateSize: true }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) { showToast(data.error || 'Refresh failed', 'danger'); return; }
+
+    const freshList = _getCustomAccounts();
+    const fIdx = freshList.findIndex(a => a.name === accountName);
+    if (fIdx >= 0) {
+      _mt5ApplySyncResult(freshList[fIdx], data);
+      await _saveCustomAccounts(freshList);
+    }
+    if (typeof data.accountSize === 'number') {
+      showToast(`Account Size updated: $${data.accountSize.toLocaleString()}`, 'restore');
+    } else if (!data.accountSizeUnavailable) {
+      showToast('MT5 did not return a balance to use', 'danger');
+    }
+    _rebuildAccMgrList?.();
+    buildAccounts();
+  } catch (e) {
+    showToast('Network error: ' + e.message, 'danger');
   }
 }
 

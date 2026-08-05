@@ -742,7 +742,7 @@ function _editAccount(i) {
           <option value="Phase 2"${a.challengePhase==='Phase 2'?' selected':''}>Phase 2</option>
         </select>
       </div>
-      <div style="display:flex;gap:6px;align-items:center">
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
         <span style="font-size:11px;color:var(--text3);white-space:nowrap">Account Size ($):</span>
         <input type="number" class="acc-mgr-input" id="acc-edit-size-${i}"
           value="${a.size || ''}" placeholder="e.g. 10000" style="width:110px;flex:none" min="0">
@@ -756,6 +756,14 @@ function _editAccount(i) {
           <button onclick="_rebuildAccMgrList()" class="acc-mgr-btn" title="Cancel"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>
         </div>
       </div>
+      ${a.mt5?.enabled ? `
+      <div style="display:flex;align-items:center;gap:6px">
+        ${a.mt5?.accountSizeSource === 'mt5' && a.size
+          ? `<span style="font-size:10.5px;color:var(--green);display:inline-flex;align-items:center;gap:4px">${icon('check-c',{cls:'icn-sm icn-green'})} Auto-detected from MT5</span>`
+          : `<span style="font-size:10.5px;color:var(--text3)">Connected to MT5 — size not yet detected</span>`}
+        <a href="#" onclick="event.preventDefault();_mt5RefreshAccountSize('${a.name.replace(/'/g,"\\'")}')"
+          style="font-size:10.5px;color:var(--blue);text-decoration:underline;white-space:nowrap">Refresh from MT5</a>
+      </div>` : ''}
     </div>`;
   document.getElementById('acc-edit-'+i)?.focus();
 }
@@ -773,7 +781,17 @@ async function _saveEditAccount(i) {
   if (typE)   list[i].type    = typE.value;
   if (typE && typE.value === 'Evaluation' && phaseEl) list[i].challengePhase = phaseEl.value;
   if (typE && typE.value !== 'Evaluation') delete list[i].challengePhase;
-  if (sizeEl) list[i].size    = parseFloat(sizeEl.value) || 0;
+  if (sizeEl) {
+    const newSize = parseFloat(sizeEl.value) || 0;
+    // If the user manually changes the value away from what MT5 last
+    // detected, it's now a manual override — drop the "Auto-detected" tag
+    // so the UI doesn't misrepresent the source. Leaving it blank/unchanged
+    // (or clearing it back to 0 so MT5 can repopulate it) keeps the tag.
+    if (list[i].mt5?.accountSizeSource === 'mt5' && newSize > 0 && newSize !== list[i].size) {
+      list[i].mt5 = { ...list[i].mt5, accountSizeSource: 'manual' };
+    }
+    list[i].size = newSize;
+  }
   if (modeEl) list[i].pnlMode = modeEl.value || '$';
   await _saveCustomAccounts(list);
   _rebuildAccMgrList();

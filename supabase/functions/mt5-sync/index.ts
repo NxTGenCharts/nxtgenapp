@@ -12,8 +12,13 @@
  *    → Provisions a MetaApi account, returns metaApiAccountId
  *
  *  POST /mt5-sync/sync
- *    Body: { token, accountName, metaApiAccountId }
- *    → Fetches latest trades from MetaApi, stores in buffer
+ *    Body: { token, accountName, metaApiAccountId, recalculateSize? }
+ *    → Fetches latest trades from MetaApi, stores in buffer.
+ *    → Also fetches account information and, on the account's first
+ *      successful sync (or when recalculateSize=true is explicitly passed),
+ *      captures its balance as the fixed "Account Size". This value is
+ *      persisted once and never silently overwritten by later syncs —
+ *      live balance/equity/P&L keep updating separately.
  *
  *  GET  /mt5-sync?token=&account=
  *    → Returns buffered trades (permanent history)
@@ -174,7 +179,7 @@ async function handleConnect(req: Request): Promise<Response> {
 // ── SYNC: fetch trades from MetaApi → buffer ─────────────────────────────────
 async function handleSync(req: Request): Promise<Response> {
   const body = await req.json().catch(() => ({}));
-  const { token, accountName, metaApiAccountId } = body;
+  const { token, accountName, metaApiAccountId, recalculateSize } = body;
 
   if (!token || !accountName || !metaApiAccountId) {
     return jsonError("Missing required fields", 400);
@@ -258,6 +263,13 @@ async function handleSync(req: Request): Promise<Response> {
     console.log(`[mt5-sync] fetched ${positions.length} open positions`);
   }
 
+  // Fetch account information (balance/equity/currency) — used below to
+  // determine the account's fixed "Account Size", never for live P&L here.
+  const accountInfo = await fetchAccountInformation(clientUrl, metaApiAccountId);
+  if (accountInfo) {
+    console.log(`[mt5-sync] account-information: balance=${accountInfo.balance} equity=${accountInfo.equity}`);
+  }
+
   // Convert deals to trade rows (pair entry+exit by positionId)
   const rows = buildTradeRows(deals, positions, token, accountName);
   console.log(`[mt5-sync] built ${rows.length} trade rows`);
@@ -273,16 +285,37 @@ async function handleSync(req: Request): Promise<Response> {
     }
   }
 
-  // Update last sync time
+  // Update last sync time + (conditionally) the account's fixed Account Size.
   const { data: accData } = await admin
     .from("journal_account_data")
     .select("accounts")
     .eq("user_id", user.id)
     .single();
 
+  const existingAcc = (accData?.accounts ?? []).find((a: AccObj) => a?.mt5?.webhookToken === token);
+  const existingSize = Number(existingAcc?.size) || 0;
+
+  // Only capture a new Account Size when:
+  //   - the stored size is empty/null/zero (first successful connection / import), OR
+  //   - the caller explicitly asked to refresh/recalculate it.
+  // Never overwrite it during a routine background sync otherwise — live
+  // balance/equity keep updating separately via the trade buffer above.
+  const shouldCaptureSize = accountInfo && typeof accountInfo.balance === "number" &&
+    (existingSize <= 0 || recalculateSize === true);
+
+  const capturedSize = shouldCaptureSize ? Math.round(accountInfo.balance * 100) / 100 : null;
+
   const updatedAccounts = (accData?.accounts ?? []).map((a: AccObj) => {
     if (a?.mt5?.webhookToken !== token) return a;
-    return { ...a, mt5: { ...a.mt5, lastSync: new Date().toISOString(), lastSyncStatus: "ok" } };
+    const next: AccObj = {
+      ...a,
+      mt5: { ...a.mt5, lastSync: new Date().toISOString(), lastSyncStatus: "ok" },
+    };
+    if (capturedSize !== null) {
+      next.size = capturedSize;
+      next.mt5 = { ...next.mt5, accountSizeSource: "mt5", accountSizeSyncedAt: new Date().toISOString() };
+    }
+    return next;
   });
 
   await admin.from("journal_account_data").upsert(
@@ -290,7 +323,18 @@ async function handleSync(req: Request): Promise<Response> {
     { onConflict: "user_id" }
   );
 
-  return json({ ok: true, synced: rows.length });
+  return json({
+    ok: true,
+    synced: rows.length,
+    // Only present when the account size was just (re)captured — the client
+    // merges this into its local cache. Absent on routine syncs so the
+    // client knows not to touch the existing value.
+    ...(capturedSize !== null ? { accountSize: capturedSize, accountSizeSource: "mt5" } : {}),
+    // Non-blocking signal for the UI if we couldn't determine a size —
+    // either it still has none saved, or the user explicitly asked us to
+    // refresh/recalculate it and that attempt failed.
+    ...(accountInfo === null && (existingSize <= 0 || recalculateSize === true) ? { accountSizeUnavailable: true } : {}),
+  });
 }
 
 // ── GET: return full trade history buffer ─────────────────────────────────────
@@ -457,7 +501,41 @@ function buildTradeRows(
 // ── Helpers ───────────────────────────────────────────────────────────────────
 interface AccObj {
   name?: string;
+  size?: number;
   mt5?: { webhookToken?: string; metaApiAccountId?: string; region?: string; [key: string]: unknown };
+}
+
+interface MetaAccountInfo {
+  balance?: number;
+  equity?: number;
+  currency?: string;
+  login?: number;
+  server?: string;
+  [key: string]: unknown;
+}
+
+// MetaApi doesn't expose a distinct "initial deposit" field beyond `balance`
+// (balance already nets out all historical deposits/withdrawals/profit).
+// We treat `balance` as the best available source for the account's size,
+// and the caller decides (based on existing stored size) whether to use it.
+async function fetchAccountInformation(
+  clientUrl: string,
+  metaApiAccountId: string,
+): Promise<MetaAccountInfo | null> {
+  try {
+    const resp = await fetch(
+      `${clientUrl}/users/current/accounts/${metaApiAccountId}/account-information`,
+      { headers: metaApiHeaders() }
+    );
+    if (!resp.ok) {
+      console.warn(`[mt5-sync] account-information fetch failed: ${resp.status}`);
+      return null;
+    }
+    return await resp.json();
+  } catch (e) {
+    console.warn("[mt5-sync] account-information fetch error:", String(e));
+    return null;
+  }
 }
 
 // Look up which region MetaApi actually deployed an account to (new-york | london | ...).
