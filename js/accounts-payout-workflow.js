@@ -859,6 +859,29 @@ function _accPayoutMigrateFreeze() {
   return changed;
 }
 
+// ── Refresh Accounts view when the Timezone setting is saved ───────────
+// profileSaveAccount() (Profile → Account tab, where the Timezone dropdown
+// lives) only refreshes the profile hero, avatar and topbar clock — it
+// never rebuilds the Accounts grid or an already-open account detail
+// panel. Since every payout date/time on this page is derived fresh from
+// getUserTz() whenever it's actually re-rendered, the grid cards were
+// simply going stale (still showing whatever timezone was active last
+// time the grid happened to render) instead of being wrong to compute.
+// Rebuilding both here makes the switch apply everywhere immediately,
+// matching the detail panel.
+const _accPayoutOrigSaveProfileAccount = window.profileSaveAccount;
+if (typeof _accPayoutOrigSaveProfileAccount === 'function') {
+  window.profileSaveAccount = async function (...args) {
+    const r = await _accPayoutOrigSaveProfileAccount.apply(this, args);
+    if (document.getElementById('accounts-grid') && typeof buildAccounts === 'function') buildAccounts();
+    if (typeof _accActiveName !== 'undefined' && _accActiveName && typeof accShowDetail === 'function') {
+      const s = (typeof _accPayoutState === 'function') ? _accPayoutState(_accActiveName) : null;
+      if (s && s.supported) accShowDetail(_accActiveName);
+    }
+    return r;
+  };
+}
+
 const _accPayoutOrigBuild2 = window.buildAccounts;
 window.buildAccounts = function (...args) {
   // Run (and persist) the migration BEFORE the original render, so this
