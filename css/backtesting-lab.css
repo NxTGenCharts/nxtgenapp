@@ -214,10 +214,12 @@
     justify-content: center;
     padding: 16px;
     box-sizing: border-box;
-    /* Sits above the floating nav dock (z-index 300) so it always
-       fully covers it — no more relying on a reserved-height gap that
-       goes stale the moment the dock auto-hides. */
-    z-index: 400;
+    /* Sits above the floating nav dock (z-index 300) and above the
+       full-screen Account Tracker detail sheet (z-index 500, see
+       #page-accounts .acc-detail-drawer.open in accounts-upgrade.css)
+       so New Trade always opens on top of it instead of silently
+       rendering underneath until the account view is closed. */
+    z-index: 700;
   }
   .modal{
     width: 100% !important;
