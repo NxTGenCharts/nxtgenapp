@@ -363,7 +363,7 @@ function pf3RenderHeroWave() {
   // dark/desaturated to read against the purple hero background.
   const col = last >= 0 ? '#34d399' : '#f87171';
   pf3Mount('dash-hero-wave', {
-    chart: { type: 'area', height: 26, width: 88, sparkline: { enabled: true }, animations: { enabled: !pf3ReducedMotion(), speed: 600 } },
+    chart: { type: 'area', height: '100%', width: '100%', sparkline: { enabled: true }, animations: { enabled: !pf3ReducedMotion(), speed: 600 } },
     series: [{ data: pts.map(p => p.y) }],
     stroke: { curve: 'smooth', width: 1.5, colors: [col] },
     fill: { type: 'gradient', gradient: { opacityFrom: 0.4, opacityTo: 0 } },

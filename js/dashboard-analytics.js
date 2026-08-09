@@ -329,12 +329,32 @@ function updateKPIs() {
   const _cqFmt  = fmtUSD(_cqNetD);
   const periodEl = document.getElementById('dash-cover-period');
   const titleEl  = document.getElementById('dash-cover-title');
-  const subTextEl = document.getElementById('dash-cover-sub-text');
   if (periodEl) periodEl.textContent = _cvLabel;
   if (titleEl)  titleEl.textContent  = _cvTitle;
-  if (subTextEl) subTextEl.textContent = _cqT.length
-    ? _cqT.length + ' trades · Win rate ' + _cqWr + '% · Net PnL ' + _cqFmt
-    : 'No trades yet this period — tap + New Trade to begin';
+
+  // Stat line — kept as three separate elements (rather than one blob
+  // string) so Net P&L can carry its own weight/color in the header
+  // without touching how any of these values are actually computed.
+  const tradesEl = document.getElementById('dash-cover-trades');
+  const wrEl     = document.getElementById('dash-cover-wr');
+  const pnlEl    = document.getElementById('dash-cover-pnl');
+  const dotEls   = document.querySelectorAll('.ntg-dh-dot');
+  if (!_cqT.length) {
+    if (tradesEl) tradesEl.textContent = 'No trades yet this period — tap + New Trade to begin';
+    if (wrEl) wrEl.style.display = 'none';
+    if (pnlEl) pnlEl.style.display = 'none';
+    dotEls.forEach(d => d.style.display = 'none');
+  } else {
+    if (tradesEl) tradesEl.textContent = _cqT.length + (_cqT.length === 1 ? ' Trade' : ' Trades');
+    if (wrEl) { wrEl.style.display = ''; wrEl.textContent = _cqWr + '% Win Rate'; }
+    if (pnlEl) {
+      pnlEl.style.display = '';
+      pnlEl.textContent = _cqFmt + ' Net P&L';
+      pnlEl.classList.toggle('pos', _cqNetD >= 0);
+      pnlEl.classList.toggle('neg', _cqNetD < 0);
+    }
+    dotEls.forEach(d => d.style.display = '');
+  }
 
   if (typeof _blRenderDashboardWidgets === 'function') _blRenderDashboardWidgets();
 }

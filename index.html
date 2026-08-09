@@ -100,6 +100,7 @@
 <link rel="stylesheet" href="css/mobile-nav-smart-dock.css?v=202607220300">
 <link rel="stylesheet" href="css/header-sidebar-premium-v2.css?v=202607270100">
 <link rel="stylesheet" href="css/ntg-page-header.css?v=202608011700">
+<link rel="stylesheet" href="css/dashboard-header-premium.css?v=202608091000">
 <link rel="stylesheet" href="css/zen-upgrade.css?v=202608021000">
 <link rel="stylesheet" href="css/zen-session.css?v=202608040900">
 <link rel="stylesheet" href="css/zen-avatar.css?v=202608041200">
@@ -388,7 +389,7 @@
         <div class="dash-left">
 
           <!-- Unified NxTGen page header — performance command center -->
-          <div class="ntg-hd ntg-hd--blue" id="dash-cover">
+          <div class="ntg-hd ntg-hd--blue ntg-dh" id="dash-cover">
             <div class="ntg-hd-top">
               <div class="ntg-hd-main">
                 <div class="ntg-hd-eyebrow" id="dash-cover-period">PERFORMANCE OVERVIEW · 2026</div>
@@ -400,12 +401,16 @@
                 <div class="ntg-hd-clock" id="dash-live-clock" title="Local time">--:--:--</div>
               </div>
             </div>
-            <div class="ntg-hd-meta" id="dash-cover-sub">
-              <span class="ntg-hd-meta-strong" id="dash-cover-title">Loading…</span>
-              <span class="sep">·</span>
-              <span id="dash-cover-sub-text">Loading…</span>
-              <span class="sep">·</span>
-              <span id="dash-last-updated" class="ntg-hd-meta-dim">Loading...</span>
+            <div class="ntg-dh-stats" id="dash-cover-sub">
+              <div class="ntg-dh-period" id="dash-cover-title">Loading…</div>
+              <div class="ntg-dh-statrow">
+                <span class="ntg-dh-stat" id="dash-cover-trades">—</span>
+                <span class="ntg-dh-dot" aria-hidden="true"></span>
+                <span class="ntg-dh-stat" id="dash-cover-wr">—</span>
+                <span class="ntg-dh-dot" aria-hidden="true"></span>
+                <span class="ntg-dh-stat ntg-dh-stat--pnl" id="dash-cover-pnl">—</span>
+              </div>
+              <div class="ntg-dh-updated" id="dash-last-updated">Loading...</div>
             </div>
             <div class="ntg-hd-progress" id="dash-quarter-progress-row">
               <div class="ntg-hd-progress-label"><span id="dash-quarter-progress-label">Quarter progress</span> <span id="dash-quarter-progress-pct">—</span></div>
