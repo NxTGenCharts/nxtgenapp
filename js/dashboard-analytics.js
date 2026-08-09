@@ -1,16 +1,5 @@
 // ══ NxTGen Journal — dashboard-analytics.js (original app.js lines 12695-13726) ══
 
-// True, unfiltered trade list — the header's period summary (below)
-// must always reflect the full Quarterly/Monthly/Weekly default-view
-// window regardless of which "All time / This Quarter / This Month /
-// This Week / Custom" preset is currently selected for the KPI cards.
-// Defined at top level (not inside updateKPIs) so it resolves the real
-// global `trades` array instead of the filtered local one that
-// updateKPIs shadows that name with.
-function _allTradesUnfiltered() {
-  return typeof trades !== 'undefined' ? trades : [];
-}
-
 // ── KPIs ─────────────────────────────────────────────
 function updateKPIs() {
   const trades = _getFilteredTrades(); // use date-filtered trades for all KPI calculations
@@ -308,36 +297,38 @@ function updateKPIs() {
     }
   }
 
-  // ── Dashboard cover: period summary — respects "Dashboard Default View" setting ──
-  const _dvMode = (_profileData.defaultview || 'Quarterly');
-  const _cqYear = new Date().getFullYear();
+  // ── Dashboard cover: period summary — mirrors whichever preset is
+  // currently selected in the "All time / This Quarter / This Month /
+  // This Week / Custom" filter row, so the header always shows the same
+  // window (and the same trade count / win rate / net P&L) as the KPI
+  // cards below it, instead of a fixed independent range.
+  const _cqYear   = new Date().getFullYear();
   const _todayStr = localToday();
-  let _cvFrom, _cvTo, _cvLabel, _cvTitle;
-  if (_dvMode === 'Monthly') {
+  const _dfPreset = (typeof _dashFilter !== 'undefined' && _dashFilter.preset) || 'all';
+  let _cvLabel, _cvTitle;
+  if (_dfPreset === 'week') {
+    const _wd = _weekStartDate(new Date());
+    _cvLabel = 'WEEKLY PERFORMANCE · ' + _cqYear;
+    _cvTitle = 'Week of ' + _wd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  } else if (_dfPreset === 'month') {
     const _cqM = new Date().getMonth();
-    _cvFrom  = _cqYear + '-' + String(_cqM + 1).padStart(2, '0') + '-01';
-    _cvTo    = _todayStr;
     _cvLabel = 'MONTHLY PERFORMANCE · ' + _cqYear;
     _cvTitle = MONTH_NAMES_LONG[_cqM] + ' ' + _cqYear;
-  } else if (_dvMode === 'Weekly') {
-    const _wd = _weekStartDate(new Date());
-    _cvFrom  = _wd.getFullYear() + '-' + String(_wd.getMonth() + 1).padStart(2, '0') + '-' + String(_wd.getDate()).padStart(2, '0');
-    _cvTo    = _todayStr;
-    _cvLabel = 'WEEKLY PERFORMANCE · ' + _cqYear;
-    _cvTitle = 'Week of ' + new Date(_cvFrom + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  } else {
-    const _cqQ   = getQuarter(_todayStr);
-    const qStart = [null, '01', '04', '07', '10'][_cqQ];
-    _cvFrom  = _cqYear + '-' + qStart + '-01';
-    _cvTo    = _todayStr;
+  } else if (_dfPreset === 'quarter') {
+    const _cqQ = getQuarter(_todayStr);
     _cvLabel = 'PERFORMANCE OVERVIEW · ' + _cqYear;
     _cvTitle = 'Q' + _cqQ + ' ' + _cqYear + ' — ' + (Q_MONTHS[_cqQ] || '');
+  } else if (_dfPreset === 'year') {
+    _cvLabel = 'YEARLY PERFORMANCE';
+    _cvTitle = String(_cqYear);
+  } else if (_dfPreset === 'custom') {
+    _cvLabel = 'CUSTOM RANGE';
+    const _fmtD = s => s ? new Date(s + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '…';
+    _cvTitle = _fmtD(_dashFilter.from) + ' — ' + _fmtD(_dashFilter.to);
+  } else { // 'all'
+    _cvLabel = 'ALL-TIME PERFORMANCE';
+    _cvTitle = 'All Time';
   }
-  const _cqT   = _allTradesUnfiltered().filter(t => t.date >= _cvFrom && t.date <= _cvTo);
-  const _cqWins = _cqT.filter(t => t.outcome === 'Win').length;
-  const _cqWr   = _cqT.length ? ((_cqWins / _cqT.length) * 100).toFixed(1) : '0.0';
-  const _cqNetD = _cqT.reduce((a, t) => a + toPnlDollars(t, getAccSizeForAccount(t.account)), 0);
-  const _cqFmt  = fmtUSD(_cqNetD);
   const periodEl = document.getElementById('dash-cover-period');
   const titleEl  = document.getElementById('dash-cover-title');
   if (periodEl) periodEl.textContent = _cvLabel;
@@ -346,23 +337,26 @@ function updateKPIs() {
   // Stat line — kept as three separate elements (rather than one blob
   // string) so Net P&L can carry its own weight/color in the header
   // without touching how any of these values are actually computed.
+  // `total` / `wr` / `netDollars` above are already derived from
+  // `_getFilteredTrades()` (the same preset), so this stays in sync
+  // with the KPI cards by construction.
   const tradesEl = document.getElementById('dash-cover-trades');
   const wrEl     = document.getElementById('dash-cover-wr');
   const pnlEl    = document.getElementById('dash-cover-pnl');
   const dotEls   = document.querySelectorAll('.ntg-dh-dot');
-  if (!_cqT.length) {
+  if (!total) {
     if (tradesEl) tradesEl.textContent = 'No trades yet this period — tap + New Trade to begin';
     if (wrEl) wrEl.style.display = 'none';
     if (pnlEl) pnlEl.style.display = 'none';
     dotEls.forEach(d => d.style.display = 'none');
   } else {
-    if (tradesEl) tradesEl.textContent = _cqT.length + (_cqT.length === 1 ? ' Trade' : ' Trades');
-    if (wrEl) { wrEl.style.display = ''; wrEl.textContent = _cqWr + '% Win Rate'; }
+    if (tradesEl) tradesEl.textContent = total + (total === 1 ? ' Trade' : ' Trades');
+    if (wrEl) { wrEl.style.display = ''; wrEl.textContent = wr + '% Win Rate'; }
     if (pnlEl) {
       pnlEl.style.display = '';
-      pnlEl.textContent = _cqFmt + ' Net P&L';
-      pnlEl.classList.toggle('pos', _cqNetD >= 0);
-      pnlEl.classList.toggle('neg', _cqNetD < 0);
+      pnlEl.textContent = fmtUSD(netDollars) + ' Net P&L';
+      pnlEl.classList.toggle('pos', netDollars >= 0);
+      pnlEl.classList.toggle('neg', netDollars < 0);
     }
     dotEls.forEach(d => d.style.display = '');
   }
