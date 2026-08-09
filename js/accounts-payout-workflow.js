@@ -285,6 +285,50 @@ function _accFmtPayoutDateTime(dt, opts) {
   }
 }
 
+// ── Live countdown to a payout date/time ────────────────────────────────
+// Pure formatting — takes the same `payoutDateTime` Date object every other
+// payout-date display already uses, so it can never drift out of sync with
+// what "Scheduled For" / "scheduled Aug 13" reads elsewhere on the page.
+function _accCountdownStr(target) {
+  if (!target) return null;
+  const ms = target.getTime() - Date.now();
+  if (ms <= 0) return 'Due now';
+  const s = Math.floor(ms / 1000);
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (d > 0) return `${d}d ${h}h ${m}m`;
+  if (h > 0) return `${h}h ${m}m ${sec}s`;
+  return `${m}m ${sec}s`;
+}
+
+// Every countdown chip on the page (grid cards + the Overview widget)
+// carries its target instant in a data attribute rather than baking the
+// remaining time into the HTML string, so a 1s tick only needs to touch
+// text nodes — no re-render of the card/widget markup.
+function _accCountdownChipHtml(target, extraClass) {
+  if (!target) return '';
+  return `<span class="apw-countdown${extraClass ? ' ' + extraClass : ''}" data-payout-countdown="${target.toISOString()}">${_accCountdownStr(target)}</span>`;
+}
+
+function _accPayoutCountdownTick() {
+  const nodes = document.querySelectorAll('[data-payout-countdown]');
+  if (!nodes.length) return;
+  let anyDue = false;
+  nodes.forEach(el => {
+    const target = new Date(el.getAttribute('data-payout-countdown'));
+    if (isNaN(target.getTime())) return;
+    const label = _accCountdownStr(target);
+    if (el.textContent !== label) el.textContent = label;
+    if (label === 'Due now') anyDue = true;
+  });
+  // Don't wait for the regular 60s poll once a countdown actually hits
+  // zero — flip the stage (Target Reached → Awaiting Payout) right away.
+  if (anyDue) _accPayoutAutoAdvanceTick();
+}
+setInterval(_accPayoutCountdownTick, 1000);
+
 // ── Trade-entry gate — respects "Pause trading until payout is processed" ──
 // Only ever blocks the specific account that's paused; every other account
 // (and every non-funded account) trades exactly as before.
@@ -640,6 +684,7 @@ function _accPayoutWidgetHtml(name) {
         <div class="apw-widget-meta">
           <span>Payout Amount <strong>$${s.cycleProfit.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></span>
           <span>Scheduled For <strong>${dueLabel}</strong></span>
+          <span>Time Remaining <strong>${_accCountdownChipHtml(s.payoutDateTime, 'apw-countdown-inline')}</strong></span>
         </div>
       </div>
       <div class="apw-widget-actions">
@@ -825,7 +870,8 @@ function _accPayoutDecorateGrid() {
         noteHtml = `<svg class="icn" aria-hidden="true"><use href="#ic-lock"></use></svg> Payout target reached — awaiting processing`;
       } else {
         const dueLabel = s.payoutDateTime ? _accFmtPayoutDateTime(s.payoutDateTime, {month:'short',day:'numeric'}) : '—';
-        noteHtml = `<svg class="icn" aria-hidden="true"><use href="#ic-check-c"></use></svg> Payout target reached — scheduled ${dueLabel}`;
+        const countdown = s.payoutDateTime ? _accCountdownChipHtml(s.payoutDateTime) : '';
+        noteHtml = `<svg class="icn" aria-hidden="true"><use href="#ic-check-c"></use></svg> Payout target reached — scheduled ${dueLabel}${countdown}`;
       }
       note.innerHTML = noteHtml;
       const actions = card.querySelector('.acch-actions');
