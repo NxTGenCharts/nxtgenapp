@@ -1,5 +1,16 @@
 // ══ NxTGen Journal — dashboard-analytics.js (original app.js lines 12695-13726) ══
 
+// True, unfiltered trade list — the header's period summary (below)
+// must always reflect the full Quarterly/Monthly/Weekly default-view
+// window regardless of which "All time / This Quarter / This Month /
+// This Week / Custom" preset is currently selected for the KPI cards.
+// Defined at top level (not inside updateKPIs) so it resolves the real
+// global `trades` array instead of the filtered local one that
+// updateKPIs shadows that name with.
+function _allTradesUnfiltered() {
+  return typeof trades !== 'undefined' ? trades : [];
+}
+
 // ── KPIs ─────────────────────────────────────────────
 function updateKPIs() {
   const trades = _getFilteredTrades(); // use date-filtered trades for all KPI calculations
@@ -322,7 +333,7 @@ function updateKPIs() {
     _cvLabel = 'PERFORMANCE OVERVIEW · ' + _cqYear;
     _cvTitle = 'Q' + _cqQ + ' ' + _cqYear + ' — ' + (Q_MONTHS[_cqQ] || '');
   }
-  const _cqT   = trades.filter(t => t.date >= _cvFrom && t.date <= _cvTo);
+  const _cqT   = _allTradesUnfiltered().filter(t => t.date >= _cvFrom && t.date <= _cvTo);
   const _cqWins = _cqT.filter(t => t.outcome === 'Win').length;
   const _cqWr   = _cqT.length ? ((_cqWins / _cqT.length) * 100).toFixed(1) : '0.0';
   const _cqNetD = _cqT.reduce((a, t) => a + toPnlDollars(t, getAccSizeForAccount(t.account)), 0);

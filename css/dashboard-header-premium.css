@@ -75,8 +75,24 @@
    desktop header. Breakpoints line up with the base .ntg-hd system
    (720px stacking point) plus two tighter steps for small phones. ══ */
 @media (max-width:720px){
-  .ntg-dh .ntg-hd-right{ align-self:flex-end; margin-top:-4px; gap:8px; }
-  .ntg-dh .ntg-hd-wave{ width:72px; height:24px; }
+  /* Detach the sparkline from the clock row and pin it to the top-right
+     corner of the header (anchored to .ntg-hd-top, which is already a
+     positioned container) so it sits alongside the eyebrow/title the
+     way it does on desktop — instead of stacking with the clock below
+     the subtitle and pushing everything else down. The clock stays
+     exactly where it already sits (its own row, right-aligned, below
+     the subtitle) — only the sparkline moves. */
+  .ntg-dh .ntg-hd-top{ position:relative; }
+  /* .ntg-hd-right normally establishes its own positioning context
+     (position:relative, for z-index stacking) — neutralize that here
+     so the wave's position:absolute below resolves against .ntg-hd-top
+     instead, which is what actually pins it to the header's corner
+     regardless of how tall the title/subtitle block grows. */
+  .ntg-dh .ntg-hd-right{ position:static; align-self:flex-end; margin-top:-4px; gap:8px; }
+  .ntg-dh .ntg-hd-wave{
+    position:absolute; top:0; right:0;
+    width:64px; height:22px; margin:0;
+  }
   .ntg-dh-stats{ margin-top:12px; padding-top:10px; }
   .ntg-dh-statrow{ font-size:11.5px; gap:7px; }
   .ntg-dh-stat{ font-size:11.5px; }
@@ -84,7 +100,7 @@
 }
 @media (max-width:480px){
   .ntg-dh .ntg-hd-clock{ font-size:10.5px; padding:3px 8px; gap:6px; }
-  .ntg-dh .ntg-hd-wave{ width:56px; height:22px; }
+  .ntg-dh .ntg-hd-wave{ width:52px; height:20px; }
   .ntg-dh-period{ font-size:12.5px; }
   .ntg-dh-statrow{ gap:6px 9px; }
   .ntg-dh-stat{ font-size:11px; }
@@ -92,6 +108,6 @@
   .ntg-dh-updated{ font-size:9.5px; }
 }
 @media (max-width:360px){
-  .ntg-dh .ntg-hd-wave{ width:42px; }
+  .ntg-dh .ntg-hd-wave{ width:40px; height:18px; }
   .ntg-dh .ntg-hd-clock{ padding:3px 7px; }
 }
