@@ -295,6 +295,23 @@ const STATUS_LABEL: Record<string, string> = {
   stopped_out: 'Stopped Out', cancelled: 'Cancelled', expired: 'Expired', closed: 'Closed'
 };
 
+// Mirrors ORDER_TYPE_LABEL / PENDING_ORDER_TYPES in js/signals.js so the
+// email templates describe order types the same way the app does.
+const ORDER_TYPE_LABEL: Record<string, string> = {
+  market: 'Market Execution', buy_limit: 'Buy Limit', sell_limit: 'Sell Limit',
+  buy_stop: 'Buy Stop', sell_stop: 'Sell Stop'
+};
+const PENDING_ORDER_TYPES = ['buy_limit', 'sell_limit', 'buy_stop', 'sell_stop'];
+
+// "Pending Order (Buy Limit)" for resting orders, "Market Execution" for
+// everything else (including a missing/unknown order_type).
+function orderTypeDisplay(orderType: string | null): string {
+  if (orderType && PENDING_ORDER_TYPES.includes(orderType)) {
+    return `Pending Order (${ORDER_TYPE_LABEL[orderType]})`;
+  }
+  return ORDER_TYPE_LABEL[orderType || 'market'] || 'Market Execution';
+}
+
 function formatPrice(v: number | null | undefined): string {
   if (v === null || v === undefined || Number.isNaN(v)) return '—';
   // Forex-style pairs commonly need 4-5dp, indices/crypto/stocks 1-2dp.
@@ -410,7 +427,12 @@ interface KindTheme {
 const KIND_THEME: Record<EmailKind, KindTheme> = {
   published: {
     label: 'New Signal', accent: '#2563eb', accentBg: '#eff6ff', accentDark: '#60a5fa', accentBgDark: '#1e293b',
-    subjectEmoji: '', headline: (s) => `New ${s.direction === 'buy' ? 'Buy' : 'Sell'} Signal`
+    subjectEmoji: '', headline: (s) => {
+      const base = `New ${s.direction === 'buy' ? 'Buy' : 'Sell'} Signal`;
+      return s.order_type && PENDING_ORDER_TYPES.includes(s.order_type)
+        ? `${base} — ${orderTypeDisplay(s.order_type)}`
+        : base;
+    }
   },
   edited: {
     label: 'Signal Updated', accent: '#7c3aed', accentBg: '#f5f3ff', accentDark: '#a78bfa', accentBgDark: '#241e35',
@@ -576,6 +598,7 @@ function buildCalloutForKind(ctx: EmailContext): string | null {
 
 function buildSummaryCard(signal: SignalRow, timezone: string): string {
   const rows = [
+    statRow('Order Type', orderTypeDisplay(signal.order_type)),
     statRow('Entry', formatPrice(signal.entry)),
     statRow('Stop Loss', formatPrice(signal.stop_loss), '#dc2626'),
     statRow('Take Profit 1', formatPrice(signal.tp1), '#059669'),
@@ -762,6 +785,7 @@ function buildPlainText(ctx: EmailContext, subject: string, viewUrl: string, set
     `${greeting} ${message || ''}`.trim(),
     '',
     `${signal.pair} — ${signal.direction.toUpperCase()}`,
+    `Order Type: ${orderTypeDisplay(signal.order_type)}`,
     `Entry: ${formatPrice(signal.entry)}`,
     `Stop Loss: ${formatPrice(signal.stop_loss)}`,
     `Take Profit 1: ${formatPrice(signal.tp1)}`,
