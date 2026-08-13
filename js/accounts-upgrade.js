@@ -21,6 +21,11 @@ function _accFirmLabel(typeInfo) {
   return (typeInfo.cls === 'paper' || typeInfo.cls === 'live') ? 'Broker' : 'Firm';
 }
 
+// Shared payout method options — single source of truth for the Payout
+// Method dropdown so any other payout-related form (e.g. the payout log)
+// can reuse this list instead of redefining it.
+const ACC_PAYOUT_METHODS = ['Rise', 'Crypto', 'Wire Transfer', 'Skrill', 'PayPal', 'Bank Transfer', 'Other'];
+
 function _accRiskDefaults(acc) {
   const accSize = parseFloat(acc.size) || 0;
   // Payout threshold is stored as a % of account size (payoutThresholdPct).
@@ -46,6 +51,7 @@ function _accRiskDefaults(acc) {
     // Your share of a payout once the firm pays out — most funders run
     // 80/20, some 85/15 or 90/10. Defaults to 80% to you / 20% to the firm.
     profitSplitPct:    (acc.profitSplitPct    !== undefined && acc.profitSplitPct    !== null && acc.profitSplitPct    !== '') ? parseFloat(acc.profitSplitPct)     : 80,
+    payoutMethod:      acc.payoutMethod || '',
   };
 }
 
@@ -311,10 +317,19 @@ function _openAccRiskSettings(name) {
   const _apwTz = (typeof getUserTz === 'function') ? getUserTz() : null;
   const nextDateVal = (_apwDt && _apwTz && typeof _accZonedDateInputValue === 'function') ? _accZonedDateInputValue(_apwDt, _apwTz) : r.nextPayoutDate;
   const nextTimeVal = (_apwDt && _apwTz && typeof _accZonedTimeInputValue === 'function') ? _accZonedTimeInputValue(_apwDt, _apwTz) : (list[idx].nextPayoutTime || '00:00');
+  const payoutMethodOptions = ACC_PAYOUT_METHODS.map(m =>
+    `<option value="${m}"${r.payoutMethod === m ? ' selected' : ''}>${m}</option>`).join('');
   const payoutMetaRow = t.payout ? `
       <div class="wl-form-2col">
         <div class="wl-form-row"><label class="wl-form-label">Min Trading Days</label><input type="number" class="wl-form-input" id="ars-mindays" value="${r.minTradingDays || ''}" min="0" placeholder="e.g. 5"></div>
         <div class="wl-form-row"><label class="wl-form-label">Your Profit Split (%)</label><input type="number" class="wl-form-input" id="ars-split" value="${r.profitSplitPct}" min="0" max="100" step="1" placeholder="e.g. 80"></div>
+      </div>
+      <div class="wl-form-row">
+        <label class="wl-form-label">Payout Method</label>
+        <select class="wl-form-select" id="ars-method" required aria-label="Payout Method">
+          <option value="" disabled${r.payoutMethod ? '' : ' selected'}>Select a method…</option>
+          ${payoutMethodOptions}
+        </select>
       </div>
       <div class="wl-form-2col">
         <div class="wl-form-row"><label class="wl-form-label">Next Payout Date</label><input type="date" class="wl-form-input" id="ars-nextdate" value="${nextDateVal}"></div>
@@ -355,6 +370,12 @@ async function _saveAccRiskSettings(name) {
   const t = _accTypeInfo(list[idx].type);
   const isPaperOrLive = t.cls === 'paper' || t.cls === 'live';
   const val = id => document.getElementById(id)?.value ?? '';
+  const methodEl = document.getElementById('ars-method');
+  if (methodEl && !methodEl.value) {
+    showToast('Please select a payout method', 'error');
+    methodEl.focus();
+    return;
+  }
   list[idx].firm              = val('ars-firm');
   list[idx].platform          = val('ars-platform') || 'MT5';
   list[idx].dailyLossLimitPct = parseFloat(val('ars-daily')) || 0;
@@ -363,6 +384,7 @@ async function _saveAccRiskSettings(name) {
   list[idx].payoutThresholdPct = parseFloat(val('ars-payout')) || 0;
   delete list[idx].payoutThreshold; // legacy $ field, superseded by payoutThresholdPct
   list[idx].minTradingDays    = parseInt(val('ars-mindays'), 10) || 0;
+  if (methodEl) list[idx].payoutMethod = val('ars-method');
   const splitInput = parseFloat(val('ars-split'));
   list[idx].profitSplitPct    = (!isNaN(splitInput) && splitInput > 0) ? Math.min(100, splitInput) : 80;
   list[idx].nextPayoutDate    = val('ars-nextdate') || '';
@@ -613,6 +635,7 @@ function _accSettingsTabHtml(name) {
     t.payout  ? row('Payout Threshold', r.payoutThresholdPct > 0 ? r.payoutThresholdPct + '%' : 'Not set') : '',
     t.payout  ? row('Min Trading Days', r.minTradingDays || '—') : '',
     t.payout  ? row('Profit Split', `${r.profitSplitPct}% you / ${100 - r.profitSplitPct}% firm`) : '',
+    t.payout  ? row('Payout Method', r.payoutMethod || 'Not set') : '',
   ].join('');
   const isPaperOrLive = t.cls === 'paper' || t.cls === 'live';
   const firmLabel = _accFirmLabel(t);
