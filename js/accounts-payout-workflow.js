@@ -235,6 +235,9 @@ function _accPayoutState(name) {
   const cyc = _accCycleAnalytics(name, cycleStartDate);
   const payoutTarget = accSize > 0 ? accSize * r.payoutThresholdPct / 100 : 0;
   const cycleProfit  = Math.max(0, cyc.net);
+  // What actually lands in your pocket once the firm pays out — the full
+  // cycle profit split by your negotiated share (default 80/20).
+  const traderPayoutAmount = cycleProfit * (r.profitSplitPct / 100);
   const payoutPct    = payoutTarget > 0 ? Math.min(100, (cycleProfit / payoutTarget) * 100) : 0;
   const minDaysMet   = r.minTradingDays <= 0 || cyc.tradingDays >= r.minTradingDays;
   const targetReached = payoutTarget > 0 && cycleProfit >= payoutTarget && minDaysMet;
@@ -259,7 +262,7 @@ function _accPayoutState(name) {
 
   return {
     supported: true, acc, typeInfo: t, r, p, accSize,
-    cycleStartDate, cyc, payoutTarget, cycleProfit, payoutPct, minDaysMet, targetReached,
+    cycleStartDate, cyc, payoutTarget, cycleProfit, traderPayoutAmount, payoutPct, minDaysMet, targetReached,
     payoutDateTime, dateReached,
     activePayout, isProcessing, opStatus, currentBalance,
     tradingPaused: p.tradingDuringPayout === 'pause' && (opStatus === 'target_reached' || opStatus === 'awaiting' || opStatus === 'processing'),
@@ -385,7 +388,8 @@ async function accMarkPayoutProcessing(name) {
   const submitted = _accFmtDate(now);
   const est = _accFmtDate(_accAddBusinessDays(now, s.p.payoutProcessingDays));
   const entry = {
-    id, account: name, amount: parseFloat(s.cycleProfit.toFixed(2)),
+    id, account: name, amount: parseFloat(s.traderPayoutAmount.toFixed(2)),
+    grossProfit: parseFloat(s.cycleProfit.toFixed(2)), profitSplitPct: s.r.profitSplitPct,
     date: submitted, status: 'Processing', notes: '', paymentMethod: '',
     targetReachedAt: submitted, submittedAt: now.toISOString(), processingStartedAt: now.toISOString(),
     estimatedCompletionDate: est, payoutTargetAtTime: s.payoutTarget, cycleStartDate: s.cycleStartDate,
@@ -682,7 +686,8 @@ function _accPayoutWidgetHtml(name) {
         <div class="apw-widget-title">Target Reached</div>
         <div class="apw-widget-sub">Your payout target has been reached. This will automatically move to Awaiting Payout once the scheduled date/time arrives — you'll submit the request to your firm and mark it Processing from there.</div>
         <div class="apw-widget-meta">
-          <span>Payout Amount <strong>$${s.cycleProfit.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></span>
+          <span>Payout Amount <strong>$${s.traderPayoutAmount.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></span>
+          <span>Your Split <strong>${s.r.profitSplitPct}%</strong></span>
           <span>Scheduled For <strong>${dueLabel}</strong></span>
           <span>Time Remaining <strong>${_accCountdownChipHtml(s.payoutDateTime, 'apw-countdown-inline')}</strong></span>
         </div>
@@ -702,7 +707,8 @@ function _accPayoutWidgetHtml(name) {
         <div class="apw-widget-title">Awaiting Payout</div>
         <div class="apw-widget-sub">Your payout target has been reached. This account is now awaiting payout processing.</div>
         <div class="apw-widget-meta">
-          <span>Payout Amount <strong>$${s.cycleProfit.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></span>
+          <span>Payout Amount <strong>$${s.traderPayoutAmount.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></span>
+          <span>Your Split <strong>${s.r.profitSplitPct}%</strong></span>
           <span>Target <strong>$${s.payoutTarget.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0})}</strong></span>
         </div>
       </div>
@@ -725,6 +731,7 @@ function _accPayoutWidgetHtml(name) {
         <div class="apw-widget-sub">Funds are being processed. This is an estimate, not a guaranteed date.</div>
         <div class="apw-widget-meta">
           <span>Payout Amount <strong>$${(s.activePayout?.amount||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></span>
+          <span>Your Split <strong>${s.activePayout?.profitSplitPct ?? s.r.profitSplitPct}%</strong></span>
           <span>Estimated Completion <strong>${estLabel}</strong></span>
         </div>
       </div>

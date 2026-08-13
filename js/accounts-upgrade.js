@@ -43,6 +43,9 @@ function _accRiskDefaults(acc) {
     payoutThresholdPct,
     minTradingDays:    (acc.minTradingDays    !== undefined && acc.minTradingDays    !== null && acc.minTradingDays    !== '') ? parseInt(acc.minTradingDays, 10)  : 0,
     nextPayoutDate:    acc.nextPayoutDate || '',
+    // Your share of a payout once the firm pays out — most funders run
+    // 80/20, some 85/15 or 90/10. Defaults to 80% to you / 20% to the firm.
+    profitSplitPct:    (acc.profitSplitPct    !== undefined && acc.profitSplitPct    !== null && acc.profitSplitPct    !== '') ? parseFloat(acc.profitSplitPct)     : 80,
   };
 }
 
@@ -311,6 +314,7 @@ function _openAccRiskSettings(name) {
   const payoutMetaRow = t.payout ? `
       <div class="wl-form-2col">
         <div class="wl-form-row"><label class="wl-form-label">Min Trading Days</label><input type="number" class="wl-form-input" id="ars-mindays" value="${r.minTradingDays || ''}" min="0" placeholder="e.g. 5"></div>
+        <div class="wl-form-row"><label class="wl-form-label">Your Profit Split (%)</label><input type="number" class="wl-form-input" id="ars-split" value="${r.profitSplitPct}" min="0" max="100" step="1" placeholder="e.g. 80"></div>
       </div>
       <div class="wl-form-2col">
         <div class="wl-form-row"><label class="wl-form-label">Next Payout Date</label><input type="date" class="wl-form-input" id="ars-nextdate" value="${nextDateVal}"></div>
@@ -359,6 +363,8 @@ async function _saveAccRiskSettings(name) {
   list[idx].payoutThresholdPct = parseFloat(val('ars-payout')) || 0;
   delete list[idx].payoutThreshold; // legacy $ field, superseded by payoutThresholdPct
   list[idx].minTradingDays    = parseInt(val('ars-mindays'), 10) || 0;
+  const splitInput = parseFloat(val('ars-split'));
+  list[idx].profitSplitPct    = (!isNaN(splitInput) && splitInput > 0) ? Math.min(100, splitInput) : 80;
   list[idx].nextPayoutDate    = val('ars-nextdate') || '';
   list[idx].nextPayoutTime    = val('ars-nexttime') || '00:00';
   if (typeof _accFreezePayoutAt === 'function') {
@@ -606,6 +612,7 @@ function _accSettingsTabHtml(name) {
     t.target  ? row('Profit Target', r.profitTargetPct + '%') : '',
     t.payout  ? row('Payout Threshold', r.payoutThresholdPct > 0 ? r.payoutThresholdPct + '%' : 'Not set') : '',
     t.payout  ? row('Min Trading Days', r.minTradingDays || '—') : '',
+    t.payout  ? row('Profit Split', `${r.profitSplitPct}% you / ${100 - r.profitSplitPct}% firm`) : '',
   ].join('');
   const isPaperOrLive = t.cls === 'paper' || t.cls === 'live';
   const firmLabel = _accFirmLabel(t);
