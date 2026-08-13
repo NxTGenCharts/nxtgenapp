@@ -1,0 +1,404 @@
+/* ══════════════════════════════════════════════════════════════════
+   HEADER + SIDEBAR — Premium redesign v2
+   Scope: Theme Toggle · "New Trade" / "New Signal" CTA ·
+          Live Date & Time widget · Sidebar active navigation
+   Loaded last so it wins the cascade without needing !important.
+   No markup, routes, click handlers or state logic are touched —
+   this file (plus a small JS tweak to build the clock's inner
+   spans) only changes how these controls look and animate.
+   ══════════════════════════════════════════════════════════════════ */
+
+:root{
+  --hp-ease:      cubic-bezier(0.16, 1, 0.3, 1);
+  --hp-spring:    cubic-bezier(0.34, 1.56, 0.64, 1);
+  --hp-t:         220ms var(--hp-ease);
+  --hp-t-fast:    160ms var(--hp-ease);
+
+  --hp-glass-bg:      rgba(255,255,255,0.045);
+  --hp-glass-bg-h:    rgba(255,255,255,0.08);
+  --hp-glass-border:  rgba(148,163,184,0.16);
+  --hp-glass-border-h:rgba(148,163,184,0.30);
+
+  --hp-cta-grad: linear-gradient(135deg, rgba(133,120,201,0.60) 0%, rgba(112,103,185,0.60) 45%, rgba(91,84,162,0.60) 100%);
+  --hp-cta-grad-h: linear-gradient(135deg, rgba(148,136,214,0.70) 0%, rgba(127,117,199,0.70) 45%, rgba(104,96,177,0.70) 100%);
+  --hp-cta-ring: 0 0 0 1px rgba(148,136,214,0.28);
+  --hp-cta-glow: 0 4px 14px rgba(91,84,162,0.26), 0 1px 3px rgba(0,0,0,0.18);
+  --hp-cta-glow-h: 0 8px 24px rgba(104,96,177,0.32), 0 2px 6px rgba(0,0,0,0.22);
+
+  --hp-nav-grad: linear-gradient(135deg, rgba(124,58,237,0.16) 0%, rgba(79,70,229,0.12) 55%, rgba(96,165,250,0.07) 100%);
+  --hp-nav-border: rgba(124,58,237,0.26);
+  --hp-nav-bar: linear-gradient(180deg, #a78bfa 0%, #60a5fa 100%);
+}
+
+[data-theme="light"]{
+  --hp-glass-bg:      rgba(255,255,255,0.75);
+  --hp-glass-bg-h:    rgba(255,255,255,0.95);
+  --hp-glass-border:  rgba(15,23,42,0.09);
+  --hp-glass-border-h:rgba(15,23,42,0.16);
+
+  --hp-cta-grad: linear-gradient(135deg, rgba(124,110,196,0.82) 0%, rgba(103,95,178,0.82) 45%, rgba(85,79,156,0.82) 100%);
+  --hp-cta-grad-h: linear-gradient(135deg, rgba(138,125,208,0.90) 0%, rgba(117,107,190,0.90) 45%, rgba(96,89,166,0.90) 100%);
+  --hp-cta-ring: 0 0 0 1px rgba(103,95,178,0.24);
+  --hp-cta-glow: 0 3px 10px rgba(103,95,178,0.18), 0 1px 2px rgba(15,23,42,0.08);
+  --hp-cta-glow-h: 0 8px 22px rgba(103,95,178,0.26), 0 2px 5px rgba(15,23,42,0.1);
+
+  --hp-nav-grad: linear-gradient(135deg, rgba(124,58,237,0.11) 0%, rgba(79,70,229,0.09) 55%, rgba(79,70,229,0.045) 100%);
+  --hp-nav-border: rgba(124,58,237,0.20);
+  --hp-nav-bar: linear-gradient(180deg, #7c3aed 0%, #4f46e5 100%);
+}
+
+/* ═══════════════════════════ A. THEME TOGGLE ═══════════════════════ */
+
+.theme-toggle{
+  position: relative;
+  border-radius: 50%;                 /* circular per spec */
+  background: var(--hp-glass-bg);
+  border: 1px solid var(--hp-glass-border);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 1px 2px rgba(0,0,0,0.10);
+  overflow: hidden;
+  transition: background var(--hp-t), border-color var(--hp-t),
+              box-shadow var(--hp-t), transform var(--hp-t-fast);
+}
+.theme-toggle::after{
+  /* soft glow ring that blooms in on hover, kept inside the circle */
+  content:'';
+  position:absolute; inset:0; border-radius:50%;
+  background: radial-gradient(circle at 50% 40%, rgba(139,92,246,0.35), transparent 70%);
+  opacity:0; transition: opacity var(--hp-t);
+  pointer-events:none;
+}
+.theme-toggle:hover{
+  background: var(--hp-glass-bg-h);
+  border-color: var(--hp-glass-border-h);
+  transform: translateY(-1.5px) scale(1.04);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 6px 16px rgba(0,0,0,0.18);
+}
+.theme-toggle:hover::after{ opacity: 0.5; }
+[data-theme="light"] .theme-toggle:hover{
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 6px 14px rgba(15,23,42,0.10);
+}
+.theme-toggle:active{
+  transform: translateY(0) scale(0.92);
+  transition-duration: 100ms;
+}
+.theme-toggle .icn{
+  position: relative;
+  z-index: 1;
+  width: 15px; height: 15px;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.15));
+}
+.theme-toggle:hover .icn{ color: var(--blue); }
+
+/* Icon-flip transition — triggered by the .spinning class the existing
+   toggleTheme()/loadTheme() JS already adds for ~420ms; purely visual. */
+@keyframes hp-theme-flip{
+  0%   { transform: rotate(0deg)   scale(1);    opacity: 1; }
+  35%  { transform: rotate(100deg) scale(0.35); opacity: 0.25; }
+  55%  { transform: rotate(190deg) scale(0.35); opacity: 0.25; }
+  100% { transform: rotate(360deg) scale(1);    opacity: 1; }
+}
+.theme-toggle.spinning .icn{
+  animation: hp-theme-flip 420ms var(--hp-spring);
+}
+.theme-toggle.spinning::after{
+  opacity: 0.7;
+  transition: opacity 200ms ease;
+}
+@media (prefers-reduced-motion: reduce){
+  .theme-toggle.spinning .icn{ animation: none; }
+}
+
+/* ═══════════════ B. "NEW TRADE" / "NEW SIGNAL" CTA ═════════════════ */
+
+/* Shape/spacing/icon sizing only — shared so the two buttons stay the
+   same size and layout. Color/fill is also shared below: "New Signal"
+   now uses the exact same solid blue gradient as the desktop "New
+   Trade" button rather than its own purple-glass look. */
+.topbar-new-trade-btn.btn-primary,
+.sig-header-actions .btn-primary{
+  position: relative;
+  height: var(--ctrl-h, 34px);
+  padding: 0 18px 0 14px;
+  border-radius: 999px;
+  color: #ffffff;
+  font-weight: 650;
+  letter-spacing: -0.005em;
+  transition: background var(--hp-t), box-shadow var(--hp-t),
+              transform var(--hp-t-fast), border-color var(--hp-t);
+}
+.topbar-new-trade-btn.btn-primary .icn,
+.sig-header-actions .btn-primary .icn{
+  width: 13px; height: 13px;
+  margin-right: 1px;
+  transition: transform 260ms var(--hp-spring);
+}
+.topbar-new-trade-btn.btn-primary:hover .icn,
+.sig-header-actions .btn-primary:hover .icn{
+  transform: rotate(90deg) scale(1.12);
+}
+
+/* ── "New Trade" (desktop) + "New Signal" (Signals page) — same solid
+   blue fill, no glass, matching the mobile floating New Trade button's
+   exact blue gradient (see .mob-nav-add-btn .mob-nav-icon in
+   css/ai-coach-and-late-misc.css) at full opacity since these sit on
+   solid surfaces rather than over live content. ── */
+.topbar-new-trade-btn.btn-primary,
+.sig-header-actions .btn-primary{
+  background: linear-gradient(145deg, #60a5fa 0%, #2563eb 100%);
+  border: 1px solid rgba(255,255,255,0.14);
+  box-shadow: 0 4px 14px rgba(37,99,235,0.35), 0 1px 3px rgba(0,0,0,0.18),
+              inset 0 1px 0 rgba(255,255,255,0.22);
+}
+.topbar-new-trade-btn.btn-primary:hover,
+.sig-header-actions .btn-primary:hover{
+  background: linear-gradient(145deg, #6bacfb 0%, #2f6cf0 100%);
+  box-shadow: 0 8px 22px rgba(37,99,235,0.42), 0 2px 5px rgba(0,0,0,0.20),
+              inset 0 1px 0 rgba(255,255,255,0.26);
+  transform: translateY(-1.5px);
+}
+.topbar-new-trade-btn.btn-primary:active,
+.sig-header-actions .btn-primary:active{
+  transform: translateY(0) scale(0.965);
+  box-shadow: 0 2px 8px rgba(37,99,235,0.30), inset 0 1px 3px rgba(0,0,0,0.18);
+  transition-duration: 90ms;
+}
+.topbar-new-trade-btn.btn-primary:focus-visible,
+.sig-header-actions .btn-primary:focus-visible{
+  outline: none;
+  box-shadow: 0 4px 14px rgba(37,99,235,0.35), 0 0 0 2px var(--bg2), 0 0 0 4px rgba(37,99,235,0.55);
+}
+
+/* ═══════════════ C. LIVE DATE & TIME — status widget ════════════════ */
+
+.topbar-clock{
+  height: auto;
+  min-height: var(--ctrl-h, 34px);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--hp-glass-bg);
+  border: 1px solid var(--hp-glass-border);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 1px 3px rgba(0,0,0,0.12);
+}
+.topbar-clock::before{ content: none; }   /* superseded by the .tc-dot element */
+[data-theme="light"] .topbar-clock{
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 3px rgba(15,23,42,0.06);
+}
+
+.topbar-clock .tc-live{
+  display: inline-flex; align-items: center; gap: 5px;
+  flex-shrink: 0;
+}
+.topbar-clock .tc-dot{
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 0 0 rgba(52,211,153,0.55);
+  animation: hp-clock-pulse 2.2s var(--ease-in-out, ease-in-out) infinite;
+  flex-shrink: 0;
+}
+@keyframes hp-clock-pulse{
+  0%   { box-shadow: 0 0 0 0   rgba(52,211,153,0.45); }
+  70%  { box-shadow: 0 0 0 5px rgba(52,211,153,0); }
+  100% { box-shadow: 0 0 0 0   rgba(52,211,153,0); }
+}
+@media (prefers-reduced-motion: reduce){
+  .topbar-clock .tc-dot{ animation: none; }
+}
+.topbar-clock .tc-live-label{
+  font-family: var(--font-mono);
+  font-size: 9px; font-weight: 700;
+  letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--green);
+}
+.topbar-clock .tc-sep{
+  width: 1px; height: 15px;
+  background: var(--hp-glass-border-h);
+  flex-shrink: 0;
+}
+.topbar-clock .tc-main{
+  display: inline-flex; align-items: baseline; gap: 8px;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+.topbar-clock .tc-date{
+  font-size: 11px; font-weight: 600;
+  color: var(--text2);
+  letter-spacing: 0.01em;
+}
+.topbar-clock .tc-time{
+  font-size: 12.5px; font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+.topbar-clock .tc-tz{
+  font-family: var(--font-mono);
+  font-size: 10px; font-weight: 500;
+  color: var(--text3);
+  padding-left: 8px;
+  border-left: 1px solid var(--hp-glass-border);
+  flex-shrink: 0;
+}
+.topbar-clock .tc-dot-sep{
+  color: var(--text3);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+/* Tablet compact form — JS swaps to date + time only around 1200px;
+   these rules just tighten the widget's own padding/gaps to match. */
+@media (max-width: 1200px) and (min-width: 901px){
+  .topbar-clock{ padding: 5px 11px; gap: 6px; }
+  .topbar-clock .tc-main{ gap: 6px; }
+}
+
+/* ═══════════════ SIDEBAR — remove stray bottom gradient box ═════════
+   backtesting-lab.css adds a `.sidebar::after` "scroll fade" bar meant
+   to hint at more content below. It's pinned to the bottom of the
+   sidebar's flex column even when the nav list is short and doesn't
+   overflow, so it renders as a bare gradient box sitting under
+   "My Profile" — solid-looking in light mode (var(--bg2) is a fairly
+   opaque near-white there), fainter but still present in dark mode.
+   Dropping it entirely; the sidebar doesn't need a scroll cue at its
+   current length, and it never rendered usefully in the first place. */
+.sidebar::after{
+  content: none;
+}
+
+/* ═══════════════ SIDEBAR — active navigation ════════════════════════ */
+
+.sb-item{
+  border-radius: 10px;
+  transition: background 220ms var(--hp-ease), border-color 220ms var(--hp-ease),
+              color 180ms ease, transform 220ms var(--hp-ease),
+              box-shadow 220ms var(--hp-ease);
+}
+.sb-item:hover{
+  background: var(--hp-glass-bg-h);
+  border-color: var(--hp-glass-border);
+  color: var(--text);
+  cursor: pointer;
+}
+.sb-item .ico{
+  transition: color 200ms ease, opacity 200ms ease, transform 200ms var(--hp-ease);
+}
+.sb-item:hover .ico{ transform: translateX(1px); }
+.sb-item .lbl{ transition: color 180ms ease, font-weight 180ms ease; }
+
+/* A couple of earlier layers (ai-coach-and-late-misc.css) mark their
+   .sb-item.active background/box-shadow as !important — matched here,
+   at equal specificity and later in source order, so this redesign
+   is what actually renders instead of silently losing the cascade. */
+.sb-item.active{
+  position: relative;
+  background: var(--hp-nav-grad) !important;
+  border-color: var(--hp-nav-border);
+  color: var(--blue);
+  font-weight: 600;
+  transform: scale(1.015);
+  box-shadow: 0 4px 14px rgba(79,70,229,0.16), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+}
+[data-theme="light"] .sb-item.active{
+  background: var(--hp-nav-grad) !important;
+  border-color: var(--hp-nav-border);
+  color: var(--blue);
+  box-shadow: 0 3px 10px rgba(79,70,229,0.12), inset 0 1px 0 rgba(255,255,255,0.5) !important;
+}
+.sb-item.active::before{
+  content: '';
+  position: absolute;
+  left: 0; top: 20%; bottom: 20%;
+  width: 3px;
+  border-radius: 0 4px 4px 0;
+  background: var(--hp-nav-bar);
+  box-shadow: 0 0 8px rgba(124,58,237,0.45);
+}
+.sb-item.active .ico{
+  opacity: 1;
+  filter: brightness(1.18);
+}
+.sb-item.active .lbl{ font-weight: 600; }
+
+/* Keep the AI Coach glow item's own accent, layered on top of the
+   shared active treatment above rather than replacing it. */
+.sb-item.ai-glow.active{
+  background: linear-gradient(135deg, rgba(167,139,250,0.16) 0%, rgba(96,165,250,0.09) 100%) !important;
+}
+.sb-item.ai-glow.active::before{
+  background: linear-gradient(180deg, #c4b5fd 0%, #a78bfa 100%);
+}
+
+/* ═══════════════ MOBILE — same language, comfortable touch targets ═══ */
+@media (max-width: 768px){
+  .sb-item{
+    min-height: 44px;
+    padding: 9px 12px;
+    border-radius: 10px;
+  }
+  .sb-item.active{ transform: scale(1.008); }   /* keep movement subtle on touch */
+  .sb-item:active{
+    background: var(--hp-glass-bg-h);
+    transition-duration: 90ms;
+  }
+}
+
+/* ═══════════ D. PANEL CLOSE (X) BUTTONS — retired everywhere ════════
+   Both the trade log's #detail-panel and the signals #signal-drawer
+   close on outside click (desktop) and swipe-down-to-dismiss (mobile),
+   so the on-panel X is redundant on every viewport now, not just
+   mobile — hidden here rather than removed from markup/JS so nothing
+   else that references these buttons has to change. */
+.det-panel-close,
+.sig-drawer-close{
+  display: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SIDEBAR TOGGLE — simple chevron glyph
+   One small chevron that flips 180 degrees to show which way the click
+   moves things. Used by both #sb-toggle-btn (topbar) and the in-sidebar
+   close control (.sb-close-btn), so the two controls that show/hide
+   the left nav share one glyph.
+   ═══════════════════════════════════════════════════════════════════ */
+.sb-toggle-btn{
+  width: 28px; height: 28px;
+  transition: background .16s ease, border-color .16s ease,
+              transform .12s cubic-bezier(.4,0,.2,1), box-shadow .16s ease;
+}
+.sb-toggle-btn:active{ transform: scale(.92); }
+.sb-toggle-btn:focus-visible{
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.sb-toggle-icon{
+  display: block;
+  width: 14px; height: 14px;
+  overflow: visible;
+  color: var(--text2);
+  transition: color .18s ease, transform .22s cubic-bezier(.4,0,.2,1);
+  transform-origin: center;
+}
+.sb-toggle-btn:hover .sb-toggle-icon{ color: var(--text); }
+[data-theme="light"] .sb-toggle-icon{ color: var(--text2); }
+[data-theme="light"] .sb-toggle-btn:hover .sb-toggle-icon{ color: var(--text); }
+
+/* Sidebar open (button carries .active, set by toggleSidebar()):
+   chevron points left = "click collapses".
+   Sidebar collapsed: chevron points right = "click expands". */
+.sb-toggle-btn.active .sb-toggle-icon{ transform: rotate(180deg); }
+
+/* In-sidebar close control -- same glyph as #sb-toggle-btn above, just
+   permanently in the "open" pose (chevron pointing left) since this
+   button only ever appears while the sidebar itself is open on mobile.
+   Replaces the old plain X so both controls that show/hide the left
+   nav share one visual language. */
+.sb-close-btn button{ width: 28px; height: 28px; }
+.sb-toggle-icon-close{ transform: rotate(180deg); }
+.sb-close-btn button:hover{ transform: scale(1.08); }
+.sb-close-btn button:hover .sb-toggle-icon-close{ color: var(--red); }

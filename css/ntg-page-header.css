@@ -1,0 +1,201 @@
+/* ══════════════════════════════════════════════════════════════════
+   NxTGen — Unified Page Header System (.ntg-hd)
+   Shared premium header component used by:
+   Dashboard · Trade Log · Market Watchlist · Account Tracker ·
+   Backtesting Lab · Trash
+   Modeled after the Goals & Milestones / Trading Playbook headers
+   (.goals-hd / .pb-hd). Loaded last so it wins the cascade over the
+   legacy .cover banner styles, which remain in place for pages that
+   still use them (Monthly Review, AI Coach, Quarter, Trade Entry).
+   ══════════════════════════════════════════════════════════════════ */
+
+.ntg-hd{
+  position:relative;
+  background:linear-gradient(135deg,var(--bg3),var(--bg4));
+  border:1px solid var(--border);
+  border-radius:var(--r-lg,16px);
+  padding:16px 18px;
+  margin-bottom:14px;
+  overflow:hidden;
+}
+/* Faint ambient accent wash — subtle, never a full color banner */
+.ntg-hd::before{
+  content:'';
+  position:absolute;
+  top:-70%;
+  right:-8%;
+  width:280px;
+  height:280px;
+  border-radius:50%;
+  background:radial-gradient(circle,var(--ntg-hd-accent,var(--blue)) 0%,transparent 70%);
+  opacity:.07;
+  pointer-events:none;
+}
+[data-theme="light"] .ntg-hd::before{ opacity:.10; }
+
+.ntg-hd-top{
+  position:relative;
+  z-index:1;
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+  flex-wrap:wrap;
+}
+.ntg-hd-main{ min-width:0; }
+
+.ntg-hd-eyebrow{
+  font-size:9px;
+  font-weight:700;
+  color:var(--ntg-hd-accent,var(--blue));
+  text-transform:uppercase;
+  letter-spacing:.14em;
+  margin-bottom:4px;
+}
+.ntg-hd-title{
+  font-family:var(--font-head,inherit);
+  font-size:19px;
+  font-weight:800;
+  color:var(--text);
+  letter-spacing:-0.4px;
+  line-height:1.2;
+}
+.ntg-hd-sub{
+  font-size:12px;
+  color:var(--text2);
+  margin-top:4px;
+  line-height:1.5;
+  max-width:600px;
+}
+
+/* Right-side supplemental content (clock, sparkline, etc.) */
+.ntg-hd-right{
+  position:relative;
+  z-index:1;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-shrink:0;
+}
+.ntg-hd-clock{
+  font-family:var(--font-mono);
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:.02em;
+  color:var(--text2);
+  font-variant-numeric:tabular-nums;
+  background:var(--glass-2);
+  border:1px solid var(--glass-border);
+  border-radius:var(--r-full,999px);
+  padding:4px 11px;
+  white-space:nowrap;
+}
+.ntg-hd-wave{ width:88px; height:26px; flex-shrink:0; }
+.ntg-hd-wave svg{ display:block; width:100%; height:100%; }
+.ntg-hd-wave:empty{ display:none; width:0; }
+
+/* Optional action buttons (reuse existing wl-week-btn / wl-add-week-btn look) */
+.ntg-hd-actions{
+  position:relative;
+  z-index:1;
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  flex-shrink:0;
+}
+
+/* Compact metadata / summary row — orientation only, never a second dashboard */
+.ntg-hd-meta{
+  position:relative;
+  z-index:1;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-top:12px;
+  font-size:11px;
+  color:var(--text3);
+}
+.ntg-hd-meta strong,
+.ntg-hd-meta .ntg-hd-meta-strong{ color:var(--text); font-weight:700; }
+.ntg-hd-meta .sep{ opacity:.4; }
+.ntg-hd-meta-dim{ opacity:.75; }
+
+/* Compact status pill */
+.ntg-hd-status{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.02em;
+  color:var(--ntg-hd-accent,var(--blue));
+  background:var(--glass-2);
+  border:1px solid var(--glass-border);
+  border-radius:var(--r-full,999px);
+  padding:3px 10px;
+}
+
+/* Small inline flow pipeline (e.g. Watchlist HTF -> 4H -> 1H -> 30M) */
+.ntg-hd-flow{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  font-family:var(--font-mono);
+  font-size:10.5px;
+  font-weight:600;
+  color:var(--text2);
+  letter-spacing:.01em;
+}
+.ntg-hd-flow .icn{ width:10px; height:10px; opacity:.55; }
+
+/* Progress row (Dashboard quarter progress) */
+.ntg-hd-progress{ position:relative; z-index:1; margin-top:14px; }
+.ntg-hd-progress-label{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  font-size:10px;
+  font-weight:600;
+  color:var(--text3);
+  margin-bottom:6px;
+  letter-spacing:.02em;
+}
+.ntg-hd-progress-track{
+  height:5px;
+  border-radius:var(--r-full,999px);
+  background:var(--glass-2);
+  overflow:hidden;
+}
+.ntg-hd-progress-fill{
+  height:100%;
+  width:0%;
+  border-radius:var(--r-full,999px);
+  background:linear-gradient(90deg,var(--blue),var(--ntg-hd-accent,var(--blue)));
+  transition:width 1s cubic-bezier(0.16,1,0.3,1);
+}
+
+/* ── Accent variants — restrained, tonal only, never a full theme ── */
+.ntg-hd--blue{   --ntg-hd-accent: var(--blue); }
+.ntg-hd--cyan{   --ntg-hd-accent: #22d3ee; }
+.ntg-hd--indigo{ --ntg-hd-accent: #818cf8; }
+.ntg-hd--teal{   --ntg-hd-accent: #2dd4bf; }
+.ntg-hd--slate{  --ntg-hd-accent: #94a3b8; }
+.ntg-hd--red{    --ntg-hd-accent: var(--red); }
+
+/* ── Responsive ─────────────────────────────────────────────────── */
+@media (max-width:720px){
+  .ntg-hd{ padding:14px; }
+  .ntg-hd-title{ font-size:17px; }
+  .ntg-hd-sub{ max-width:none; }
+  .ntg-hd-top{ flex-direction:column; align-items:stretch; }
+  .ntg-hd-right{ align-self:flex-start; }
+  .ntg-hd-actions{ width:100%; }
+  .ntg-hd-actions .wl-week-btn,
+  .ntg-hd-actions .wl-add-week-btn{ flex:1; justify-content:center; text-align:center; }
+  .ntg-hd-meta{ margin-top:10px; gap:8px 10px; }
+}
+@media (max-width:420px){
+  .ntg-hd-clock{ font-size:11px; padding:3px 9px; }
+  .ntg-hd-wave{ width:64px; }
+}

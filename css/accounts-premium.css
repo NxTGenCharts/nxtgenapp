@@ -1,0 +1,69 @@
+/* ══════════════════════════════════════════════════════════════════
+   ACCOUNTS PAGE — Premium Analytical Layer
+   Scope: #page-accounts only. Loaded after dashboard-premium.css,
+   reuses its .pf3-popover-* component styles.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ══ Account grid cards — mini equity preview + lift ═════════════ */
+.acc-card{ transition: transform 220ms var(--pf3-ease,cubic-bezier(.16,1,.3,1)), box-shadow 220ms ease, border-color 220ms ease; }
+.acc-card:not(.acc-card-archived):hover{ transform: translateY(-2px); box-shadow: 0 10px 26px rgba(0,0,0,.28); border-color: var(--glass-border-h); }
+.pf3-acc-card-spark{ margin-top:6px; height:28px; }
+.pf3-acc-card-spark .apexcharts-canvas{ margin:0 auto; }
+
+/* ══ Account Health ring mount ════════════════════════════════════ */
+.pf3-acc-health-mount{ position:absolute; inset:0; }
+.pf3-acc-health-mount .apexcharts-canvas{ margin:0 auto; }
+.acc-hero.pf3-pulse-up .acc-health-ring-wrap{ animation: pf3-health-glow 1.4s cubic-bezier(.16,1,.3,1); }
+@keyframes pf3-health-glow{
+  0%{ filter:drop-shadow(0 0 0 rgba(52,211,153,0)); }
+  30%{ filter:drop-shadow(0 0 14px rgba(52,211,153,.65)); }
+  100%{ filter:drop-shadow(0 0 0 rgba(52,211,153,0)); }
+}
+
+/* ══ KPI scorecard tiles — tap affordance + apex sparkline mount ═ */
+.acc-kpi-card{ cursor:pointer; position:relative; overflow:hidden; }
+.acc-kpi-card::after{
+  content:''; position:absolute; inset:0; border-radius:inherit;
+  box-shadow: inset 0 0 0 1px transparent; transition: box-shadow 200ms ease; pointer-events:none;
+}
+.acc-kpi-card:hover::after{ box-shadow: inset 0 0 0 1px var(--glass-border-h); }
+.pf3-acc-kpi-mount{ width:100%; height:26px; }
+.pf3-acc-kpi-mount .apexcharts-canvas{ margin:0 auto; }
+
+/* ══ Equity curve (ApexCharts mount replaces the canvas) ═════════ */
+#acc-eq-apex{ min-height:200px; }
+#acc-eq-apex .apexcharts-canvas{ margin:0 auto; }
+
+/* ══ Challenge progress — shimmer sweep + reward glow ═══════════ */
+.acc-chal-progress-fill{ position:relative; overflow:hidden; }
+.acc-chal-progress-fill::before{
+  content:''; position:absolute; inset:0;
+  background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,0.22) 50%, transparent 70%);
+  background-size: 220% 100%;
+  animation: pf3-shimmer-sweep 2.6s ease-in-out infinite;
+}
+@keyframes pf3-shimmer-sweep{ 0%{ background-position:150% 0; } 100%{ background-position:-50% 0; } }
+.acc-chal-ms.reached .acc-chal-ms-dot{ animation: pf3-ms-pop 420ms cubic-bezier(.34,1.56,.64,1); }
+@keyframes pf3-ms-pop{ 0%{ transform:scale(.4); } 60%{ transform:scale(1.3); } 100%{ transform:scale(1); } }
+.acc-chal-ms.reached.pf3-ms-100 .acc-chal-ms-lbl::after{ content:' 🏆'; }
+
+/* ══ Milestones checklist — checkpoint node overlay ══════════════ */
+.acc-progress-wrap{ position:relative; }
+.acc-progress-bg{ position:relative; overflow:visible !important; }
+.pf3-ms-nodes{ position:absolute; top:50%; left:0; right:0; height:0; pointer-events:none; }
+.pf3-ms-node{
+  position:absolute; top:50%; width:9px; height:9px; border-radius:50%;
+  background: var(--glass-3); border:1.5px solid var(--glass-border-h);
+  transform: translate(-50%,-50%); transition: background 300ms ease, border-color 300ms ease, box-shadow 300ms ease;
+}
+.pf3-ms-node.done{ background: var(--green); border-color: var(--green); box-shadow:0 0 7px rgba(52,211,153,.6); }
+
+/* ══ Reduced motion ═══════════════════════════════════════════════ */
+html.nx-reduce-motion .acc-chal-progress-fill::before{ animation:none !important; }
+html.nx-reduce-motion .acc-chal-ms.reached .acc-chal-ms-dot{ animation:none !important; }
+html.nx-reduce-motion .acc-hero.pf3-pulse-up .acc-health-ring-wrap{ animation:none !important; }
+
+/* ══ Mobile ═══════════════════════════════════════════════════════ */
+@media (max-width:640px){
+  .acc-kpi-scorecard{ gap:8px; }
+}

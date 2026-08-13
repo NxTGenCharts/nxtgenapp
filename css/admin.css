@@ -1,0 +1,149 @@
+/* ══ Admin section — reuses signals.css tokens/classes (sig-table-card,
+   sig-badge, sig-dir-badge, sig-pair-cell, bulk-chk, bulk-selected, btn,
+   glass-btn-danger) so it matches the rest of the app. Only the bits
+   unique to this page live here. ══ */
+
+.adm-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.adm-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-head);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+}
+.adm-title .icn { width: 20px; height: 20px; color: var(--gold); }
+.adm-sub {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--text2);
+  max-width: 640px;
+}
+
+.adm-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.adm-stat-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 14px 16px;
+}
+.adm-stat-num {
+  font-family: var(--font-head);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text);
+}
+.adm-stat-lbl {
+  font-size: 12px;
+  color: var(--text2);
+  margin-top: 2px;
+}
+
+.adm-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.adm-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 8px 12px;
+  flex: 1 1 220px;
+  min-width: 180px;
+}
+.adm-search-wrap .icn { width: 15px; height: 15px; color: var(--text3); flex-shrink: 0; }
+.adm-search-wrap input {
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: 13px;
+  width: 100%;
+}
+.adm-select {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: var(--text);
+  font-size: 13px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+.adm-inline-select {
+  padding: 5px 8px;
+  font-size: 12px;
+}
+
+.adm-bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  background: var(--blue-dim);
+  border: 1px solid var(--border-focus);
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+  margin-bottom: 12px;
+}
+.adm-bulk-bar span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-right: 4px;
+}
+
+.adm-row-actions {
+  display: flex;
+  gap: 6px;
+}
+.adm-row-actions button {
+  background: none;
+  border: none;
+  color: var(--text2);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--r-xs);
+  display: flex;
+}
+.adm-row-actions button:hover { color: var(--text); background: var(--glass-2); }
+.adm-row-actions .icn { width: 15px; height: 15px; }
+
+.adm-count-footer {
+  padding: 10px 16px;
+  font-size: 12px;
+  color: var(--text3);
+  border-top: 1px solid var(--border);
+}
+
+.adm-denied {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 80px 20px;
+  text-align: center;
+  color: var(--text2);
+}
+.adm-denied .icn { width: 32px; height: 32px; color: var(--text3); margin-bottom: 6px; }
+.adm-denied h2 { font-size: 18px; color: var(--text); font-family: var(--font-head); }
+.adm-denied p { font-size: 13px; }

@@ -1,0 +1,247 @@
+/* ══════════════════════════════════════════════════════════════════
+   PREMIUM CONTROLS — Terminal-grade redesign
+   Scope: Theme Toggle · "+ New Trade" / "+ New Signal" buttons ·
+          Live Date & Time chip · User Avatar
+   Loaded last so it wins the cascade without needing !important.
+   Layout, spacing and structure of the surrounding bars are untouched —
+   only the controls themselves are restyled.
+   ══════════════════════════════════════════════════════════════════ */
+
+:root{
+  --ctrl-h: 34px;
+  --ctrl-r: 9px;
+  --ctrl-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --ctrl-t: 150ms var(--ctrl-ease);
+
+  /* Dark mode control surfaces */
+  --ctrl-border:        rgba(148,163,184,0.16);
+  --ctrl-border-hover:  rgba(148,163,184,0.28);
+  --ctrl-surface:       rgba(255,255,255,0.035);
+  --ctrl-surface-hover: rgba(255,255,255,0.06);
+
+  --ctrl-blue-surface:       linear-gradient(180deg, rgba(96,165,250,0.14), rgba(96,165,250,0.07));
+  --ctrl-blue-surface-hover: linear-gradient(180deg, rgba(96,165,250,0.20), rgba(96,165,250,0.10));
+  --ctrl-blue-border:        rgba(96,165,250,0.32);
+  --ctrl-blue-border-hover:  rgba(96,165,250,0.55);
+  --ctrl-blue-text:          #8fbdfb;
+  --ctrl-glow-hover:         0 0 0 1px rgba(96,165,250,0.10), 0 4px 16px rgba(96,165,250,0.10);
+}
+
+[data-theme="light"]{
+  --ctrl-border:        rgba(15,23,42,0.10);
+  --ctrl-border-hover:  rgba(15,23,42,0.18);
+  --ctrl-surface:       rgba(255,255,255,0.9);
+  --ctrl-surface-hover: rgba(255,255,255,1);
+
+  --ctrl-blue-surface:       #ffffff;
+  --ctrl-blue-surface-hover: #ffffff;
+  --ctrl-blue-border:        rgba(79,70,229,0.35);
+  --ctrl-blue-border-hover:  rgba(79,70,229,0.55);
+  --ctrl-blue-text:          #4338ca;
+  --ctrl-glow-hover:         0 0 0 1px rgba(79,70,229,0.06), 0 4px 14px rgba(79,70,229,0.12);
+}
+
+/* ── Shared focus ring ─────────────────────────────────────────── */
+.theme-toggle,
+.btn-primary,
+.topbar-avatar{
+  outline: none;
+}
+.theme-toggle:focus-visible,
+.btn-primary:focus-visible,
+.topbar-avatar:focus-visible{
+  box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px var(--ctrl-blue-border-hover);
+}
+
+/* ═══════════════ THEME TOGGLE ═══════════════════════════════════ */
+.theme-toggle{
+  width: var(--ctrl-h);
+  height: var(--ctrl-h);
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: var(--ctrl-r);
+  background: var(--ctrl-surface);
+  border: 1px solid var(--ctrl-border);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+  color: var(--text2);
+  display: flex; align-items: center; justify-content: center;
+  transition: background var(--ctrl-t), border-color var(--ctrl-t),
+              box-shadow var(--ctrl-t), color var(--ctrl-t), transform var(--ctrl-t);
+}
+@media (min-width: 769px){
+  .theme-toggle{ width: var(--ctrl-h); height: var(--ctrl-h); min-width: 0; min-height: 0; }
+}
+.theme-toggle .icn{ width: 15px; height: 15px; }
+.theme-toggle:hover{
+  background: var(--ctrl-surface-hover);
+  border-color: var(--ctrl-border-hover);
+  color: var(--text);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.18);
+}
+[data-theme="light"] .theme-toggle:hover{
+  box-shadow: 0 3px 10px rgba(15,23,42,0.08);
+}
+.theme-toggle:active{
+  transform: translateY(0) scale(0.97);
+  transition-duration: 90ms;
+}
+
+/* ═══════════════ PRIMARY BUTTONS — New Trade / New Signal ═══════ */
+.btn-primary{
+  height: var(--ctrl-h);
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 6px;
+  padding: 0 14px;
+  border-radius: var(--ctrl-r);
+  background: var(--ctrl-blue-surface);
+  border: 1px solid var(--ctrl-blue-border);
+  color: var(--ctrl-blue-text);
+  font-weight: 600;
+  font-size: 12.5px;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 0 1px 2px rgba(0,0,0,0.12);
+  transition: background var(--ctrl-t), border-color var(--ctrl-t),
+              box-shadow var(--ctrl-t), transform var(--ctrl-t), color var(--ctrl-t);
+  backdrop-filter: none;
+  white-space: nowrap;
+}
+[data-theme="light"] .btn-primary{
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 1px 3px rgba(15,23,42,0.06);
+}
+.btn-primary .icn{ width: 13px; height: 13px; flex-shrink: 0; }
+.btn-primary .btn-icon{
+  font-size: 14px; font-weight: 600; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.btn-primary:hover{
+  background: var(--ctrl-blue-surface-hover);
+  border-color: var(--ctrl-blue-border-hover);
+  box-shadow: var(--ctrl-glow-hover), inset 0 1px 0 rgba(255,255,255,0.08);
+  transform: translateY(-1.5px);
+}
+.btn-primary:active{
+  transform: translateY(0) scale(0.98);
+  transition-duration: 90ms;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.12);
+}
+
+/* Keep the mobile sidebar "New Trade" button on its original
+   full-width pill treatment — only the topbar + signals toolbar
+   instances are in scope for this redesign. Restated at higher
+   specificity so it isn't picked up by the .btn-primary rules above. */
+.sb-new-trade-btn.btn-primary{
+  height: auto;
+  width: 100%;
+  padding: 11px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: var(--r-md);
+  justify-content: center;
+  gap: 6px;
+  transform: none;
+}
+.sb-new-trade-btn.btn-primary:hover{
+  transform: none;
+}
+
+/* ═══════════════ LIVE DATE & TIME — status chip ═════════════════ */
+.topbar-clock{
+  height: var(--ctrl-h);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: var(--text2);
+  background: var(--ctrl-surface);
+  border: 1px solid var(--ctrl-border);
+  border-radius: var(--ctrl-r);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+  white-space: nowrap;
+}
+[data-theme="light"] .topbar-clock{
+  box-shadow: 0 1px 2px rgba(15,23,42,0.05);
+}
+.topbar-clock::before{
+  content:'';
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 0 0 rgba(52,211,153,0.55);
+  flex-shrink: 0;
+  animation: ctrl-pulse 2.2s var(--ease-in-out) infinite;
+}
+@keyframes ctrl-pulse{
+  0%   { box-shadow: 0 0 0 0 rgba(52,211,153,0.45); }
+  70%  { box-shadow: 0 0 0 5px rgba(52,211,153,0); }
+  100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); }
+}
+@media (prefers-reduced-motion: reduce){
+  .topbar-clock::before{ animation: none; }
+}
+
+/* Tablet: shorten via JS-driven text (see updateClock), chip stays visible */
+@media (max-width: 1200px) and (min-width: 901px){
+  .topbar-clock{ padding: 0 10px; gap: 6px; }
+}
+
+/* ═══════════════ AVATAR ══════════════════════════════════════════ */
+.topbar-avatar{
+  width: var(--ctrl-h);
+  height: var(--ctrl-h);
+  border-radius: 50%;
+  background: var(--ctrl-surface);
+  border: 1px solid var(--ctrl-border);
+  color: var(--text2);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 1px 2px rgba(0,0,0,0.15);
+  transition: transform var(--ctrl-t), border-color var(--ctrl-t), box-shadow var(--ctrl-t);
+  flex-shrink: 0;
+}
+.topbar-avatar:hover{
+  transform: scale(1.06);
+  border-color: var(--ctrl-border-hover);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+}
+.topbar-avatar:active{
+  transform: scale(0.97);
+  transition-duration: 90ms;
+}
+
+/* ═══════════════ SIGNALS TOOLBAR — align to the same system ═════ */
+.sig-view-toggle{
+  height: var(--ctrl-h);
+  box-sizing: border-box;
+  background: var(--ctrl-surface);
+  border-color: var(--ctrl-border);
+}
+.sig-view-toggle button{
+  border-radius: calc(var(--ctrl-r) - 3px);
+  font-weight: 500;
+  transition: background var(--ctrl-t), color var(--ctrl-t);
+}
+.sig-view-toggle button.active{
+  background: var(--ctrl-surface-hover);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+}
+.sig-header-actions .btn-primary{
+  min-width: 0;
+}
+
+/* ═══════════════ RESPONSIVE — graceful shrink, no overflow ══════ */
+@media (max-width: 1180px){
+  .btn-primary{ padding: 0 11px; }
+}
+@media (max-width: 1024px){
+  .topbar-right{ gap: 6px; }
+  .btn-primary{ padding: 0 10px; font-size: 12px; }
+}

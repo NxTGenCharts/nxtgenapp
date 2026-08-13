@@ -1,0 +1,191 @@
+/* ══════════════════════════════════════════════════════════════
+   NxTGen Journal — NOTIFICATION SYSTEM (premium toast)
+   Single source of truth for every toast/snackbar in the app.
+   Do not add competing .app-toast / .nx-toast rules elsewhere —
+   this file is loaded last so it always wins the cascade.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Viewport — fixed stack, top-right on desktop ─────────────── */
+.nx-toast-viewport{
+  position:fixed;
+  top:calc(16px + env(safe-area-inset-top,0px));
+  right:calc(16px + env(safe-area-inset-right,0px));
+  z-index:10500;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  width:340px;
+  max-width:calc(100vw - 24px);
+  pointer-events:none;
+}
+
+/* Visually-hidden assertive live region used only to announce
+   error toasts to screen readers without moving DOM nodes. */
+.nx-toast-sr-assertive{
+  position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;
+}
+
+/* ── Card ──────────────────────────────────────────────────────── */
+.nx-toast{
+  pointer-events:auto;
+  position:relative;
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  padding:11px 12px;
+  border-radius:16px;
+  background:var(--glass-3);
+  backdrop-filter:var(--blur-lg) saturate(1.5);
+  -webkit-backdrop-filter:var(--blur-lg) saturate(1.5);
+  border:0.5px solid var(--glass-border-h);
+  box-shadow:var(--shadow-lg), inset 0 1px 0 var(--glass-shine);
+  font-family:var(--font-body);
+  color:var(--text);
+  opacity:0;
+  transform:translateY(-10px) scale(0.98);
+  transition:opacity 260ms var(--ease-out), transform 260ms var(--ease-spring), max-height 260ms var(--ease-out), margin 260ms var(--ease-out);
+  will-change:transform,opacity;
+  touch-action:pan-y;
+}
+[data-theme="light"] .nx-toast{
+  background:rgba(255,255,255,0.92);
+  border-color:rgba(15,23,42,0.08);
+  box-shadow:0 10px 30px rgba(15,23,42,0.14), 0 2px 8px rgba(15,23,42,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+}
+
+.nx-toast[data-state="enter"]{opacity:0;transform:translateY(-10px) scale(0.98)}
+.nx-toast[data-state="visible"]{opacity:1;transform:translateY(0) scale(1)}
+.nx-toast[data-state="exit"]{
+  opacity:0;
+  transform:translateY(-6px) scale(0.97);
+  transition:opacity 200ms var(--ease-in-out), transform 200ms var(--ease-in-out), max-height 220ms var(--ease-in-out) 60ms, margin 220ms var(--ease-in-out) 60ms;
+}
+.nx-toast[data-dragging="true"]{transition:none}
+
+/* Icon chip */
+.nx-toast-icon{
+  flex:none;
+  width:22px;height:22px;
+  display:flex;align-items:center;justify-content:center;
+  margin-top:1px;
+}
+.nx-toast-icon .icn{width:16px;height:16px}
+
+.nx-toast[data-type="success"] .nx-toast-icon{color:var(--green)}
+.nx-toast[data-type="error"]   .nx-toast-icon{color:var(--red)}
+.nx-toast[data-type="warning"] .nx-toast-icon{color:var(--gold)}
+.nx-toast[data-type="info"]    .nx-toast-icon{color:var(--teal)}
+.nx-toast[data-type="neutral"] .nx-toast-icon{color:var(--text2)}
+
+/* Thin accent line on the leading edge — restrained, not a big block */
+.nx-toast::before{
+  content:'';
+  position:absolute;left:0;top:10px;bottom:10px;width:2.5px;
+  border-radius:2px;
+  background:var(--text3);
+  opacity:0.55;
+}
+.nx-toast[data-type="success"]::before{background:var(--green)}
+.nx-toast[data-type="error"]::before{background:var(--red)}
+.nx-toast[data-type="warning"]::before{background:var(--gold)}
+.nx-toast[data-type="info"]::before{background:var(--teal)}
+
+/* Loading spinner */
+.nx-toast-spinner{
+  width:16px;height:16px;
+  border-radius:50%;
+  border:2px solid var(--glass-border-h);
+  border-top-color:var(--text2);
+  animation:nxToastSpin 0.8s linear infinite;
+}
+@media (prefers-reduced-motion: reduce){
+  .nx-toast-spinner{animation-duration:1.6s}
+}
+@keyframes nxToastSpin{to{transform:rotate(360deg)}}
+
+/* Content */
+.nx-toast-content{flex:1 1 auto;min-width:0}
+.nx-toast-title{
+  font-size:12.5px;
+  font-weight:600;
+  line-height:1.35;
+  color:var(--text);
+  letter-spacing:-0.01em;
+}
+.nx-toast-message{
+  font-size:12.5px;
+  font-weight:400;
+  line-height:1.4;
+  color:var(--text2);
+  letter-spacing:-0.005em;
+  word-break:break-word;
+}
+.nx-toast-title + .nx-toast-message{margin-top:1px}
+
+/* Action button (e.g. "View Trash", "Undo") */
+.nx-toast-action{
+  flex:none;
+  align-self:center;
+  background:none;
+  border:0.5px solid var(--glass-border-h);
+  color:var(--text);
+  font-size:11.5px;
+  font-weight:600;
+  padding:4px 9px;
+  border-radius:8px;
+  cursor:pointer;
+  transition:var(--t-fast);
+  white-space:nowrap;
+}
+.nx-toast-action:hover{background:var(--glass-2)}
+.nx-toast-action:focus-visible{outline:2px solid var(--border-focus);outline-offset:1px}
+
+/* Dismiss button */
+.nx-toast-close{
+  flex:none;
+  width:20px;height:20px;
+  display:flex;align-items:center;justify-content:center;
+  border:none;background:none;
+  color:var(--text3);
+  border-radius:6px;
+  cursor:pointer;
+  transition:var(--t-fast);
+  margin:-2px -2px 0 0;
+}
+.nx-toast-close .icn{width:11px;height:11px}
+.nx-toast-close:hover{color:var(--text);background:var(--glass-2)}
+.nx-toast-close:focus-visible{outline:2px solid var(--border-focus);outline-offset:1px}
+
+/* Loading toasts have no manual dismiss — must resolve or be updated */
+.nx-toast[data-type="loading"] .nx-toast-close{display:none}
+
+/* Hover pause affordance — subtle, no layout shift */
+.nx-toast:hover{border-color:var(--glass-border-h)}
+
+/* ── Mobile ────────────────────────────────────────────────────── */
+@media (max-width: 640px){
+  .nx-toast-viewport{
+    top:calc(10px + env(safe-area-inset-top,0px));
+    left:calc(10px + env(safe-area-inset-left,0px));
+    right:calc(10px + env(safe-area-inset-right,0px));
+    width:auto;
+    max-width:none;
+  }
+  .nx-toast{padding:10px 11px;border-radius:15px}
+  .nx-toast-title,.nx-toast-message{font-size:12.5px}
+}
+
+/* ── Reduced motion ────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce){
+  .nx-toast{transition:opacity 120ms linear !important;transform:none !important}
+  .nx-toast[data-state="enter"]{opacity:0;transform:none}
+  .nx-toast[data-state="visible"]{opacity:1;transform:none}
+  .nx-toast[data-state="exit"]{opacity:0;transform:none}
+}
+
+/* ── Legacy alias ──────────────────────────────────────────────
+   Kept only so any stray reference to the old single-node toast
+   never renders as a large unstyled block. The system no longer
+   uses #app-toast — see js/toast-notifications.js. */
+.app-toast{display:none !important}
