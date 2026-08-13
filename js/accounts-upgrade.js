@@ -46,6 +46,10 @@ function _accRiskDefaults(acc) {
     // Your share of a payout once the firm pays out — most funders run
     // 80/20, some 85/15 or 90/10. Defaults to 80% to you / 20% to the firm.
     profitSplitPct:    (acc.profitSplitPct    !== undefined && acc.profitSplitPct    !== null && acc.profitSplitPct    !== '') ? parseFloat(acc.profitSplitPct)     : 80,
+    // How you receive a payout from this firm (Rise, Crypto, Wire, etc).
+    // Empty until the user sets one — new payouts logged for this account
+    // default to it, but existing payout records never get overwritten.
+    payoutMethod:      acc.payoutMethod || '',
   };
 }
 
@@ -311,13 +315,23 @@ function _openAccRiskSettings(name) {
   const _apwTz = (typeof getUserTz === 'function') ? getUserTz() : null;
   const nextDateVal = (_apwDt && _apwTz && typeof _accZonedDateInputValue === 'function') ? _accZonedDateInputValue(_apwDt, _apwTz) : r.nextPayoutDate;
   const nextTimeVal = (_apwDt && _apwTz && typeof _accZonedTimeInputValue === 'function') ? _accZonedTimeInputValue(_apwDt, _apwTz) : (list[idx].nextPayoutTime || '00:00');
+  const methodOptions = (typeof NXTGEN_PAYOUT_METHODS !== 'undefined' ? NXTGEN_PAYOUT_METHODS : []);
   const payoutMetaRow = t.payout ? `
       <div class="wl-form-2col">
         <div class="wl-form-row"><label class="wl-form-label">Min Trading Days</label><input type="number" class="wl-form-input" id="ars-mindays" value="${r.minTradingDays || ''}" min="0" placeholder="e.g. 5"></div>
         <div class="wl-form-row"><label class="wl-form-label">Your Profit Split (%)</label><input type="number" class="wl-form-input" id="ars-split" value="${r.profitSplitPct}" min="0" max="100" step="1" placeholder="e.g. 80"></div>
       </div>
       <div class="wl-form-2col">
+        <div class="wl-form-row">
+          <label class="wl-form-label">Payout Method</label>
+          <select class="wl-form-select" id="ars-method">
+            <option value=""${!r.payoutMethod ? ' selected' : ''}>Not set</option>
+            ${methodOptions.map(m => `<option value="${m}"${r.payoutMethod===m?' selected':''}>${m}</option>`).join('')}
+          </select>
+        </div>
         <div class="wl-form-row"><label class="wl-form-label">Next Payout Date</label><input type="date" class="wl-form-input" id="ars-nextdate" value="${nextDateVal}"></div>
+      </div>
+      <div class="wl-form-2col">
         <div class="wl-form-row"><label class="wl-form-label">Next Payout Time</label><input type="time" class="wl-form-input" id="ars-nexttime" value="${nextTimeVal}"></div>
       </div>` : '';
   const noRulesNote = (!ddRow && !targetPayoutRow) ? `<div class="acch-ov-health-sub" style="margin:-2px 0 2px">${t.label} accounts have no drawdown limits, profit targets, or payout goals — just ${_accFirmLabel(t)} and Platform below.</div>` : '';
@@ -365,6 +379,7 @@ async function _saveAccRiskSettings(name) {
   list[idx].minTradingDays    = parseInt(val('ars-mindays'), 10) || 0;
   const splitInput = parseFloat(val('ars-split'));
   list[idx].profitSplitPct    = (!isNaN(splitInput) && splitInput > 0) ? Math.min(100, splitInput) : 80;
+  list[idx].payoutMethod      = val('ars-method') || '';
   list[idx].nextPayoutDate    = val('ars-nextdate') || '';
   list[idx].nextPayoutTime    = val('ars-nexttime') || '00:00';
   if (typeof _accFreezePayoutAt === 'function') {
@@ -575,24 +590,26 @@ function _accPayoutsTabHtml(name) {
     </div>`;
   }
   return `
-    <div class="acch-ov-row" style="grid-template-columns:1fr 1fr;margin-bottom:14px">
-      <div class="acch-ov-chip"><div class="acch-ov-chip-label">Total Received</div><div class="acch-ov-chip-val">$${total.toLocaleString()}</div></div>
-      <div class="acch-ov-chip"><div class="acch-ov-chip-label">Payouts Logged</div><div class="acch-ov-chip-val">${rows.length}</div></div>
-    </div>
-    <div class="data-table-wrap">
-      <table class="data-table">
-        <thead><tr><th>Date</th><th>Amount</th><th>Status</th><th>Method</th></tr></thead>
-        <tbody>
-          ${rows.map(p => `<tr>
-            <td class="mono">${p.date}</td>
-            <td class="outcome-win mono">$${parseFloat(p.amount).toLocaleString()}</td>
-            <td><span class="pill ${p.status==='Received'?'pill-green':'pill-gold'}">${p.status}</span></td>
-            <td style="color:var(--text3)">${p.paymentMethod || '—'}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
-    </div>
-    <button class="wl-add-week-btn" style="margin-top:10px" onclick="accAddPayout()">＋ Add Payout</button>`;
+    <div class="acch-payout-redesign">
+      <div class="acch-ov-row" style="grid-template-columns:1fr 1fr;margin-bottom:14px">
+        <div class="acch-ov-chip"><div class="acch-ov-chip-label">Total Received</div><div class="acch-ov-chip-val">$${total.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</div></div>
+        <div class="acch-ov-chip"><div class="acch-ov-chip-label">Payouts Logged</div><div class="acch-ov-chip-val">${rows.length}</div></div>
+      </div>
+      <div class="data-table-wrap acch-payout-table-wrap">
+        <table class="data-table acch-payout-table">
+          <thead><tr><th>Date</th><th>Amount</th><th>Status</th><th>Method</th></tr></thead>
+          <tbody>
+            ${rows.map(p => `<tr>
+              <td class="mono acch-payout-date">${_accFmtPayoutRowDate(p.date)}</td>
+              <td class="outcome-win mono acch-payout-amount">$${parseFloat(p.amount||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+              <td><span class="pill ${_accPayoutStatusPillClass(p.status)}">${p.status}</span></td>
+              <td class="acch-payout-method">${p.paymentMethod ? `<svg class="icn" aria-hidden="true"><use href="#ic-card"></use></svg><span>${p.paymentMethod}</span>` : '<span class="acch-payout-method-empty">—</span>'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      <button class="wl-add-week-btn" style="margin-top:10px" onclick="accAddPayout()">＋ Add Payout</button>
+    </div>`;
 }
 
 function _accSettingsTabHtml(name) {
@@ -613,6 +630,7 @@ function _accSettingsTabHtml(name) {
     t.payout  ? row('Payout Threshold', r.payoutThresholdPct > 0 ? r.payoutThresholdPct + '%' : 'Not set') : '',
     t.payout  ? row('Min Trading Days', r.minTradingDays || '—') : '',
     t.payout  ? row('Profit Split', `${r.profitSplitPct}% you / ${100 - r.profitSplitPct}% firm`) : '',
+    t.payout  ? row('Payout Method', r.payoutMethod || 'Not set') : '',
   ].join('');
   const isPaperOrLive = t.cls === 'paper' || t.cls === 'live';
   const firmLabel = _accFirmLabel(t);

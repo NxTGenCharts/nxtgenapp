@@ -849,6 +849,36 @@ function accCloseDetail() {
 }
 
 /* ── Payout Log ── */
+
+// Shared payout-method options — used by the Risk & Payout settings
+// selector (accounts-upgrade.js) and this Add/Edit Payout form, so the
+// two stay in sync and never drift into two separate lists.
+const NXTGEN_PAYOUT_METHODS = ['Rise', 'Crypto', 'Wire Transfer', 'Skrill', 'PayPal', 'Bank Transfer', 'Other'];
+
+// Maps a payout status string to one of the app's existing pill color
+// classes (css/dashboard-tradelog.css). Data-driven, not hard-coded to a
+// fixed status set — any status not explicitly known falls back to the
+// neutral grey pill rather than breaking.
+function _accPayoutStatusPillClass(status) {
+  const s = (status || '').toLowerCase();
+  if (s === 'received' || s === 'completed' || s === 'paid') return 'pill-green';
+  if (s === 'processing') return 'pill-gold';
+  if (s === 'pending') return 'pill-grey';
+  if (s === 'failed' || s === 'rejected') return 'pill-red';
+  if (s === 'cancelled' || s === 'canceled') return 'pill-grey';
+  return 'pill-grey';
+}
+
+// "2026-08-13" -> "Aug 13, 2026". Falls back to the raw string for
+// anything that doesn't parse cleanly, so a malformed date never blanks
+// the cell.
+function _accFmtPayoutRowDate(dateStr) {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr + 'T12:00:00');
+  if (isNaN(d.getTime())) return dateStr;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 function _renderPayoutLog() {
   const tbody = document.getElementById('payout-tbody');
   if (!tbody) return;
@@ -862,11 +892,11 @@ function _renderPayoutLog() {
     const firm = acc?.firm || '—';
     return `
     <tr title="${p.notes ? p.notes.replace(/"/g,'&quot;') : ''}${p.paymentMethod ? (p.notes ? ' — ' : '') + p.paymentMethod : ''}">
-      <td class="mono">${p.date}</td>
+      <td class="mono">${_accFmtPayoutRowDate(p.date)}</td>
       <td class="bold">${p.account}</td>
       <td style="color:var(--text3)">${firm}</td>
       <td class="outcome-win mono">$${parseFloat(p.amount).toLocaleString()}</td>
-      <td><span class="pill ${p.status==='Received'?'pill-green':'pill-gold'}">${p.status}</span></td>
+      <td><span class="pill ${_accPayoutStatusPillClass(p.status)}">${p.status}</span></td>
       <td style="text-align:right">
         <button class="wl-week-btn" style="font-size:10px;padding:2px 8px" onclick="accEditPayout(${i})"><svg class="icn" aria-hidden="true"><use href="#ic-edit"></use></svg></button>
         <button class="wl-week-btn danger" style="font-size:10px;padding:2px 8px" onclick="accDeletePayout(${i})"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>
@@ -881,6 +911,16 @@ function accEditPayout(i) { _showPayoutModal(i); }
 function _showPayoutModal(editIdx) {
   const isEdit = editIdx !== null;
   const p = isEdit ? _accData.payouts[editIdx] : null;
+  // Default the Account field to whichever account's Payouts tab this was
+  // opened from (falls back to the first account when opened from the
+  // global Payout Log with nothing active).
+  const defaultAccount = p ? p.account : (typeof _accActiveName !== 'undefined' && _accActiveName) || _getAccountNames()[0] || '';
+  // Pre-fill Payout Method from that account's Risk & Payout setting for a
+  // *new* payout. An existing payout keeps whatever method it was created
+  // with, even if the account's setting has since changed.
+  const accForMethod = _getCustomAccounts().find(a => a.name === defaultAccount);
+  const defaultMethod = p ? (p.paymentMethod || '') : (accForMethod?.payoutMethod || '');
+  const methodOptions = (typeof NXTGEN_PAYOUT_METHODS !== 'undefined' ? NXTGEN_PAYOUT_METHODS : []);
   document.getElementById('acc-payout-modal-title').textContent = isEdit ? 'Edit Payout' : 'Add Payout';
   document.getElementById('acc-payout-modal-body').innerHTML = `
     <div class="wl-form-2col">
@@ -897,7 +937,7 @@ function _showPayoutModal(editIdx) {
       <div class="wl-form-row">
         <label class="wl-form-label">Account</label>
         <select class="wl-form-select" id="acc-p-account">
-          ${_getCustomAccounts().map(a => `<option${p&&p.account===a?' selected':''}>${a}</option>`).join('')}
+          ${_getAccountNames().map(a => `<option${defaultAccount===a?' selected':''}>${a}</option>`).join('')}
         </select>
       </div>
       <div class="wl-form-row">
@@ -909,8 +949,11 @@ function _showPayoutModal(editIdx) {
     </div>
     <div class="wl-form-2col">
       <div class="wl-form-row">
-        <label class="wl-form-label">Payment Method (optional)</label>
-        <input type="text" class="wl-form-input" id="acc-p-method" value="${p ? p.paymentMethod||'' : ''}" placeholder="e.g. Wise, Crypto, Bank Transfer">
+        <label class="wl-form-label">Payout Method</label>
+        <select class="wl-form-select" id="acc-p-method">
+          <option value=""${!defaultMethod?' selected':''}>Not specified</option>
+          ${methodOptions.map(m => `<option value="${m}"${defaultMethod===m?' selected':''}>${m}</option>`).join('')}
+        </select>
       </div>
       <div class="wl-form-row">
         <label class="wl-form-label">Notes (optional)</label>
@@ -943,13 +986,24 @@ async function _savePayoutForm(editIdx) {
   accClosePayoutModal();
   _renderPayoutLog();
   await _accSave();
+  // Keep the per-account Payouts tab (if it's the one currently open) in
+  // sync with what was just saved, instead of only refreshing the global log.
+  if (typeof _accActiveName !== 'undefined' && _accActiveName === account && typeof accShowDetail === 'function') {
+    if (typeof _accPendingDetailTab !== 'undefined') _accPendingDetailTab = 'payouts';
+    accShowDetail(account);
+  }
 }
 
 async function accDeletePayout(i) {
   if (!confirm('Delete this payout entry?')) return;
+  const removedAccount = _accData.payouts[i]?.account;
   _accData.payouts.splice(i, 1);
   _renderPayoutLog();
   await _accSave();
+  if (typeof _accActiveName !== 'undefined' && _accActiveName === removedAccount && typeof accShowDetail === 'function') {
+    if (typeof _accPendingDetailTab !== 'undefined') _accPendingDetailTab = 'payouts';
+    accShowDetail(removedAccount);
+  }
 }
 
 function accClosePayoutModal() {

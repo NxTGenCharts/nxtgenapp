@@ -262,3 +262,41 @@
   }
   #page-accounts .acc-detail-drawer.open .acc-detail-body{ padding:16px; padding-bottom:90px; }
 }
+
+/* ── Payouts tab — polished table redesign ───────────────────────────
+   Scoped to .acch-payout-table-wrap / .acch-payout-table only, so the
+   shared .data-table styling used elsewhere (Trades tab, Backtest Lab,
+   Manage Accounts, etc.) is untouched. Adds fintech-dashboard spacing,
+   typography, hover state, and a subtle method-icon treatment on top of
+   the existing table skeleton — no columns added or removed. ────────── */
+.acch-payout-table-wrap{
+  border:1px solid var(--glass-border); border-radius:var(--r-md); overflow:hidden;
+  background:var(--glass-1);
+}
+.acch-payout-table{ width:100%; border-collapse:collapse; min-width:480px; }
+.acch-payout-table thead th{
+  font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px;
+  color:var(--text3); text-align:left; padding:11px 16px; background:var(--glass-2);
+  border-bottom:1px solid var(--glass-border);
+}
+.acch-payout-table tbody td{
+  padding:13px 16px; font-size:13px; color:var(--text2); border-bottom:1px solid var(--glass-border);
+  vertical-align:middle;
+}
+.acch-payout-table tbody tr:last-child td{ border-bottom:none; }
+.acch-payout-table tbody tr{ transition:background-color .12s ease; }
+.acch-payout-table tbody tr:hover td{ background:var(--glass-2); }
+.acch-payout-table .acch-payout-date{ color:var(--text3); white-space:nowrap; }
+.acch-payout-table .acch-payout-amount{ font-size:13.5px; font-weight:700; letter-spacing:.1px; }
+.acch-payout-table .acch-payout-method{
+  display:flex; align-items:center; gap:7px; color:var(--text2); font-size:12.5px;
+}
+.acch-payout-table .acch-payout-method .icn{ width:13px; height:13px; color:var(--text3); flex:none; }
+.acch-payout-table .acch-payout-method-empty{ color:var(--text3); font-style:italic; }
+.acch-payout-table .pill{ transition:filter .12s ease; }
+
+@media (max-width:640px){
+  .acch-payout-table-wrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .acch-payout-table{ min-width:520px; }
+  .acch-payout-table thead th, .acch-payout-table tbody td{ padding:10px 12px; }
+}

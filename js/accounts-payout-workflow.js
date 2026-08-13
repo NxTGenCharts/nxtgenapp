@@ -390,7 +390,7 @@ async function accMarkPayoutProcessing(name) {
   const entry = {
     id, account: name, amount: parseFloat(s.traderPayoutAmount.toFixed(2)),
     grossProfit: parseFloat(s.cycleProfit.toFixed(2)), profitSplitPct: s.r.profitSplitPct,
-    date: submitted, status: 'Processing', notes: '', paymentMethod: '',
+    date: submitted, status: 'Processing', notes: '', paymentMethod: s.r.payoutMethod || '',
     targetReachedAt: submitted, submittedAt: now.toISOString(), processingStartedAt: now.toISOString(),
     estimatedCompletionDate: est, payoutTargetAtTime: s.payoutTarget, cycleStartDate: s.cycleStartDate,
     balanceBeforeReset: s.currentBalance,
