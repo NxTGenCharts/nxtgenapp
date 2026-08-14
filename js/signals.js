@@ -4811,18 +4811,19 @@
             <input class="form-input" id="sf-entry" type="number" step="any" value="${s.entry ?? ''}" onblur="_sigAutoCalcTp1()" oninput="_sfHandleEntryManualInput()">
             <div class="sf-live-price" id="sf-live-price" style="display:none"></div>
           </div>
-          <div class="form-field"><label class="form-label">Stop Loss</label><input class="form-input" id="sf-sl" type="number" step="any" value="${s.stop_loss ?? ''}" onblur="_sigAutoCalcTp1()"></div>
+          <div class="form-field"><label class="form-label">Stop Loss</label><input class="form-input" id="sf-sl" type="number" step="any" value="${s.stop_loss ?? ''}" oninput="_sfUpdateLiveRR()" onblur="_sigAutoCalcTp1()"></div>
           <div class="form-field">
             <label class="form-label">Take Profit 1</label>
-            <input class="form-input" id="sf-tp1" type="number" step="any" value="${s.tp1 ?? ''}">
+            <input class="form-input" id="sf-tp1" type="number" step="any" value="${s.tp1 ?? ''}" oninput="_sfHandleTp1ManualInput()">
             <div class="sig-form-hint">${icn('ic-info')} TP1 is always a fixed 1:2 risk:reward — auto‑filled from Entry &amp; Stop Loss, but you can override it.</div>
           </div>
           <div class="form-field">
             <label class="form-label">Take Profit 2</label>
-            <input class="form-input" id="sf-tp2" type="number" step="any" value="${s.tp2 ?? ''}">
+            <input class="form-input" id="sf-tp2" type="number" step="any" value="${s.tp2 ?? ''}" oninput="_sfUpdateLiveRR()">
             <div class="sig-form-hint">${icn('ic-info')} TP2 is any extended target — it just needs to be higher reward than 1:2.</div>
           </div>
-          <div class="form-field"><label class="form-label">Risk %</label><input class="form-input" id="sf-riskpct" type="number" step="any" value="${s.risk_percent ?? 1}"></div>
+          <div class="form-field"><label class="form-label">Risk %</label><input class="form-input" id="sf-riskpct" type="number" step="any" value="${s.risk_percent ?? 1}" oninput="_sfUpdateLiveRR()"></div>
+          <div class="form-field full" id="sf-live-rr" style="display:flex;gap:24px;align-items:center;flex-wrap:wrap"></div>
 
           <div class="form-field"><label class="form-label">Confidence</label>
             <select class="form-select" id="sf-confidence">
@@ -4977,20 +4978,61 @@
 
 
   // Direction) are known, quietly fill TP1 in for the person — but only if
-  // they haven't already typed their own value in, so this never clobbers
-  // a deliberate override.
+  // they haven't manually typed their own value in, so this never clobbers
+  // a deliberate override. Tracked via _sfTp1AutoFilled rather than "has a
+  // value" alone, so re-editing Entry/SL after the very first auto-fill
+  // keeps recalculating TP1 — a real keystroke in TP1 (_sfHandleTp1ManualInput)
+  // is what flips it into "leave me alone" mode, not merely having a value.
   window._sigAutoCalcTp1 = function () {
     const tp1El = document.getElementById('sf-tp1');
-    if (!tp1El || tp1El.value) return;
+    if (!tp1El) return;
+    if (tp1El.value && !_sfTp1AutoFilled) { _sfUpdateLiveRR(); return; }
     const entry = parseFloat(document.getElementById('sf-entry')?.value);
     const sl = parseFloat(document.getElementById('sf-sl')?.value);
     const dir = document.getElementById('sf-direction')?.value;
-    if (isNaN(entry) || isNaN(sl) || entry === sl) return;
+    if (isNaN(entry) || isNaN(sl) || entry === sl) { _sfUpdateLiveRR(); return; }
     const dist = Math.abs(entry - sl) * 2;
     const tp1 = dir === 'sell' ? entry - dist : entry + dist;
     tp1El.value = +tp1.toFixed(6);
+    _sfTp1AutoFilled = true;
     _sigModalState.dirty = true;
     _sigSetAutosaveLabel('Unsaved changes');
+    _sfUpdateLiveRR();
+  };
+
+  // Flips false the moment the person actually types in TP1 themselves —
+  // set in _sfLiveInit() based on whether the field opens empty or already
+  // holds a saved value (edit mode), and in the TP1 field's oninput below.
+  let _sfTp1AutoFilled = true;
+  window._sfHandleTp1ManualInput = function () {
+    _sfTp1AutoFilled = false;
+    _sfUpdateLiveRR();
+  };
+
+  // Live Risk:Reward / Expected Profit strip in the form itself — same
+  // formula the Review & Publish modal uses (_sigReviewModalContent /
+  // _sigCollectFormRow), just recomputed on every relevant keystroke
+  // instead of only once, at review time.
+  window._sfUpdateLiveRR = function () {
+    const box = document.getElementById('sf-live-rr');
+    if (!box) return;
+    const val = id => document.getElementById(id)?.value;
+    const entry = parseFloat(val('sf-entry'));
+    const sl = parseFloat(val('sf-sl'));
+    const tp1 = parseFloat(val('sf-tp1'));
+    const tp2 = parseFloat(val('sf-tp2'));
+    const finalTp = tp2 || tp1 || entry || 0;
+    const rr = (entry && sl && Math.abs(entry - sl)) ? +(Math.abs(finalTp - entry) / Math.abs(entry - sl)).toFixed(1) : 0;
+    const riskPct = parseFloat(val('sf-riskpct')) || 1;
+    const expectedProfit = (riskPct * rr).toFixed(2);
+    if (!entry || !sl) {
+      box.innerHTML = `<span class="sf-live-rr-muted">Enter Entry &amp; Stop Loss to see Risk:Reward and Expected Profit</span>`;
+      return;
+    }
+    box.innerHTML = `
+      <span class="sf-live-rr-item"><span>Risk : Reward</span><strong>1:${rr || 0}</strong></span>
+      <span class="sf-live-rr-item"><span>Expected Profit</span><strong class="sig-pips-pos">+${expectedProfit}%</strong></span>
+    `;
   };
 
   // ══════════════════════════════════════════════════════════════
@@ -5035,9 +5077,15 @@
   function _sfLiveInit() {
     _sfLiveStop();
     _sfLiveState = { pair: null, market: null, price: null, updatedAt: null, loading: false, error: null, pollTimer: null, uiTimer: null, token: 0, entryOverridden: false };
+    // A signal opened for edit with a saved TP1 already reflects a deliberate
+    // choice (even if it happens to match the 1:2 auto-calc) — treat it like
+    // a manual override so editing SL doesn't silently rewrite it. A blank
+    // TP1 (new signal, or a draft that never got one) stays auto-calculated.
+    _sfTp1AutoFilled = !(document.getElementById('sf-tp1')?.value);
     const pairVal = (document.getElementById('sf-pair')?.value || '').trim();
     if (pairVal) _sfLiveStart(pairVal);
     else _sfRenderLivePrice();
+    _sfUpdateLiveRR();
   }
 
   // Debounced handler for typing in the Pair field — separate from (and
@@ -5144,6 +5192,7 @@
   window._sfHandleEntryManualInput = function () {
     if (_sfLiveState) _sfLiveState.entryOverridden = true;
     _sfRenderLivePrice();
+    _sfUpdateLiveRR();
   };
 
   window._sfHandleOrderTypeChange = function () {
@@ -5259,6 +5308,7 @@
     // order_type may have just changed (e.g. template saved as Market Execution) —
     // refresh the live-price card and re-sync Entry if it now applies.
     if (window._sfHandleOrderTypeChange) window._sfHandleOrderTypeChange();
+    if (window._sfUpdateLiveRR) window._sfUpdateLiveRR();
   }
 
   window._sigUseLastSignal = function () {
