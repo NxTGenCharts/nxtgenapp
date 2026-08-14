@@ -721,6 +721,23 @@
             }
             refresh();
           })
+          // New signal published/scheduled elsewhere (e.g. from the admin
+          // console) — _sigApplyRowPatch alone can't handle this since it
+          // only patches rows already present in _sigAll.
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'journal_signals' }, (payload) => {
+            const row = payload.new;
+            if (!row || !row.id || _sigAll.some(x => x.id === row.id)) return;
+            _sigAll.unshift(_sigFromDbRow(row));
+            refresh();
+          })
+          .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'journal_signals' }, (payload) => {
+            const oldRow = payload.old;
+            if (!oldRow || !oldRow.id) return;
+            const idx = _sigAll.findIndex(x => x.id === oldRow.id);
+            if (idx === -1) return;
+            _sigAll.splice(idx, 1);
+            refresh();
+          })
           .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'journal_signal_updates' }, (payload) => {
             const id = payload.new && payload.new.signal_id;
             if (id && document.getElementById('sig-updates-log-' + id)) _sigLoadUpdatesLog(id);
