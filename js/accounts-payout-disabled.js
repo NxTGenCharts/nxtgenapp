@@ -424,11 +424,17 @@ function _accDisabledRelocateSection() {
         ${visible ? 'Hide' : 'Show'}
       </button>
     </div>
-    ${visible ? '<div class="acch-grid" id="acc-disabled-grid"></div>' : ''}`;
+    <div class="acch-grid" id="acc-disabled-grid"${visible ? '' : ' style="display:none"'}></div>`;
   const gridEl = document.getElementById('acc-disabled-grid');
   // appendChild on a node already in the DOM moves it — no clone needed,
   // so click handlers / bound state on the card survive the relocation.
-  movedCards.forEach(card => { if (gridEl) gridEl.appendChild(card); });
+  // The container itself is ALWAYS rendered (just hidden via display:none
+  // when the section is collapsed) so the cards are relocated out of the
+  // Active grid immediately, regardless of expand/collapse state — before
+  // this fix, collapsed mode skipped rendering #acc-disabled-grid
+  // entirely, so movedCards never actually left the Active section until
+  // "Show" was clicked once.
+  movedCards.forEach(card => gridEl.appendChild(card));
 }
 
 const _accDisabledOrigRenderGrid = window._renderAccGrid;
