@@ -464,14 +464,28 @@ function _renderAccInsights() {
     if (p.m.at.length >= 2 && p.m.wr === 100) {
       insights.push({ icon: 'ic-trophy', tone: 'teal', text: `Your ${p.acc.name} account has a 100% win rate across ${p.m.at.length} trades.` });
     }
-    if (p.payoutGoal > 0 && !p.payoutEligible && p.payoutCurrent < p.payoutGoal) {
+    // Payout target proximity/eligibility must reflect the CURRENT payout
+    // cycle, not lifetime profit — otherwise this banner (and the "$X away"
+    // one) keeps firing off profit from a cycle that's already been paid
+    // out or rejected. _accRiskProfile's payoutGoal/payoutCurrent are
+    // lifetime-scoped by design (used elsewhere for lifetime stats), so
+    // recheck against _accPayoutState here specifically.
+    const cycleState = (typeof _accPayoutState === 'function') ? _accPayoutState(p.acc.name) : null;
+    if (cycleState && cycleState.supported && cycleState.payoutTarget > 0) {
+      if (!cycleState.targetReached && cycleState.cycleProfit > 0) {
+        const remaining = cycleState.payoutTarget - cycleState.cycleProfit;
+        if (remaining > 0) {
+          insights.push({ icon: 'ic-target', tone: 'blue', text: `You are $${remaining.toFixed(0)} away from ${p.acc.name}'s next payout target.` });
+        }
+      }
+      if (cycleState.targetReached) {
+        insights.push({ icon: 'ic-check-c', tone: 'teal', text: `${p.acc.name} has hit its payout threshold and is eligible for a payout request.` });
+      }
+    } else if (p.payoutGoal > 0 && !p.payoutEligible && p.payoutCurrent < p.payoutGoal) {
       const remaining = p.payoutGoal - p.payoutCurrent;
       if (remaining > 0 && p.payoutCurrent > 0) {
         insights.push({ icon: 'ic-target', tone: 'blue', text: `You are $${remaining.toFixed(0)} away from ${p.acc.name}'s next payout target.` });
       }
-    }
-    if (p.payoutEligible) {
-      insights.push({ icon: 'ic-check-c', tone: 'teal', text: `${p.acc.name} has hit its payout threshold and is eligible for a payout request.` });
     }
     if (p.acc.mt5?.enabled) {
       const last = p.acc.mt5.lastSync ? new Date(p.acc.mt5.lastSync) : null;
@@ -596,6 +610,8 @@ function _accPayoutsTabHtml(name) {
       <button class="wl-add-week-btn" onclick="accClosePayoutModalIfOpen();accAddPayout()">＋ Add Payout</button>
     </div>`;
   }
+  const acc = _getCustomAccounts().find(a => a.name === name) || {};
+  const defaultMethod = (typeof _accRiskDefaults === 'function') ? (_accRiskDefaults(acc).payoutMethod || '') : '';
   return `
     <div class="acch-ov-row" style="grid-template-columns:1fr 1fr;margin-bottom:14px">
       <div class="acch-ov-chip"><div class="acch-ov-chip-label">Total Received</div><div class="acch-ov-chip-val">$${total.toLocaleString()}</div></div>
@@ -609,7 +625,7 @@ function _accPayoutsTabHtml(name) {
             <td class="mono">${p.date}</td>
             <td class="outcome-win mono">$${parseFloat(p.amount).toLocaleString()}</td>
             <td><span class="pill ${p.status==='Received'?'pill-green':'pill-gold'}">${p.status}</span></td>
-            <td style="color:var(--text3)">${p.paymentMethod || '—'}</td>
+            <td style="color:var(--text3)">${p.paymentMethod || defaultMethod || '—'}</td>
           </tr>`).join('')}
         </tbody>
       </table>
