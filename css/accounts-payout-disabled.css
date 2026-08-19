@@ -1,0 +1,54 @@
+/* ══════════════════════════════════════════════════════════════════
+   ACCOUNTS PAGE — Payout Rejected / Account Disabled layer.
+   Pairs with js/accounts-payout-disabled.js. Loaded last, after
+   accounts-payout-workflow.css so its red states win on shared classes.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── Overview widget: disabled banner ── */
+.apw-widget-disabled{
+  border-color:rgba(248,113,113,0.32);
+  background:linear-gradient(135deg, rgba(248,113,113,0.07), var(--glass-1));
+}
+.apw-widget-disabled .apw-ring-icon{ color:var(--red); }
+.apw-widget-disabled .apw-widget-title{ color:var(--red); }
+
+/* ── Danger-zone confirm note (reject-payout modal) ── */
+.apw-confirm-note-danger{
+  background:var(--red-dim); border-color:rgba(248,113,113,0.28);
+}
+.apw-confirm-note-danger .icn{ color:var(--red); }
+
+/* ── Reclassify-payout checkbox row (disable-account modal) ── */
+.apw-confirm-checkbox{
+  display:flex; align-items:flex-start; gap:9px; font-size:12px; line-height:1.5; color:var(--text2);
+  background:var(--glass-1); border:1px solid var(--glass-border); border-radius:var(--r-md); padding:10px 12px; cursor:pointer;
+}
+.apw-confirm-checkbox input{ margin-top:2px; flex:none; accent-color:var(--red); }
+.apw-confirm-checkbox strong{ color:var(--text); font-family:var(--font-mono); }
+
+/* ── Inline "Payout Rejected" action button ── */
+.acch-act-danger{
+  background:var(--red-dim); color:var(--red); border-color:rgba(248,113,113,0.3);
+}
+.acch-act-danger:hover{ background:rgba(248,113,113,0.22); }
+
+/* ── Grid card status pill ── */
+.acch-status-disabled, .acc-status.disabled{
+  background:var(--red-dim); color:var(--red);
+}
+.apw-card-note-disabled{
+  background:var(--red-dim); color:var(--red);
+}
+.acch-card-disabled, .acc-card-disabled{
+  opacity:0.72; border-color:rgba(248,113,113,0.22);
+}
+
+/* ── Detail hero badge ── */
+.acc-hero-badge.status-disabled{
+  background:var(--red-dim); border-color:rgba(248,113,113,0.3); color:var(--red);
+}
+
+/* ── Timeline "Rejected" terminal step ── */
+.apw-tl-step.apw-tl-step-rejected .apw-tl-dot{ background:var(--red); border-color:var(--red); box-shadow:0 0 0 3px var(--red-dim); }
+.apw-tl-step.apw-tl-step-rejected .apw-tl-label{ color:var(--red); }
+.apw-timeline-disabled .apw-tl-step.done .apw-tl-dot{ background:var(--text3); border-color:var(--text3); }
