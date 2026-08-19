@@ -454,10 +454,18 @@ async function accConfirmCompletePayout(name) {
   const now = new Date();
   const today = _accFmtDate(now);
   if (payoutIdx >= 0) {
+    // Backfill the payment method from the account's configured Payout
+    // Method if this entry doesn't already carry one (e.g. it was marked
+    // Processing before that default existed, or was added manually
+    // without one) — so the Payouts tab table never shows a blank Method
+    // on an otherwise-finished payout.
+    const existingMethod = _accData.payouts[payoutIdx].paymentMethod;
+    const rd = (typeof _accRiskDefaults === 'function') ? _accRiskDefaults(list[idx]) : {};
     _accData.payouts[payoutIdx] = {
       ..._accData.payouts[payoutIdx],
       status: 'Received', completedAt: now.toISOString(), date: today,
       resetBalance: s.accSize, cycleEndDate: today,
+      paymentMethod: existingMethod || rd.payoutMethod || '',
     };
   }
   list[idx].activePayoutId = null;

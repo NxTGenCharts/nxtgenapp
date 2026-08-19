@@ -97,14 +97,29 @@ async function accConfirmDisableAccount(name) {
     if (candidate) {
       const payoutIdx = _accData.payouts.findIndex(p => p.id === candidate.id);
       if (payoutIdx >= 0) {
+        // Same backfill as the Completed path — a rejected payout that
+        // was never marked Processing (rejected straight from Awaiting/
+        // Target Reached) or was added manually never got a payment
+        // method attached, so the Payouts tab showed a blank "—" Method.
+        const existingMethod = _accData.payouts[payoutIdx].paymentMethod;
+        const rd = (typeof _accRiskDefaults === 'function') ? _accRiskDefaults(list[idx]) : {};
         _accData.payouts[payoutIdx] = {
           ..._accData.payouts[payoutIdx],
           status: 'Rejected', rejectedAt: now.toISOString(), date: today, rejectionReason: reason,
+          paymentMethod: existingMethod || rd.payoutMethod || '',
         };
       }
       if (list[idx].activePayoutId === candidate.id) list[idx].activePayoutId = null;
     }
   }
+
+  // A rejected payout ends this cycle's attempt the same way a completed
+  // one does — otherwise the cycle's accrued profit never resets, and the
+  // account immediately re-flags as "eligible for a payout" again for the
+  // exact same profit the firm already rejected, whether or not the
+  // account stays disabled or gets reactivated later.
+  list[idx].currentCycleStartDate = today;
+  list[idx].activePayoutId = null;
 
   list[idx].disabled = true;
   list[idx].disabledAt = now.toISOString();
@@ -129,10 +144,65 @@ async function accReactivateDisabledAccount(name) {
   list[idx].disabled = false;
   list[idx].disabledAt = null;
   list[idx].disabledReason = '';
+  // Belt-and-suspenders: the cycle is already reset at reject time (see
+  // accConfirmDisableAccount), but this covers accounts disabled before
+  // that fix existed — reactivating should never hand back an account
+  // that's still sitting on the exact cycle profit that got it rejected.
+  list[idx].currentCycleStartDate = _accFmtDate(new Date());
+  list[idx].activePayoutId = null;
   await _saveCustomAccounts(list);
   showToast('Account reactivated ✓', 'restore');
   buildAccounts();
   if (typeof _accActiveName !== 'undefined' && _accActiveName === name) accShowDetail(name);
+}
+
+// ── Manual recovery: start a new cycle without a full disable/reactivate
+//    round-trip. Covers accounts that were disabled and reactivated
+//    before the cycle-reset fix above existed, and is otherwise just a
+//    convenient manual "this cycle is done, start counting fresh" action
+//    (e.g. the firm rejected a payout without ever using the in-app
+//    Disable flow, so it never went through accConfirmDisableAccount at
+//    all). Lifetime trade history and analytics are never touched. ─────
+function accOpenStartNewCycleModal(name) {
+  const s = _accPayoutState(name);
+  if (!s.supported) return;
+  const escName = _accDisabledEscName(name);
+  const existing = document.getElementById('acc-new-cycle-overlay');
+  if (existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'acc-new-cycle-overlay';
+  overlay.className = 'acc-manager-overlay';
+  overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+  overlay.innerHTML = `
+  <div class="acc-manager-modal" style="max-width:440px">
+    <div class="acc-manager-header">
+      <span><svg class="icn" aria-hidden="true"><use href="#ic-restore"></use></svg> Start New Cycle?</span>
+      <button onclick="document.getElementById('acc-new-cycle-overlay').remove()" class="acc-mgr-close"><svg class="icn" aria-hidden="true"><use href="#ic-close"></use></svg></button>
+    </div>
+    <div class="acc-manager-body" style="gap:12px">
+      <div class="apw-confirm-line">Reset <strong>${name}</strong>'s current payout cycle to start today.</div>
+      <div class="apw-confirm-note"><svg class="icn" aria-hidden="true"><use href="#ic-shield"></use></svg> Use this if the cycle didn't reset on its own after a rejected payout. Trade history and lifetime analytics are unaffected — only the cycle profit/eligibility calculation restarts.</div>
+      <div class="wl-form-actions">
+        <button class="wl-btn-secondary" onclick="document.getElementById('acc-new-cycle-overlay').remove()">Cancel</button>
+        <button class="wl-btn-primary" onclick="accConfirmStartNewCycle('${escName}')">Start New Cycle</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('open'));
+}
+
+async function accConfirmStartNewCycle(name) {
+  const list = _getCustomAccounts();
+  const idx = list.findIndex(a => a.name === name);
+  if (idx < 0) return;
+  document.getElementById('acc-new-cycle-overlay')?.remove();
+  list[idx].currentCycleStartDate = _accFmtDate(new Date());
+  list[idx].activePayoutId = null;
+  await _saveCustomAccounts(list);
+  showToast('New cycle started ✓', 'restore');
+  buildAccounts();
+  if (typeof _accActiveName !== 'undefined' && _accActiveName === name) { _accPendingDetailTab = 'risk'; accShowDetail(name); }
 }
 
 // core-modals-userbar.js's archive toggle is index-based (it operates on
@@ -270,6 +340,14 @@ window._accPayoutActionsHtml = function (name) {
     const rejectBtn = `<button class="acch-act-btn acch-act-danger" onclick="accOpenRejectPayoutModal('${escName}')"><svg class="icn" aria-hidden="true"><use href="#ic-close-c"></use></svg> Payout Rejected</button>`;
     html = html.replace('<button class="acch-act-btn" onclick="accCancelPayoutProcessing', rejectBtn + '<button class="acch-act-btn" onclick="accCancelPayoutProcessing');
   }
+  // Manual recovery option, always available for a live (non-disabled)
+  // payout-supporting account — mainly for accounts whose cycle got
+  // stuck before the reject/reactivate cycle-reset fix existed.
+  const s = (typeof _accPayoutState === 'function') ? _accPayoutState(name) : null;
+  if (!s || !s.supported) return html;
+  const escName = _accDisabledEscName(name);
+  const newCycleBtn = `<button class="acch-act-btn" onclick="accOpenStartNewCycleModal('${escName}')"><svg class="icn" aria-hidden="true"><use href="#ic-restore"></use></svg> Start New Cycle</button>`;
+  html = html ? html.replace(/<\/div>\s*$/, `${newCycleBtn}</div>`) : `<div class="apw-actions-row">${newCycleBtn}</div>`;
   return html;
 };
 

@@ -1,0 +1,22 @@
+/* ══════════════════════════════════════════════════════════════════
+   Account detail hero — Current Cycle / All-Time scope toggle.
+   Pairs with js/accounts-overview-cycle-toggle.js. Loaded last.
+   ══════════════════════════════════════════════════════════════════ */
+
+.acc-hero-scope-toggle{
+  display:inline-flex; align-items:center; gap:2px; margin-bottom:14px;
+  padding:3px; background:var(--glass-1); border:1px solid var(--glass-border);
+  border-radius:var(--r-full); position:relative; z-index:1;
+}
+.acc-hero-scope-btn{
+  border:none; background:transparent; cursor:pointer; font-family:inherit;
+  font-size:11px; font-weight:700; letter-spacing:.1px; color:var(--text3);
+  padding:5px 12px; border-radius:var(--r-full); transition:color .15s var(--ease-out), background .15s var(--ease-out);
+}
+.acc-hero-scope-btn:hover{ color:var(--text2); }
+.acc-hero-scope-btn.active{ background:var(--acc-t-funded-bg,rgba(251,191,36,.14)); color:var(--gold); }
+
+@media (max-width:560px){
+  .acc-hero-scope-toggle{ width:100%; }
+  .acc-hero-scope-btn{ flex:1; text-align:center; }
+}
