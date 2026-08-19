@@ -1,0 +1,24 @@
+/* ══════════════════════════════════════════════════════════════════
+   ACCOUNTS PAGE — Risk & Payout cycle-scope fix layer.
+   Pairs with js/accounts-payout-cyclefix.js. Loaded last.
+   ══════════════════════════════════════════════════════════════════ */
+
+.apw-alltime-toggle{
+  display:flex; align-items:center; gap:6px; margin-top:14px; padding-top:12px;
+  border-top:1px dashed var(--glass-border); cursor:pointer;
+  font-size:11px; font-weight:700; color:var(--text3); letter-spacing:.1px;
+  transition:color .15s var(--ease-out);
+}
+.apw-alltime-toggle:hover{ color:var(--text2); }
+.apw-alltime-chevron{ width:11px; height:11px; transition:transform .15s var(--ease-out); }
+.apw-alltime-panel{ margin-top:2px; }
+.apw-alltime-panel .acch-detail-risk-meta{
+  border-top:none; margin-top:10px; padding-top:0;
+  background:var(--glass-1); border-radius:var(--r-md); padding:12px; border:1px solid var(--glass-border);
+}
+.apw-alltime-panel .acch-detail-risk-meta .k{ color:var(--text3); }
+.apw-alltime-panel .acch-detail-risk-meta .v{ color:var(--text3); font-weight:600; }
+
+@media (max-width:640px){
+  .apw-alltime-panel .acch-detail-risk-meta{ grid-template-columns:1fr 1fr; }
+}
