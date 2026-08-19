@@ -9,10 +9,14 @@
 //    a payout was marked Completed/Rejected even though the cycle itself
 //    had correctly restarted underneath. This override swaps the payout
 //    goal/trading-days/eligibility numbers (and adds a Current Balance
-//    row) to the cycle-scoped versions, and tucks the old lifetime
-//    numbers behind a "View All-Time Stats" toggle instead of deleting
-//    them. Daily/Max Drawdown stay lifetime-scoped on purpose — those are
-//    firm risk limits measured from account inception, not per cycle.
+//    row) to the cycle-scoped versions. The Risk & Payout tab now shows
+//    ONLY the current-cycle view — no lifetime numbers live here anymore.
+//    Daily/Max Drawdown stay lifetime-scoped on purpose — those are firm
+//    risk limits measured from account inception, not per cycle.
+//    The lifetime numbers that used to hide behind a toggle here now live
+//    in the Payouts tab instead (see the _accPayoutsTabHtml override
+//    below), since that's the natural home for "how has this account
+//    done across every cycle, payouts included."
 //
 // 2. Payout records created by the automated workflow (Mark as
 //    Processing) always wrote paymentMethod:'' — the account's configured
@@ -26,16 +30,6 @@
 // ════════════════════════════════════════════════════════════════════
 
 // ── Fix 1: cycle-scoped Risk & Payout panel ─────────────────────────
-function _accCycleAllTimeToggle(name) {
-  const escName = _accDisabledEscName(name);
-  const panel = document.getElementById(`apw-alltime-panel-${escName}`);
-  const chevron = document.getElementById(`apw-alltime-chevron-${escName}`);
-  if (!panel) return;
-  const show = panel.style.display === 'none';
-  panel.style.display = show ? '' : 'none';
-  if (chevron) chevron.style.transform = show ? 'rotate(90deg)' : '';
-}
-
 const _accCycleOrigRiskPanelHtml = window._accRiskPanelHtml;
 window._accRiskPanelHtml = function (name) {
   const p = _accRiskProfile(name);
@@ -82,21 +76,34 @@ window._accRiskPanelHtml = function (name) {
         <div><span class="k">Next Payout Date</span><span class="v">${p.r.nextPayoutDate ? new Date(p.r.nextPayoutDate).toLocaleDateString() : '—'}</span></div>
         <div><span class="k">${_accFirmLabel(t)}</span><span class="v">${p.r.firm || '—'}</span></div>
       </div>
-      <div class="apw-alltime-toggle" onclick="_accCycleAllTimeToggle('${escName}')">
-        <svg class="icn apw-alltime-chevron" aria-hidden="true" id="apw-alltime-chevron-${escName}"><use href="#ic-chevron-right"></use></svg>
-        <span>View All-Time Account Stats</span>
-      </div>
-      <div class="apw-alltime-panel" id="apw-alltime-panel-${escName}" style="display:none">
-        <div class="acch-detail-risk-meta">
-          <div><span class="k">Lifetime Net Profit</span><span class="v">$${p.targetCurrent.toFixed(2)}</span></div>
-          <div><span class="k">Lifetime Trading Days</span><span class="v">${p.m.tradingDays || '—'}</span></div>
-          <div><span class="k">Lifetime Payout Progress</span><span class="v">${p.payoutGoal > 0 ? Math.round(p.payoutPct) + '%' : '—'}</span></div>
-          <div><span class="k">Lifetime Max Drawdown</span><span class="v">$${p.maxUsed.toFixed(2)}</span></div>
-        </div>
-      </div>
       <button class="acch-act-btn" style="margin-top:10px" onclick="_openAccRiskSettings('${escName}')"><svg class="icn" aria-hidden="true"><use href="#ic-settings"></use></svg> Edit Risk &amp; ${_accRiskWord(t)} Settings</button>
     </div>`;
 };
+
+// ── Fix 1b: lifetime account stats — moved off the Risk & Payout tab
+//    and onto the Payouts tab, above the payout history table, since
+//    "how has this account done across every cycle" belongs next to
+//    the record of every payout that closed a cycle. ──────────────────
+const _accCycleOrigPayoutsTabHtml = window._accPayoutsTabHtml;
+if (typeof _accCycleOrigPayoutsTabHtml === 'function') {
+  window._accPayoutsTabHtml = function (name) {
+    const body = _accCycleOrigPayoutsTabHtml.apply(this, arguments);
+    if (typeof _accRiskProfile !== 'function') return body;
+    const p = _accRiskProfile(name);
+    if (!p || !p.typeInfo || !p.typeInfo.payout) return body;
+    const lifetimeHtml = `
+      <div class="apw-lifetime-block">
+        <div class="apw-lifetime-title">All-Time Account Stats</div>
+        <div class="acch-ov-row apw-lifetime-row">
+          <div class="acch-ov-chip"><div class="acch-ov-chip-label">Lifetime Net Profit</div><div class="acch-ov-chip-val">$${p.targetCurrent.toFixed(2)}</div></div>
+          <div class="acch-ov-chip"><div class="acch-ov-chip-label">Lifetime Trading Days</div><div class="acch-ov-chip-val">${p.m.tradingDays || '—'}</div></div>
+          <div class="acch-ov-chip"><div class="acch-ov-chip-label">Lifetime Payout Progress</div><div class="acch-ov-chip-val">${p.payoutGoal > 0 ? Math.round(p.payoutPct) + '%' : '—'}</div></div>
+          <div class="acch-ov-chip"><div class="acch-ov-chip-label">Lifetime Max Drawdown</div><div class="acch-ov-chip-val">$${p.maxUsed.toFixed(2)}</div></div>
+        </div>
+      </div>`;
+    return lifetimeHtml + body;
+  };
+}
 
 // ── Fix 2a: automated Processing entries inherit the account's
 //    configured Payout Method instead of always writing '' ────────────
